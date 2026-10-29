@@ -1,0 +1,1661 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Pinnacle</title>
+<meta name="description" content="A quiz climb for two: rope up with a partner and race a rival team to the summit.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Luckiest+Guy&display=swap">
+<style>
+/* Layout: guidebook topo — the mountain is the board (left), the pitch card is the play surface (right); stacks on phones. */
+:root{
+  --paper:#edf1f3; --panel:#f8fafb; --ink:#17222b; --muted:#5a6873; --line:#c9d2d9;
+  --rock:#c3ccd3; --rock2:#d8dfe4; --snow:#ffffff; --sky:#e3e9ed;
+  --rope:#dd4f22; --rope-soft:#f6d9cc; --rival:#2f64ad; --rival-soft:#d6e2f3;
+  --good:#2b7d52; --warn:#b07a0c; --bad:#b9302f;
+  --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#0e151b; --panel:#141e26; --ink:#e4ebf0; --muted:#8e9ca7; --line:#27343e;
+  --rock:#22303a; --rock2:#1a252e; --snow:#3a4955; --sky:#111a21;
+  --rope:#ff7444; --rope-soft:#3d2219; --rival:#6f9ee2; --rival-soft:#1b2a3d;
+  --good:#58b884; --warn:#e0a83a; --bad:#ec6a62; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#0e151b; --panel:#141e26; --ink:#e4ebf0; --muted:#8e9ca7; --line:#27343e;
+  --rock:#22303a; --rock2:#1a252e; --snow:#3a4955; --sky:#111a21;
+  --rope:#ff7444; --rope-soft:#3d2219; --rival:#6f9ee2; --rival-soft:#1b2a3d;
+  --good:#58b884; --warn:#e0a83a; --bad:#ec6a62; color-scheme:dark}
+/* rubber-hose cartoon display face for titles, captions and signs */
+:root{--toon:"Luckiest Guy","Arial Black",sans-serif}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:calc(14px + env(safe-area-inset-top,0px)) calc(14px + env(safe-area-inset-bottom,0px))}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--rope);outline-offset:2px}
+.app{max-width:1240px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:880px){.app{grid-template-columns:1fr}}
+#main.app{width:100%}
+
+/* top bar */
+.bar{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;border-bottom:1px solid var(--line);padding-bottom:10px}
+.brand{font-family:var(--toon);font-weight:400;font-size:30px;letter-spacing:.06em;line-height:1;margin:0;text-transform:uppercase}
+.brand b{color:var(--rope)}
+.bar .team{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}
+.teamname{font-family:var(--display);font-size:22px;font-weight:600;letter-spacing:.02em}
+.chip{font-family:var(--mono);font-size:12px;padding:3px 8px;border:1px solid var(--line);border-radius:4px;background:var(--panel);cursor:pointer}
+.chip:hover{border-color:var(--ink)}
+.climbers{display:flex;gap:10px;font-size:13px;color:var(--muted)}
+.climber{display:flex;align-items:center;gap:5px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--line)}
+.dot.on{background:var(--good)}
+.bar .spacer{flex:1}
+.linkbtn{background:none;border:0;color:var(--muted);cursor:pointer;font-size:13px;padding:4px 0;text-decoration:underline;text-underline-offset:3px}
+.linkbtn:hover{color:var(--ink)}
+
+/* stage */
+.stage{position:relative;min-width:0}
+.scene{position:relative;container-type:inline-size;border:3px solid #1d130f;border-radius:14px;overflow:hidden;background:#f3e2c3;box-shadow:0 5px 0 #1d130f}
+.scene canvas{display:block;width:100%;aspect-ratio:16/10}
+.hud{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:6px;overflow:hidden;margin-top:14px}
+.hud div{background:var(--panel);padding:8px 10px;min-width:0}
+.hud .k{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.hud .v{font-family:var(--mono);font-size:16px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hud .v.rival{color:var(--rival)}
+@media (max-width:520px){.hud{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.ropes{display:inline-flex;gap:3px;vertical-align:middle}
+.ropes i{width:14px;height:14px;border-radius:50%;border:2.5px solid var(--rope);display:inline-block}
+.ropes i.used{border-color:var(--line)}
+
+/* scene overlays: starburst title cards, captions, confetti and the sound toggle */
+.fx{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.tcard{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;--c1:#f2b233;--c2:#e0472b;animation:tc-out .45s ease-in 2.1s forwards}
+.tcard.bad{--c1:#ee6a4f;--c2:#8c2a1d}.tcard.good{--c1:#a6d36d;--c2:#2f8f8a}
+.tcard .burst{position:absolute;left:50%;top:50%;width:min(56%,360px);transform:translate(-50%,-50%);animation:tc-burst .45s cubic-bezier(.2,1.6,.4,1) both}
+.tcard .burst g{transform-box:fill-box;transform-origin:center;animation:tc-spin 8s linear infinite}
+.tcard .burst path{fill:var(--c1);stroke:#1d130f;stroke-width:3.5;stroke-linejoin:round}
+.tcard .burst circle{fill:var(--c2);stroke:#1d130f;stroke-width:3}
+.tcard b{position:relative;font:400 48px/1 var(--toon);color:#fff3d6;-webkit-text-stroke:.09em #1d130f;paint-order:stroke fill;text-shadow:.05em .07em 0 #1d130f;letter-spacing:.02em;white-space:nowrap}
+.tcard b span{display:inline-block;transform:translateY(var(--y)) rotate(var(--r));animation:tc-letter .55s cubic-bezier(.2,1.7,.45,1) both;animation-delay:calc(var(--i)*50ms)}
+.tcard small{position:relative;margin-top:.5em;font:400 18px/1 var(--toon);font-size:min(3.2cqw,20px);letter-spacing:.05em;color:#1d130f;background:#fff3d6;
+  border:3px solid #1d130f;border-radius:999px;padding:.4em .9em .2em;transform:rotate(-3deg);animation:tc-letter .5s .35s cubic-bezier(.2,1.7,.45,1) both}
+@keyframes tc-spin{to{transform:rotate(360deg)}}
+@keyframes tc-letter{from{transform:translateY(-1.2em) scale(.2) rotate(-25deg);opacity:0}}
+@keyframes tc-burst{from{transform:translate(-50%,-50%) scale(0)}}
+@keyframes tc-out{to{opacity:0;transform:scale(1.15)}}
+.cap{position:absolute;left:50%;bottom:6%;transform:translateX(-50%) rotate(-2deg);font:400 clamp(15px,2.6cqw,22px)/1 var(--toon);color:#fff3d6;
+  -webkit-text-stroke:.14em #1d130f;paint-order:stroke fill;letter-spacing:.03em;white-space:nowrap;animation:cap 2.8s cubic-bezier(.2,1.6,.4,1) forwards}
+@keyframes cap{0%{opacity:0;transform:translate(-50%,10px) scale(.6) rotate(-6deg)}12%,78%{opacity:1;transform:translateX(-50%) rotate(-2deg)}100%{opacity:0;transform:translate(-50%,-6px) rotate(-2deg)}}
+.conf{position:absolute;left:var(--x);top:-8%;width:9px;height:13px;background:var(--c);border:2px solid #1d130f;border-radius:2px;animation:conf var(--dur) cubic-bezier(.25,.5,.6,1) var(--d) both}
+@keyframes conf{from{top:-8%;transform:none}to{top:108%;transform:translateX(var(--dr)) rotate(var(--rot))}}
+.snd{position:absolute;right:10px;top:10px;width:34px;height:34px;border-radius:50%;border:2.5px solid #1d130f;background:#fff3d6;color:#1d130f;
+  display:grid;place-items:center;cursor:pointer;box-shadow:0 2px 0 #1d130f;padding:0}
+.snd:active{transform:translateY(2px);box-shadow:none}
+.snd svg{width:18px;height:18px}
+.snd[aria-pressed="false"] .on,.snd[aria-pressed="true"] .off{display:none}
+@media (prefers-reduced-motion:reduce){.tcard b span,.tcard small,.tcard .burst,.tcard .burst g,.cap{animation:none}}
+
+/* panel */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:18px;min-width:0}
+.eyebrow{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.terrain{font-family:var(--toon);font-weight:400;font-size:38px;line-height:1;letter-spacing:.04em;text-transform:uppercase;margin:8px 0 4px}
+.rule{color:var(--muted);font-size:14px;margin:0 0 14px;max-width:62ch}
+.role{display:inline-block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;padding:2px 7px;border-radius:3px}
+.role.lead{background:var(--rope);color:var(--panel)}
+.role.belay{border:1px solid var(--ink)}
+.prompt{font-size:22px;font-weight:600;line-height:1.3;margin:4px 0 14px;text-wrap:balance}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row>input{flex:1;min-width:0}
+input[type=text],input[type=number]{background:var(--paper);border:1.5px solid var(--line);border-radius:5px;padding:10px 12px;font-size:16px;width:100%}
+input:focus{border-color:var(--ink);outline:none}
+.btn{background:var(--ink);color:var(--paper);border:0;border-radius:5px;padding:10px 16px;font-weight:600;cursor:pointer;white-space:nowrap}
+.btn:hover{filter:brightness(1.15)}
+.btn.rope{background:var(--rope);color:#fff}
+.btn.ghost{background:none;color:var(--ink);border:1.5px solid var(--line)}
+.btn.ghost:hover{border-color:var(--ink)}
+.btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
+.timer{height:4px;background:var(--line);border-radius:2px;overflow:hidden;margin:14px 0 6px}
+.timer i{display:block;height:100%;background:var(--rope);width:100%;transition:width .5s linear}
+.meta{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;flex-wrap:wrap}
+.wait{margin-top:12px;padding:10px 12px;border:1px dashed var(--line);border-radius:5px;font-size:14px;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chips span{font-size:13px;padding:3px 8px;border-radius:3px;background:var(--rope-soft)}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media (max-width:420px){.opts{grid-template-columns:1fr}}
+.opt{text-align:left;padding:12px;border:1.5px solid var(--line);border-radius:5px;background:var(--paper);cursor:pointer}
+.opt:hover:not(:disabled){border-color:var(--ink)}
+.opt.sel{border-color:var(--rope);background:var(--rope-soft)}
+.opt.correct{border-color:var(--good)}
+.clue{font-family:var(--display);font-size:30px;font-weight:600;letter-spacing:.04em;color:var(--rope);text-transform:uppercase}
+.err{color:var(--bad);font-size:13px;margin-top:6px;min-height:1em}
+
+/* reveal */
+.headline{font-family:var(--toon);font-weight:400;font-size:30px;line-height:1.05;letter-spacing:.03em;margin:6px 0 10px;text-wrap:balance;
+  transform-origin:left center;animation:hl-pop .5s cubic-bezier(.2,1.7,.45,1) both}
+@keyframes hl-pop{from{transform:scale(.6) rotate(-3deg);opacity:0}}
+@media (prefers-reduced-motion:reduce){.headline{animation:none}}
+.headline.good{color:var(--good)} .headline.bad{color:var(--bad)} .headline.warn{color:var(--warn)}
+.lines{display:grid;gap:6px;margin:10px 0 14px}
+.line{display:grid;grid-template-columns:90px minmax(0,1fr) auto;gap:10px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--line)}
+.line .who{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.line .what{font-weight:500;overflow-wrap:anywhere}
+.tag{font-size:12px;font-family:var(--mono);white-space:nowrap}
+.tag.ok{color:var(--good)} .tag.no{color:var(--bad)}
+.rar{letter-spacing:2px;color:var(--rope)}
+.moves{font-size:14px;display:grid;gap:4px;margin-bottom:14px}
+.moves .r{color:var(--rival)}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+
+/* camp */
+.routes{display:grid;gap:10px;margin:12px 0}
+.route{border:1.5px solid var(--line);border-radius:6px;padding:12px;background:var(--paper);text-align:left;cursor:pointer;display:grid;gap:4px}
+.route:hover{border-color:var(--ink)}
+.route.sel{border-color:var(--rope);background:var(--rope-soft)}
+.route h4{margin:0;font-family:var(--display);font-size:22px;font-weight:600;letter-spacing:.03em}
+.route .pp{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.votes{font-size:13px;color:var(--muted)}
+
+/* lobby */
+.lobby{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:18px}
+@media (max-width:880px){.lobby{grid-template-columns:1fr}}
+.hero h2{font-family:var(--display);font-size:44px;line-height:1;margin:8px 0 8px;letter-spacing:.01em;text-wrap:balance}
+.hero p{color:var(--muted);max-width:60ch;margin:0 0 12px}
+.cards{display:grid;gap:12px;align-content:start}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px;display:grid;gap:10px;align-content:start}
+.card h3{margin:0;font-family:var(--display);font-size:22px;font-weight:600;letter-spacing:.03em;text-transform:uppercase}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{flex:1;min-width:90px;border:1.5px solid var(--line);border-radius:5px;padding:8px;background:var(--paper);cursor:pointer;text-align:left;font-size:13px}
+.seg button b{display:block;font-size:14px}
+.seg button.sel{border-color:var(--rival);background:var(--rival-soft)}
+.teams{display:grid;gap:6px}
+.teamrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:5px;background:var(--paper);cursor:pointer;text-align:left;width:100%}
+.teamrow:hover{border-color:var(--ink)}
+.teamrow span{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.note{font-size:13px;color:var(--muted)}
+.note strong{color:var(--ink)}
+.terrains{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-top:6px}
+.terrains div{border-top:2px solid var(--ink);padding-top:6px;font-size:13px;color:var(--muted)}
+.terrains b{display:block;font-family:var(--display);font-size:19px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink)}
+.log{margin-top:16px;border-top:1px solid var(--line);padding-top:10px}
+.log h5{margin:0 0 6px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.log ol{list-style:none;margin:0;padding:0;display:grid;gap:3px;max-height:180px;overflow:auto;font-size:13px}
+.log li{color:var(--muted)} .log li b{color:var(--ink);font-weight:500}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--paper);padding:8px 14px;border-radius:5px;font-size:14px;z-index:20}
+@media (prefers-reduced-motion:reduce){.timer i{transition:none}}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="bar" id="bar">
+    <h1 class="brand">Pinn<b>a</b>cle</h1>
+    <div class="team" id="teambar"></div>
+    <div class="spacer"></div>
+    <button class="linkbtn" id="homeBtn" hidden>All rope teams</button>
+  </header>
+  <div id="main" class="lobby"></div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* ============================== CONTENT ============================== */
+const RARE = [
+ {id:"cheese",q:"Name a cheese",t:{
+  1:"cheddar;mozzarella;parmesan|parmigiano|parmigiano reggiano;brie;gouda;feta",
+  2:"camembert;edam;emmental|emmentaler|emmenthal;gruyere;blue cheese;cream cheese;ricotta;halloumi;mascarpone;stilton;roquefort;gorgonzola;manchego;provolone;cottage cheese;havarti;pecorino;jarlsberg;prastost|prästost",
+  3:"vasterbottensost|västerbottensost|vasterbotten;greve|grevé;herrgard|herrgårdsost|herrgard;port salut;comte|comté;taleggio;burrata;paneer;monterey jack;colby;pepper jack;wensleydale;red leicester;double gloucester;fontina;asiago;boursin;raclette;tilsit|tilsiter;limburger;munster;leerdammer;mimolette;cheshire;queso fresco;goat cheese|chevre",
+  4:"epoisses;reblochon;beaufort;saint agur;cantal;idiazabal;mahon;caciocavallo;scamorza;stracchino;kasseri;kefalotyri;graviera;lancashire;caerphilly;yarg|cornish yarg;gamalost;brunost|mesost|messmor|messmör|geitost;hushallsost|hushållsost;adelost|ädelost;cotija;oaxaca cheese|queso oaxaca;maasdam;appenzeller;tete de moine;vacherin;morbier;ossau iraty;abondance;sbrinz;mozzarella di bufala|buffalo mozzarella",
+  5:"casu marzu;milbenkase|milbenkäse;pule;bryndza;oscypek;juustoleipa|leipajuusto|squeaky cheese;mish;tulum;chhurpi;bandel;kalari;queso de bola;ricotta salata;gjetost;vieux boulogne;kashkaval;sulguni;circassian cheese;rauchkase"}},
+ {id:"africa",q:"Name a country in Africa",t:{
+  1:"egypt;nigeria;south africa;kenya;morocco;ethiopia",
+  2:"ghana;algeria;tunisia;libya;sudan;somalia;uganda;tanzania;zimbabwe;senegal;cameroon;democratic republic of the congo|dr congo|drc|congo kinshasa;angola;mozambique;madagascar;rwanda;namibia;botswana;ivory coast|cote divoire|cote d ivoire;mali;zambia",
+  3:"niger;chad;liberia;sierra leone;gambia|the gambia;guinea;burkina faso;togo;benin;gabon;eritrea;djibouti;malawi;lesotho;eswatini|swaziland;mauritania;central african republic;south sudan;burundi;mauritius;cape verde|cabo verde;republic of the congo|congo brazzaville|congo",
+  4:"equatorial guinea;guinea bissau;comoros;sao tome and principe|sao tome;seychelles",
+  5:"western sahara|sahrawi republic"}},
+ {id:"swecity",q:"Name a Swedish city or town",t:{
+  1:"stockholm;gothenburg|goteborg|göteborg;malmo|malmö;uppsala",
+  2:"lund;linkoping|linköping;orebro|örebro;vasteras|västerås;helsingborg;norrkoping|norrköping;jonkoping|jönköping;umea|umeå;kiruna;lulea|luleå;gavle|gävle;sundsvall;karlstad;vaxjo|växjö;halmstad",
+  3:"boras|borås;eskilstuna;sodertalje|södertälje;kalmar;karlskrona;ostersund|östersund;falun;visby;trollhattan|trollhättan;kristianstad;skelleftea|skellefteå;uddevalla;nykoping|nyköping;varberg;ystad;landskrona;borlange|borlänge;motala;pitea|piteå;ornskoldsvik|örnsköldsvik",
+  4:"arvika;sandviken;karlshamn;angelholm|ängelholm;lidkoping|lidköping;skovde|skövde;enkoping|enköping;sala;hudiksvall;soderhamn|söderhamn;alingsas|alingsås;kungsbacka;falkenberg;vimmerby;vastervik|västervik;oskarshamn;mora;harnosand|härnösand;gallivare|gällivare;haparanda;stromstad|strömstad;mariestad;katrineholm;nassjo|nässjö;ljungby;simrishamn;trelleborg;eslov|eslöv;sigtuna;norrtalje|norrtälje;kungalv|kungälv",
+  5:"jokkmokk;arjeplog;are|åre;sorsele;pajala;overkalix|överkalix;gnosjo|gnosjö;toreboda|töreboda;hjo;askersund;filipstad;kramfors;solleftea|sollefteå;vilhelmina;storuman;tranas|tranås;monsteras|mönsterås;borgholm;solvesborg|sölvesborg;skanor|skanör;falsterbo;grisslehamn;oregrund|öregrund;osthammar|östhammar;trosa;vadstena;skara;amal|åmål;sigtuna"}},
+ {id:"space",q:"Name a planet, moon or dwarf planet",t:{
+  1:"earth;mars;jupiter;saturn;venus;mercury;moon|the moon|luna;neptune;uranus",
+  2:"pluto;titan;europa;io;ganymede;callisto;phobos;deimos",
+  3:"enceladus;triton;ceres;eris;charon;makemake;haumea;miranda;titania;oberon;rhea;mimas;iapetus;dione;tethys",
+  4:"hyperion;umbriel;ariel;nereid;sedna;quaoar;phoebe;amalthea;proteus;janus;epimetheus;pandora;prometheus;orcus;gonggong;metis;thebe;himalia;nix;hydra;kerberos;styx;dysnomia",
+  5:"pan;daphnis;atlas;larissa;galatea;despina;thalassa;naiad;puck;cordelia;ophelia;sycorax;caliban;setebos;adrastea;leda;elara;carme;ananke;pasiphae;sinope;weywot;vanth;hiiaka;namaka;salacia;hippocamp;kale;mab"}},
+ {id:"instrument",q:"Name a musical instrument",t:{
+  1:"guitar;piano;drums|drum kit|drum;violin;flute;trumpet;saxophone|sax",
+  2:"cello;bass|bass guitar|electric bass;clarinet;harp;trombone;ukulele;keyboard;harmonica|mouth organ;accordion;banjo;tuba;oboe;xylophone;organ|pipe organ;triangle;tambourine;recorder",
+  3:"double bass|contrabass|upright bass;viola;bassoon;french horn|horn;mandolin;cymbals|cymbal;bagpipes|bagpipe;glockenspiel;marimba;synthesizer|synth;sitar;didgeridoo;harpsichord;piccolo;timpani|kettle drum;cornet;bongos|bongo;maracas;castanets;euphonium;kazoo;ocarina;steel drum|steel pan|steelpan",
+  4:"nyckelharpa;theremin;hurdy gurdy|vevlira;lute;zither;balalaika;dulcimer;djembe;cajon;tabla;koto;shamisen;erhu;oud;bouzouki;vibraphone;celesta;melodica;lyre;pan flute|panpipes|pan pipes;contrabassoon;cor anglais|english horn;sousaphone;flugelhorn;harmonium;mbira|kalimba|thumb piano;conga|congas;gong;autoharp;clavichord;spinet",
+  5:"hardanger fiddle|hardingfele;kantele;duduk;serpent;crumhorn;sackbut;shakuhachi;guzheng;pipa;sarangi;santoor|santur;kora;ngoni;rebab;kemenche;baglama|saz;bandoneon;ondes martenot;glass harmonica|armonica;hang|handpan;langeleik;moraharpa;sheng;suona;gaida;tromba marina;ophicleide;cimbalom;valiha;berimbau;charango"}},
+ {id:"dog",q:"Name a dog breed",t:{
+  1:"labrador|labrador retriever|lab;golden retriever;german shepherd|alsatian;poodle;bulldog|english bulldog;chihuahua;beagle;husky|siberian husky;pug",
+  2:"rottweiler;dachshund|tax|sausage dog;boxer;border collie;cocker spaniel;french bulldog|frenchie;great dane;dalmatian;doberman|dobermann;shih tzu;yorkshire terrier|yorkie;jack russell|jack russell terrier;corgi|welsh corgi;pomeranian;chow chow;st bernard|saint bernard;greyhound;collie|rough collie;maltese;bichon frise;cavalier king charles spaniel|cavalier",
+  3:"shiba inu|shiba;akita;samoyed;bernese mountain dog|berner;australian shepherd;whippet;basset hound;bloodhound;newfoundland;staffordshire bull terrier|staffie;bull terrier;weimaraner;vizsla;pointer;irish setter;schnauzer;shar pei;papillon;alaskan malamute|malamute;west highland terrier|westie;scottish terrier|scottie;airedale terrier|airedale;great pyrenees;mastiff;cane corso;rhodesian ridgeback;afghan hound;basenji;keeshond;havanese;lhasa apso;pekingese;boston terrier;springer spaniel;chinese crested;irish wolfhound;dogue de bordeaux",
+  4:"swedish vallhund|vastgotaspets|västgötaspets;norrbottenspets;jamthund|jämthund|swedish elkhound;hamiltonstovare|hamiltonstövare;smalandsstovare|smålandsstövare;schillerstovare|schillerstövare;drever;swedish lapphund|svensk lapphund;borzoi;saluki;komondor;puli;leonberger;xoloitzcuintli|xolo;bedlington terrier;schipperke;kooikerhondje;lagotto romagnolo;nova scotia duck tolling retriever|toller;flat coated retriever;chesapeake bay retriever;finnish spitz;norwegian elkhound;icelandic sheepdog;tibetan mastiff;anatolian shepherd;dogo argentino;bergamasco;briard;beauceron;kuvasz",
+  5:"otterhound;sloughi;azawakh;mudi;pumi;catalburun;peruvian inca orchid;thai ridgeback;kai ken;kishu;jindo;chinook;mountain cur;lundehund|norwegian lundehund;stabyhoun;drentse patrijshond;dansk svensk gardshund|danish swedish farmdog;lancashire heeler;sapsali;kintamani"}},
+ {id:"fruit",q:"Name a fruit",t:{
+  1:"apple;banana;orange;strawberry;grape|grapes;pear;mango;pineapple;watermelon",
+  2:"kiwi|kiwifruit;lemon;lime;peach;plum;cherry;raspberry;blueberry;apricot;melon;coconut;pomegranate;grapefruit;fig;papaya;passion fruit;avocado;blackberry;nectarine;tangerine|mandarin;clementine",
+  3:"lingonberry|lingon;cloudberry|hjortron;gooseberry;cranberry;redcurrant|blackcurrant|currant;lychee|litchi;dragon fruit|pitaya;guava;persimmon|sharon fruit|kaki;quince;date;kumquat;starfruit|carambola;cantaloupe;honeydew;olive;elderberry;mulberry;physalis|cape gooseberry;cherimoya;jackfruit;durian;plantain;bilberry;tomato",
+  4:"rambutan;mangosteen;longan;feijoa;tamarillo;sapodilla;soursop|guanabana;pawpaw;loquat;medlar;rowanberry;sloe;damson;greengage;salmonberry;boysenberry;loganberry;tayberry;yuzu;pomelo;ugli fruit;bergamot;kiwano|horned melon;sea buckthorn|havtorn;crowberry|krakbar|kråkbär;acai|açaí;jabuticaba;lucuma;tamarind",
+  5:"salak|snake fruit;langsat;duku;santol;marang;bignay;cempedak;ackee;mamey sapote|mamey;black sapote;miracle fruit|miracle berry;ilama;kepel;pulasan;gac;bael;wood apple;jambolan;natal plum;arctic bramble|akerbar|åkerbär;dewberry;wineberry;bearberry;cupuacu"}},
+ {id:"nobel",q:"Name a Nobel Prize winner",t:{
+  1:"albert einstein|einstein;marie curie|curie;martin luther king|martin luther king jr|mlk;nelson mandela|mandela;barack obama|obama;malala|malala yousafzai;mother teresa",
+  2:"ernest hemingway|hemingway;bob dylan|dylan;dalai lama;niels bohr|bohr;richard feynman|feynman;alexander fleming|fleming;max planck|planck;kofi annan;desmond tutu;gabriel garcia marquez|garcia marquez;albert camus|camus;rudyard kipling|kipling;winston churchill|churchill;mikhail gorbachev|gorbachev;al gore;toni morrison;kazuo ishiguro|ishiguro;john steinbeck|steinbeck;pierre curie",
+  3:"selma lagerlof|selma lagerlöf|lagerlof;dag hammarskjold|dag hammarskjöld|hammarskjold;alva myrdal;tomas transtromer|tomas tranströmer|transtromer;svante arrhenius|arrhenius;hjalmar branting|branting;gunnar myrdal;peter higgs|higgs;paul dirac|dirac;werner heisenberg|heisenberg;erwin schrodinger|schrödinger|schrodinger;enrico fermi|fermi;linus pauling|pauling;james watson;francis crick|crick;ivan pavlov|pavlov;robert koch;william faulkner|faulkner;samuel beckett|beckett;orhan pamuk|pamuk;doris lessing;alice munro;olga tokarczuk;annie ernaux;han kang;jimmy carter;wangari maathai;aung san suu kyi;lech walesa;kenzaburo oe;rabindranath tagore|tagore;pablo neruda|neruda;paul krugman|krugman;milton friedman;john nash;elie wiesel;henry kissinger;theodore roosevelt;woodrow wilson",
+  4:"verner von heidenstam|heidenstam;erik axel karlfeldt|karlfeldt;par lagerkvist|pär lagerkvist|lagerkvist;eyvind johnson;harry martinson|martinson;nelly sachs;hannes alfven|hannes alfvén|alfven;manne siegbahn;kai siegbahn;the svedberg|svedberg;hans von euler chelpin;ulf von euler;arvid carlsson;torsten wiesel;svante paabo|svante pääbo|paabo;gustaf dalen|gustaf dalén|dalen;allvar gullstrand|gullstrand;bertil ohlin;nathan soderblom|nathan söderblom|soderblom;klas pontus arnoldson;ragnar granit;hugo theorell;sune bergstrom|sune bergström;bengt samuelsson;anne l huillier|anne l'huillier;katalin kariko;john hopfield;geoffrey hinton|hinton;demis hassabis|hassabis",
+  5:"walter rudolf hess;jean baptiste perrin;frederic passy;henri dunant|dunant;bertha von suttner;theodor mommsen|mommsen;sully prudhomme;bjornstjerne bjornson|bjørnstjerne bjørnson;frans eemil sillanpaa|sillanpää;halldor laxness|laxness;giosue carducci;johannes fibiger;gabriel lippmann;jacobus van t hoff|van t hoff;emil von behring|von behring;ronald ross;wilhelm rontgen|röntgen|rontgen;hendrik lorentz;pieter zeeman"}},
+ {id:"abba",q:"Name an ABBA song",t:{
+  1:"dancing queen;mamma mia;waterloo;the winner takes it all|winner takes it all;money money money;gimme gimme gimme|gimme gimme gimme a man after midnight",
+  2:"fernando;super trouper;take a chance on me;knowing me knowing you;chiquitita;voulez vous;sos;thank you for the music;i have a dream;does your mother know",
+  3:"lay all your love on me;the name of the game|name of the game;ring ring;honey honey;one of us;summer night city;hasta manana|hasta mañana;i do i do i do i do i do;the day before you came;under attack;head over heels;angeleyes;eagle;when all is said and done",
+  4:"so long;as good as new;my love my life;slipping through my fingers;our last summer;the visitors;cassandra;i still have faith in you;don t shut me down|dont shut me down;kisses of fire;rock me;tiger;intermezzo no 1|intermezzo;move on;hole in your soul;why did it have to be me;bang a boomerang;i ve been waiting for you|ive been waiting for you;nina pretty ballerina;people need love;he is your brother;king kong song;dum dum diddle;happy new year",
+  5:"crazy world;put on your white sombrero;should i laugh or cry;elaine;the piper;two for the price of one;man in the middle;love isn t easy|love isnt easy;another town another train;disillusion;sitting in the palmtree;watch out;suzy hang around;little things;just a notion;bumblebee;keep an eye on dan;no doubt about it;i can be that woman;ode to freedom;happy hawaii;lovelight;merry go round;me and i;andante andante;lovers live a little longer;soldiers;if it wasn t for the nights|if it wasnt for the nights;i wonder departure|i wonder;when i kissed the teacher;my mama said"}},
+ {id:"element",q:"Name a chemical element",t:{
+  1:"oxygen;hydrogen;carbon;gold;iron;silver;nitrogen;helium",
+  2:"copper;sodium;calcium;lead;zinc;uranium;aluminium|aluminum;neon;chlorine;sulfur|sulphur;mercury;potassium;magnesium;platinum;tin;silicon;iodine;phosphorus;lithium;titanium;nickel;plutonium",
+  3:"argon;fluorine;radon;cobalt;chromium;tungsten|wolfram;manganese;boron;krypton;xenon;radium;arsenic;bismuth;barium;cadmium;beryllium;caesium|cesium;strontium;selenium;bromine;palladium;antimony;gallium;germanium;iridium;osmium;tellurium;vanadium;thorium",
+  4:"zirconium;molybdenum;niobium;tantalum;hafnium;rhodium;ruthenium;rubidium;indium;thallium;scandium;yttrium;lanthanum;cerium;neodymium;samarium;europium;gadolinium;terbium;dysprosium;holmium;erbium;thulium;ytterbium;lutetium;polonium;francium;actinium;americium;curium;einsteinium;nobelium;technetium;promethium;astatine;praseodymium;rhenium",
+  5:"protactinium;neptunium;berkelium;californium;fermium;mendelevium;lawrencium;rutherfordium;dubnium;seaborgium;bohrium;hassium;meitnerium;darmstadtium;roentgenium;copernicium;nihonium;flerovium;moscovium;livermorium;tennessine;oganesson"}},
+ {id:"boardgame",q:"Name a board game",t:{
+  1:"monopoly;chess;scrabble;cluedo|clue;risk;ludo|fia med knuff;checkers|draughts|dam",
+  2:"trivial pursuit;catan|settlers of catan;backgammon|backgammon;battleship|sank skepp;twister;pictionary;yahtzee|yatzy;connect four|fyra i rad;jenga;guess who;go;mahjong;snakes and ladders|chutes and ladders;othello|reversi;mastermind;carcassonne;ticket to ride;alfapet;labyrinth|the amazing labyrinth",
+  3:"pandemic;codenames;dixit;azul;splendor;7 wonders|seven wonders;dominion;stratego;axis and allies;diplomacy;mancala|kalaha;cranium;taboo;operation;mouse trap;the game of life|game of life;sorry;chinese checkers|kinaschack;blokus;terraforming mars;wingspan;king of tokyo;sagrada;love letter;carrom;finns i sjon|finns i sjön;sanktpetersburg",
+  4:"agricola;puerto rico;power grid;twilight struggle;gloomhaven;terra mystica;brass|brass birmingham|brass lancashire;scythe;root;spirit island;everdell;cascadia;patchwork;hive;santorini;coup;the resistance|avalon;secret hitler;dead of winter;betrayal at house on the hill;el grande;tigris and euphrates;through the ages;caylus;istanbul;orleans;concordia;viticulture;great western trail;mysterium;hanabi;the crew;sushi go;kingdomino;takenoko;tokaido",
+  5:"hnefatafl|tafl;nine men s morris|nine mens morris|kvarn;senet;royal game of ur|game of ur;pachisi;chaturanga;shogi;xiangqi;hex;tak;yinsh;gipf;zertz;onitama;arimaa;crokinole;le havre;mage knight;twilight imperium;war of the ring;food chain magnate;john company;pax pamir;high frontier;kubb"}},
+ {id:"greek",q:"Name a Greek god, goddess or titan",t:{
+  1:"zeus;poseidon;hades;athena|athene;aphrodite;apollo",
+  2:"hera;ares;hermes;artemis;dionysus|dionysos;hephaestus|hephaistos;demeter;persephone;eros;nike",
+  3:"hestia;gaia|gaea;kronos|cronus;rhea;uranus|ouranos;helios;selene;eos;pan;hecate|hekate;nemesis;hypnos;thanatos;iris;hebe;morpheus;prometheus;atlas;tyche;nyx",
+  4:"erebus;chaos;tartarus;oceanus;tethys;hyperion;theia;themis;mnemosyne;phoebe;coeus;crius;iapetus;metis;leto;dione;asclepius|asklepios;harmonia;deimos;phobos;eris;enyo;boreas;zephyrus;notus;eurus;aeolus;triton;proteus;nereus;amphitrite;hymenaios|hymen;priapus;epimetheus;pontus",
+  5:"aether;hemera;ananke;chronos;phanes;ourea;eurynome;styx;achlys;momus;oizys;geras;apate;philotes;pheme;kratos;bia;zelus;hesperus;phosphorus;astraeus;pallas;perses;palaemon;glaucus;aristaeus;cymopoleia;despoina;epione;hygieia;panacea;iaso;aceso;euthenia;eupheme"}}
+];
+
+const LISTS = [
+ {id:"eu",q:"Name EU member states",pass:9,great:16,items:"austria;belgium;bulgaria;croatia;cyprus;czechia|czech republic;denmark;estonia;finland;france;germany;greece;hungary;ireland;italy;latvia;lithuania;luxembourg;malta;netherlands|holland;poland;portugal;romania;slovakia;slovenia;spain;sweden"},
+ {id:"landskap",q:"Name Swedish provinces (landskap)",pass:8,great:15,items:"skane|skåne;blekinge;halland;smaland|småland;oland|öland;gotland;ostergotland|östergötland;vastergotland|västergötland;bohuslan|bohuslän;dalsland;varmland|värmland;narke|närke;sodermanland|södermanland;uppland;vastmanland|västmanland;dalarna;gastrikland|gästrikland;halsingland|hälsingland;harjedalen|härjedalen;medelpad;jamtland|jämtland;angermanland|ångermanland;vasterbotten|västerbotten;norrbotten;lappland|lapland"},
+ {id:"southam",q:"Name countries in South America",pass:6,great:10,items:"brazil;argentina;chile;peru;colombia;venezuela;ecuador;bolivia;paraguay;uruguay;guyana;suriname"},
+ {id:"lan",q:"Name Swedish counties (län)",pass:7,great:13,items:"stockholm;uppsala;sodermanland|södermanland;ostergotland|östergötland;jonkoping|jönköping;kronoberg;kalmar;gotland;blekinge;skane|skåne;halland;vastra gotaland|västra götaland;varmland|värmland;orebro|örebro;vastmanland|västmanland;dalarna;gavleborg|gävleborg;vasternorrland|västernorrland;jamtland|jämtland;vasterbotten|västerbotten;norrbotten"},
+ {id:"olympic",q:"Name countries that have hosted the Summer Olympics",pass:7,great:12,items:"greece;france;united states|usa|us|america;united kingdom|uk|great britain|britain|england;sweden;belgium;netherlands|holland;germany|west germany;finland;australia;italy;japan;mexico;canada;soviet union|ussr|russia;south korea|korea;spain;china;brazil"},
+ {id:"usstates",q:"Name US states",pass:16,great:28,items:"alabama;alaska;arizona;arkansas;california;colorado;connecticut;delaware;florida;georgia;hawaii;idaho;illinois;indiana;iowa;kansas;kentucky;louisiana;maine;maryland;massachusetts;michigan;minnesota;mississippi;missouri;montana;nebraska;nevada;new hampshire;new jersey;new mexico;new york;north carolina;north dakota;ohio;oklahoma;oregon;pennsylvania;rhode island;south carolina;south dakota;tennessee;texas;utah;vermont;virginia;washington;west virginia;wisconsin;wyoming"}
+];
+
+const EST = [
+ {id:"everest",q:"How tall is Mount Everest, in metres?",a:8849,u:"m",t:[150,600]},
+ {id:"islands",q:"How many islands does Sweden have (Statistics Sweden's count)?",a:267570,u:"islands",t:[30000,120000]},
+ {id:"nobel1",q:"In what year was the first Nobel Prize awarded?",a:1901,u:"",t:[3,12]},
+ {id:"oresund",q:"How long is the Öresund Bridge itself, in metres?",a:7845,u:"m",t:[600,2500]},
+ {id:"bones",q:"How many bones are in an adult human body?",a:206,u:"bones",t:[10,40]},
+ {id:"abbaev",q:"In what year did ABBA win Eurovision?",a:1974,u:"",t:[1,4]},
+ {id:"stogot",q:"Road distance Stockholm to Gothenburg, in km?",a:470,u:"km",t:[30,90]},
+ {id:"sound",q:"Speed of sound in air at 20 °C, in metres per second?",a:343,u:"m/s",t:[20,70]},
+ {id:"un",q:"How many member states does the UN have?",a:193,u:"",t:[6,25]},
+ {id:"ikea",q:"In what year was IKEA founded?",a:1943,u:"",t:[3,10]},
+ {id:"nile",q:"How long is the Nile, in km?",a:6650,u:"km",t:[350,1200]},
+ {id:"trench",q:"How deep is the Challenger Deep, in metres?",a:10935,u:"m",t:[500,2000]},
+ {id:"piano",q:"How many keys on a standard piano?",a:88,u:"keys",t:[4,14]},
+ {id:"boil",q:"At what temperature does water boil on the summit of Everest, in °C?",a:71,u:"°C",t:[3,9]},
+ {id:"bloodbath",q:"In what year did the Stockholm Bloodbath happen?",a:1520,u:"",t:[8,40]},
+ {id:"weekmin",q:"How many minutes are there in a week?",a:10080,u:"min",t:[300,1500]},
+ {id:"iphone",q:"In what year was the first iPhone released?",a:2007,u:"",t:[1,3]},
+ {id:"moondia",q:"Diameter of the Moon, in km?",a:3474,u:"km",t:[250,900]},
+ {id:"vasa",q:"In what year did Gustav Vasa become king of Sweden?",a:1523,u:"",t:[5,20]},
+ {id:"eiffel",q:"How tall is the Eiffel Tower including antennas, in metres?",a:330,u:"m",t:[15,45]},
+ {id:"moondist",q:"Average distance from Earth to the Moon, in km?",a:384400,u:"km",t:[20000,70000]},
+ {id:"dagenh",q:"In what year did Sweden switch to driving on the right?",a:1967,u:"",t:[1,5]},
+ {id:"water",q:"What percentage of Earth's surface is covered by water?",a:71,u:"%",t:[3,9]},
+ {id:"marathon",q:"How long is a marathon, in metres?",a:42195,u:"m",t:[400,2500]},
+ {id:"cheetah",q:"Top speed of a cheetah, in km/h?",a:110,u:"km/h",t:[12,35]},
+ {id:"mozart",q:"How old was Mozart when he died?",a:35,u:"years",t:[2,7]},
+ {id:"kommuner",q:"How many municipalities (kommuner) does Sweden have?",a:290,u:"",t:[12,45]}
+];
+
+const MCQ = [
+ {id:"moons",cat:"Space",q:"Which planet has the most known moons?",o:["Saturn","Jupiter","Uranus","Neptune"],c:0},
+ {id:"w",cat:"Chemistry",q:"Which element has the chemical symbol W?",o:["Tungsten","Tin","Vanadium","Xenon"],c:0},
+ {id:"starry",cat:"Art",q:"Who painted The Starry Night?",o:["Vincent van Gogh","Claude Monet","Edvard Munch","Paul Cézanne"],c:0},
+ {id:"organ",cat:"Biology",q:"What is the largest organ of the human body?",o:["Skin","Liver","Lungs","Brain"],c:0},
+ {id:"native",cat:"Language",q:"Which language has the most native speakers?",o:["Mandarin Chinese","Spanish","English","Hindi"],c:0},
+ {id:"smallest",cat:"Geography",q:"What is the smallest country by area?",o:["Vatican City","Monaco","San Marino","Liechtenstein"],c:0},
+ {id:"mineral",cat:"Geology",q:"What is the hardest natural mineral?",o:["Diamond","Quartz","Corundum","Topaz"],c:0},
+ {id:"scot",cat:"Culture",q:"What is the national animal of Scotland?",o:["Unicorn","Red deer","Lion","Golden eagle"],c:0},
+ {id:"wall",cat:"History",q:"In which year did the Berlin Wall fall?",o:["1989","1991","1987","1979"],c:0},
+ {id:"celsius",cat:"Science",q:"On Anders Celsius's original scale, what was 100 degrees?",o:["Freezing point of water","Boiling point of water","Body temperature","Room temperature"],c:0},
+ {id:"donor",cat:"Medicine",q:"Which blood type is the universal donor for red cells?",o:["O negative","AB positive","A negative","O positive"],c:0},
+ {id:"aus",cat:"Geography",q:"What is the capital of Australia?",o:["Canberra","Sydney","Melbourne","Perth"],c:0},
+ {id:"atmos",cat:"Science",q:"Which gas makes up most of Earth's atmosphere?",o:["Nitrogen","Oxygen","Argon","Carbon dioxide"],c:0},
+ {id:"ocean",cat:"Geography",q:"Which is the largest ocean?",o:["Pacific","Atlantic","Indian","Arctic"],c:0},
+ {id:"bandy",cat:"Sport",q:"How many players does a bandy team have on the ice?",o:["11","6","9","7"],c:0},
+ {id:"countdown",cat:"Music",q:"Which Swedish band recorded The Final Countdown?",o:["Europe","Roxette","Ace of Base","The Hives"],c:0},
+ {id:"deaf",cat:"Music",q:"Which composer kept composing after going deaf?",o:["Beethoven","Mozart","Bach","Chopin"],c:0},
+ {id:"river",cat:"Sweden",q:"Which is Sweden's longest river system?",o:["Klarälven / Göta älv","Torne älv","Dalälven","Ångermanälven"],c:0},
+ {id:"liberty",cat:"History",q:"Which country gave the Statue of Liberty to the USA?",o:["France","United Kingdom","Spain","Netherlands"],c:0},
+ {id:"ytterby",cat:"Chemistry",q:"How many chemical elements are named after the Swedish village Ytterby?",o:["Four","One","Two","Seven"],c:0},
+ {id:"fika",cat:"Sweden",q:"Which Swedish city is home to the Turning Torso?",o:["Malmö","Gothenburg","Stockholm","Uppsala"],c:0},
+ {id:"octo",cat:"Animals",q:"How many hearts does an octopus have?",o:["Three","One","Two","Eight"],c:0},
+ {id:"mona",cat:"Art",q:"In which museum hangs the Mona Lisa?",o:["The Louvre","The Prado","The Uffizi","The Met"],c:0},
+ {id:"speedlight",cat:"Physics",q:"About how long does sunlight take to reach Earth?",o:["8 minutes","8 seconds","80 minutes","8 hours"],c:0}
+];
+
+/* Terrain definitions */
+const TERRAIN = {
+ slab:{name:"Slab",dur:35,rule:"Leader answers, belayer gives a backup. Rarer correct answers climb further. If the lead is wrong, a correct backup holds the fall."},
+ chimney:{name:"Chimney",dur:35,rule:"Brace against each other. Both answer in secret. Same rare answer: Echo, a double pitch. Same obvious answer: you collide and slip."},
+ crevasse:{name:"Crevasse",dur:30,rule:"Both estimate a number. Your average must land on the bridge. Guess high or low to balance your partner."},
+ traverse:{name:"Traverse",dur:60,rule:"Split the list without talking. Every unique correct answer counts; answers you both give cancel out."},
+ overhang:{name:"Overhang",dur:50,rule:"The belayer sees the question and answer, and sends one word. The leader sees only the options."}
+};
+const SEG0 = ["slab","crevasse","chimney","traverse","overhang","slab"];
+const FORKS = [
+ {camp:"Camp I", A:{name:"The Icefall",desc:"Direct and steep. Fewer pitches, more teamwork.",p:["chimney","overhang","crevasse","chimney","overhang"]},
+                 B:{name:"Shoulder Ridge",desc:"Longer, gentler. More knowledge, less telepathy.",p:["slab","traverse","slab","crevasse","slab","traverse","chimney"]}},
+ {camp:"Camp II",A:{name:"Summit Couloir",desc:"Four hard pitches straight to the top.",p:["overhang","chimney","crevasse","chimney"]},
+                 B:{name:"North Ridge",desc:"Six pitches along the exposed ridge.",p:["slab","traverse","crevasse","slab","overhang","chimney"]}}
+];
+const ALT = {base:1800,c1:2600,c2:3400,top:4100};
+const RIVALS = {
+ tourists:{name:"The Tourists",desc:"Slow and steady. Never falls."},
+ twins:{name:"The Twins",desc:"Lucky streaks and stalls."},
+ soloist:{name:"The Soloist",desc:"Fast and reckless. Falls hard."}
+};
+
+/* ============================== MATCHING ============================== */
+const norm = s => (s||"").toString().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"")
+  .replace(/ø/g,"o").replace(/æ/g,"ae").replace(/&/g," and ").replace(/[^a-z0-9 ]/g," ")
+  .replace(/\b(the|a|an)\b/g," ").replace(/\s+/g," ").trim();
+function parseEntries(str,tier){
+  return str.split(";").map(e=>{const al=e.split("|").map(x=>x.trim()).filter(Boolean);
+    const pretty=al.find(x=>/[^\x00-\x7f]/.test(x)&&norm(x)===norm(al[0]))||al[0];
+    const label=pretty.replace(/(^|[\s-])(\S)/g,(m,a,b)=>a+b.toUpperCase());
+    return {canon:al[0],label,keys:[...new Set(al.map(norm))],tier};});
+}
+RARE.forEach(p=>{p.entries=[];for(const k of [1,2,3,4,5]) p.entries.push(...parseEntries(p.t[k],k));});
+LISTS.forEach(l=>{l.entries=parseEntries(l.items,1);});
+function lev(a,b){if(a===b)return 0;const m=a.length,n=b.length;if(!m)return n;if(!n)return m;
+  let prev=Array.from({length:n+1},(_,i)=>i);
+  for(let i=1;i<=m;i++){const cur=[i];for(let j=1;j<=n;j++)cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));prev=cur;}
+  return prev[n];}
+function matchEntry(entries,input){
+  const k=norm(input); if(!k) return null;
+  const variants=[k,k.replace(/s$/,""),k+"s",k.replace(/ (cheese|dog|breed|city|town)$/,"")];
+  let best=null,bd=99;
+  for(const e of entries){for(const key of e.keys){
+    if(variants.includes(key)) return e;
+    const lim=key.length>=9?2:key.length>=5?1:0; if(!lim) continue;
+    const d=lev(k,key); if(d<=lim&&d<bd){bd=d;best=e;}
+  }}
+  return best;
+}
+const dots = t => "●".repeat(t)+"○".repeat(5-t);
+
+/* ============================== STATE ============================== */
+/* Shared storage: Pinnacle's own Firebase Realtime Database (access rules live in database.rules.json). */
+const FB="https://pinnacle-5f36a-default-rtdb.europe-west1.firebasedatabase.app";
+const S={uid:null,myName:"",code:null,team:null,answers:{},names:{},online:new Set(),pres:{},local:{},
+  unsubTeam:null,unsubAns:null,unsubPres:null,presTimer:null,ansRound:null,resolving:false,acting:false,
+  myTeams:[],panelKey:null,sample:null};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const clone=o=>JSON.parse(JSON.stringify(o));
+const fmt=n=>Math.round(n).toLocaleString("en-US").replace(/,/g," ");
+function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,2600);}
+const memberIds=t=>Object.keys(t.members||{}).sort();
+function nameOf(id){if(id===S.uid)return "You";return S.names[id]||"Partner";}
+function partnerId(t){return memberIds(t).find(i=>i!==S.uid);}
+const LS={get(k,d){try{const v=localStorage.getItem("pinnacle."+k);return v==null?d:JSON.parse(v);}catch(e){return d;}},
+  set(k,v){try{localStorage.setItem("pinnacle."+k,JSON.stringify(v));}catch(e){}}};
+
+/* Firebase REST + streaming (EventSource) — no SDK needed */
+const fb={
+  url:p=>`${FB}/${p}.json`,
+  async get(p){const r=await fetch(fb.url(p));if(!r.ok)throw new Error("get "+r.status);return r.json();},
+  async getTagged(p){
+    try{const r=await fetch(fb.url(p),{headers:{"X-Firebase-ETag":"true"}});if(!r.ok)throw 0;return {val:await r.json(),etag:r.headers.get("ETag")};}
+    catch(e){return {val:await fb.get(p),etag:null};}},
+  async put(p,v,etag){const h={"Content-Type":"application/json"};if(etag)h["if-match"]=etag;
+    const r=await fetch(fb.url(p),{method:"PUT",headers:h,body:JSON.stringify(v)});
+    if(r.status===412)return false;if(!r.ok)throw new Error("put "+r.status);return true;},
+  async patch(p,v){const r=await fetch(fb.url(p),{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(v)});if(!r.ok)throw new Error("patch "+r.status);},
+  del(p){return fetch(fb.url(p),{method:"DELETE"}).catch(()=>{});},
+  listen(p,cb){
+    let tree=null;const es=new EventSource(fb.url(p));
+    const isObj=x=>x&&typeof x==="object";
+    const apply=(ev,isPatch)=>{let d;try{d=JSON.parse(ev.data);}catch(e){return;}if(!d||typeof d.path!=="string")return;
+      const parts=d.path.split("/").filter(Boolean);
+      if(!parts.length&&!isPatch){tree=d.data;}
+      else{
+        if(!isObj(tree))tree={};let o=tree;
+        const keys=isPatch?parts:parts.slice(0,-1);
+        for(const k of keys){if(!isObj(o[k]))o[k]={};o=o[k];}
+        if(isPatch){for(const [k,v] of Object.entries(d.data||{})){if(v===null)delete o[k];else o[k]=v;}}
+        else{const k=parts[parts.length-1];if(d.data===null)delete o[k];else o[k]=d.data;}
+      }
+      cb(tree==null?null:clone(tree));};
+    es.addEventListener("put",e=>apply(e,false));
+    es.addEventListener("patch",e=>apply(e,true));
+    return ()=>es.close();}
+};
+/* Firebase drops empty arrays/objects and nulls; restore the shape the game expects */
+function fixTeam(t){
+  if(!t||typeof t!=="object")return null;t=clone(t);
+  t.members=t.members||{};t.log=Object.values(t.log||{});t.stats=t.stats||{};t.rival=t.rival||"twins";
+  const e=t.exp=t.exp||newExp(1);const c=e.choice||{};e.choice=[c[0]||null,c[1]||null];
+  e.used=Object.values(e.used||{});e.rival=e.rival||{alt:ALT.base,camp:ALT.base};
+  for(const k of ["pitch","anchor","rope"])e[k]=e[k]||0;
+  t.round=t.round||{id:0,phase:"ready"};t.round.id=t.round.id||0;t.round.votes=t.round.votes||{};
+  if(t.round.result)t.round.result.lines=Object.values(t.round.result.lines||{});
+  return t;
+}
+
+/* ============================== ROUTE MATH ============================== */
+function lens(exp){return [SEG0.length, exp.choice[0]?FORKS[0][exp.choice[0]].p.length:null, exp.choice[1]?FORKS[1][exp.choice[1]].p.length:null];}
+function route(exp){let r=[...SEG0];if(exp.choice[0])r=r.concat(FORKS[0][exp.choice[0]].p);if(exp.choice[1])r=r.concat(FORKS[1][exp.choice[1]].p);return r;}
+function total(exp){const L=lens(exp);return L[0]+(L[1]||0)+(L[2]||0);}
+function campStops(exp){const L=lens(exp);const s=[L[0]];if(L[1])s.push(L[0]+L[1]);if(L[1]&&L[2])s.push(L[0]+L[1]+L[2]);return s;}
+function altOf(exp,p){const L=lens(exp);
+  if(p<=L[0])return ALT.base+(ALT.c1-ALT.base)*p/L[0];
+  if(L[1]&&p<=L[0]+L[1])return ALT.c1+(ALT.c2-ALT.c1)*(p-L[0])/L[1];
+  if(L[2])return ALT.c2+(ALT.top-ALT.c2)*(p-L[0]-L[1])/L[2];
+  return ALT.c2;}
+function needsChoice(exp){const L=lens(exp);
+  if(exp.pitch===L[0]&&!exp.choice[0])return 0;
+  if(L[1]&&exp.pitch===L[0]+L[1]&&!exp.choice[1])return 1;
+  return -1;}
+function nextStop(exp){const L=lens(exp);if(exp.pitch<L[0])return L[0];
+  if(L[1]&&exp.pitch<L[0]+L[1])return L[0]+L[1];return total(exp);}
+function newExp(n,prev){return {n,choice:[null,null],pitch:0,anchor:0,rope:3,rival:{alt:ALT.base,camp:ALT.base},rivalTop:false,used:prev?prev.used.slice(-40):[]};}
+
+/* ============================== QUESTION PICK ============================== */
+function poolFor(terrain){return terrain==="slab"||terrain==="chimney"?RARE:terrain==="traverse"?LISTS:terrain==="crevasse"?EST:MCQ;}
+function pickQ(terrain,used){const pool=poolFor(terrain);let fresh=pool.filter(q=>!used.includes(q.id));
+  if(!fresh.length)fresh=pool;return fresh[Math.floor(Math.random()*fresh.length)].id;}
+function qById(terrain,id){return poolFor(terrain).find(q=>q.id===id);}
+
+/* ============================== RIVAL ============================== */
+function rivalStep(kind,r){r=clone(r);let note;
+  const camps=[ALT.c1,ALT.c2];
+  if(kind==="tourists"){const m=70+Math.random()*40;r.alt+=m;note=`climbed ${Math.round(m)} m`;}
+  else if(kind==="twins"){const x=Math.random();const m=x<.15?0:x<.65?85:165;r.alt+=m;note=m?`climbed ${m} m`:"stalled";}
+  else{if(Math.random()<.17&&r.alt>r.camp+40){note=`fell ${Math.round(r.alt-r.camp)} m to ${r.camp===ALT.base?"the base":"camp"}`;r.alt=r.camp;}
+       else{const m=115+Math.random()*80;r.alt+=m;note=`climbed ${Math.round(m)} m`;}}
+  r.alt=Math.min(r.alt,ALT.top);for(const c of camps)if(r.alt>=c)r.camp=Math.max(r.camp,c);
+  return {r,note};}
+
+/* ============================== JUDGING ============================== */
+async function llmJudge(prompt,answers){
+  if(!S.sample||!answers.length)return null;
+  const input=`You judge answers in a trivia game. The prompt was: "${prompt}".
+For each submitted answer decide:
+- valid: true only if it is a real, correct answer to the prompt (forgive spelling mistakes and Swedish/English name variants; reject jokes, made-up names and wrong categories)
+- canonical: the standard English name of the thing
+- rarity: 1 to 5, where 1 = among the first things most people would say and 5 = only an expert would think of it
+Answers: ${JSON.stringify(answers)}
+Reply with JSON only: {"results":[{"answer":"...","valid":true,"canonical":"...","rarity":3}]}`;
+  try{const r=await S.sample.json(input,{modelTier:"quick"});return Array.isArray(r?.results)?r.results:null;}
+  catch(e){return null;}
+}
+async function judgeRare(q,texts){ // texts: array of strings -> array of {text,valid,tier,canon,src}
+  const out=texts.map(t=>{if(!t||!norm(t))return {text:t||"",valid:false,tier:0,canon:"",src:"empty"};
+    const e=matchEntry(q.entries,t);return e?{text:t,valid:true,tier:e.tier,canon:norm(e.canon),label:e.label,src:"list"}:{text:t,valid:null};});
+  const unknown=[...new Set(out.filter(o=>o.valid===null).map(o=>o.text))];
+  if(unknown.length){const res=await llmJudge(q.q,unknown);
+    for(const o of out){if(o.valid!==null)continue;
+      const r=res?.find(x=>norm(x.answer)===norm(o.text));
+      if(r&&r.valid){o.valid=true;o.tier=Math.max(1,Math.min(5,Math.round(r.rarity||4)));o.canon=norm(r.canonical||o.text);o.label=r.canonical||o.text;o.src="judge";}
+      else{o.valid=false;o.tier=0;o.canon="";o.src=res?"judge":"unverified";}}}
+  return out;
+}
+function tagFor(o){if(o.src==="empty")return '<span class="tag no">no answer</span>';
+  if(!o.valid)return `<span class="tag no">${o.src==="unverified"?"not on our list":"not valid"}</span>`;
+  return `<span class="tag ok"><span class="rar" aria-label="rarity ${o.tier} of 5">${dots(o.tier)}</span></span>`;}
+
+async function judge(t,ans){
+  const r=t.round,ids=memberIds(t),leader=r.leader,bel=ids.find(i=>i!==leader);
+  const q=qById(r.terrain,r.qid);const o={move:0,fall:false,lines:[],headline:"",tone:"good"};
+  const A=id=>id?ans[id]:null;
+  if(r.terrain==="slab"){
+    const [L,B]=await judgeRare(q,[A(leader)?.text,bel?A(bel)?.text:""]);
+    o.lines.push({who:leader,text:L.label||L.text,tag:tagFor(L)});
+    if(bel)o.lines.push({who:bel,text:B.label||B.text,tag:tagFor(B),note:"backup"});
+    if(L.valid){o.move=L.tier>=4?2:1;o.headline=L.tier>=4?"Rare hold. Two pitches.":"Clean lead. One pitch.";o.best=[L,leader];}
+    else if(B.valid){o.move=0;o.headline="The belay held.";o.tone="warn";o.detail="The backup was good, so no fall, but no height either.";}
+    else{o.fall=true;o.headline="Leader fall!";o.tone="bad";}
+  }
+  else if(r.terrain==="chimney"){
+    const texts=ids.map(id=>A(id)?.text||"");const res=await judgeRare(q,texts);
+    ids.forEach((id,i)=>o.lines.push({who:id,text:res[i].label||res[i].text,tag:tagFor(res[i])}));
+    const valid=res.filter(x=>x.valid);
+    if(ids.length===1){if(valid.length){o.move=valid[0].tier>=4?2:1;o.headline="Solo bridging. You moved up.";o.best=[valid[0],ids[0]];}else{o.fall=true;o.headline="You slipped out of the chimney.";o.tone="bad";}}
+    else if(valid.length===2&&res[0].canon===res[1].canon){
+      if(valid[0].tier>=3){o.move=2;o.echo=true;o.headline=`Echo! You both said ${valid[0].label}.`;o.best=[valid[0],ids[0]];}
+      else{o.fall=true;o.headline=`Collision. You both said ${valid[0].label}.`;o.tone="bad";o.detail="Too obvious to share. Same answer, nothing to brace against.";}}
+    else if(valid.length===2){o.move=1;o.headline="Good bracing. One pitch.";const b=res[0].tier>=res[1].tier?0:1;o.best=[res[b],ids[b]];}
+    else if(valid.length===1){o.move=0;o.headline="One foot slipped. You hold position.";o.tone="warn";}
+    else{o.fall=true;o.headline="Both feet gone.";o.tone="bad";}
+  }
+  else if(r.terrain==="crevasse"){
+    const nums=ids.map(id=>A(id)?.num).filter(v=>typeof v==="number"&&isFinite(v));
+    ids.forEach(id=>{const v=A(id)?.num;o.lines.push({who:id,text:typeof v==="number"?fmt(v)+" "+q.u:"no guess",tag:""});});
+    if(!nums.length){o.fall=true;o.headline="Nobody jumped.";o.tone="bad";}
+    else{const avg=nums.reduce((a,b)=>a+b,0)/nums.length;const err=Math.abs(avg-q.a);
+      o.lines.push({who:null,text:`Average ${fmt(avg)} · answer ${fmt(q.a)} ${q.u}`,tag:`<span class="tag ${err<=q.t[1]?"ok":"no"}">off by ${fmt(err)}</span>`});
+      if(err<=q.t[0]){o.move=2;o.headline="Dead centre of the bridge.";}
+      else if(err<=q.t[1]){o.move=1;o.headline="Made the jump.";}
+      else{o.fall=true;o.headline="Into the crevasse.";o.tone="bad";}}
+  }
+  else if(r.terrain==="traverse"){
+    const sets=ids.map(id=>{const m=new Map();for(const it of (A(id)?.list||[])){const e=matchEntry(q.entries,it);if(e)m.set(e.canon,true);}return [...m.keys()];});
+    const all=new Set(sets.flat());const shared=sets.length===2?sets[0].filter(x=>sets[1].includes(x)):[];
+    const score=all.size-shared.length;
+    ids.forEach((id,i)=>{const n=(A(id)?.list||[]).length;o.lines.push({who:id,text:`${sets[i].length} correct of ${n}`,tag:""});});
+    o.lines.push({who:null,text:`${all.size} unique, ${shared.length} doubled${shared.length?": "+shared.slice(0,6).join(", "):""}`,tag:`<span class="tag ${score>=q.pass?"ok":"no"}">${score} / ${q.pass} needed</span>`});
+    if(score>=q.great){o.move=2;o.headline=`Flawless traverse. ${score} holds.`;}
+    else if(score>=q.pass){o.move=1;o.headline=`Across. ${score} holds.`;}
+    else{o.fall=true;o.headline=`Ran out of holds at ${score}.`;o.tone="bad";}
+    const missed=q.entries.filter(e=>!all.has(e.canon)).map(e=>e.label);
+    if(missed.length)o.detail="Some you missed: "+missed.sort(()=>Math.random()-.5).slice(0,5).join(", ")+".";
+  }
+  else if(r.terrain==="overhang"){
+    const ch=A(leader)?.choice;const clue=bel?A(bel)?.clue:null;
+    o.lines.push({who:bel||null,text:clue?`Clue: “${clue}”`:"No clue sent",tag:""});
+    const picked=typeof ch==="number"&&ch>=0&&ch<q.o.length;
+    o.lines.push({who:leader,text:picked?q.o[ch]:"no pick",tag:`<span class="tag ${ch===q.c?"ok":"no"}">${ch===q.c?"correct":"wrong"}</span>`});
+    o.detail=`${q.q} Answer: ${q.o[q.c]}.`;
+    if(ch===q.c){o.move=1;o.headline="Pulled over the roof.";}else{o.fall=true;o.headline="Off the overhang!";o.tone="bad";}
+  }
+  return o;
+}
+
+function applyOutcome(t,o){
+  const exp=clone(t.exp);const before=exp.pitch;const beforeAlt=altOf(exp,before);let moveText="";
+  if(o.fall){
+    if(exp.rope>0){exp.rope--;o.caught=true;moveText=`Rope caught you. ${exp.rope} rope${exp.rope===1?"":"s"} left.`;if(o.tone==="bad")o.tone="warn";}
+    else{exp.pitch=exp.anchor;moveText=exp.pitch<before?`No rope left. Fell ${Math.round(beforeAlt-altOf(exp,exp.pitch))} m to your anchor.`:"No rope left, but you were at your anchor.";}
+  }else if(o.move>0){
+    exp.pitch=Math.min(exp.pitch+o.move,nextStop(exp));
+    moveText=`Up ${Math.round(altOf(exp,exp.pitch)-beforeAlt)} m to ${fmt(altOf(exp,exp.pitch))} m.`;
+  }else moveText="Holding position.";
+  const stops=campStops(exp);let arrived=null;
+  if(exp.pitch>before&&stops.includes(exp.pitch)){
+    exp.anchor=exp.pitch;exp.rope=3;
+    if(exp.pitch===total(exp)&&exp.choice[1])arrived="summit";else arrived=exp.pitch===lens(exp)[0]?"Camp I":"Camp II";
+  }
+  const rs=rivalStep(t.rival,exp.rival);exp.rival=rs.r;
+  let rivalNote=`${RIVALS[t.rival].name} ${rs.note}, now at ${fmt(exp.rival.alt)} m.`;
+  if(exp.rival.alt>=ALT.top&&!exp.rivalTop){exp.rivalTop=true;rivalNote=`${RIVALS[t.rival].name} reached the summit.`;}
+  const stats=clone(t.stats||{});stats.rounds=(stats.rounds||0)+1;
+  if(o.echo)stats.echoes=(stats.echoes||0)+1;
+  if(o.fall&&!o.caught)stats.falls=(stats.falls||0)+1;
+  if(o.best){const [b,who]=o.best;const q=qById(t.round.terrain,t.round.qid);
+    if(b.tier>=4&&(!stats.best||b.tier>=stats.best.tier))stats.best={answer:b.label||b.text,tier:b.tier,prompt:q.q,by:who};}
+  if(arrived==="summit"){exp.finished=t.exp.rivalTop?"second":"won";stats.summits=(stats.summits||0)+1;if(exp.finished==="won")stats.wins=(stats.wins||0)+1;}
+  const log=(t.log||[]).slice(-39);
+  const tname=TERRAIN[t.round.terrain].name;
+  log.push({at:Date.now(),text:`P${before+1} ${tname}: ${o.headline}`});
+  if(arrived)log.push({at:Date.now(),text:arrived==="summit"?(exp.finished==="won"?"Summit first! Expedition won.":"Summit, after the rival."):`Reached ${arrived}. Rope restocked, anchor set.`});
+  const result={...o,moveText,rivalNote,arrived,from:before,to:exp.pitch};
+  delete result.best;
+  return {...t,exp,stats,log,round:{...t.round,phase:"reveal",result,resolvedAt:Date.now()}};
+}
+
+/* ============================== ACTIONS ============================== */
+async function guarded(fn){
+  if(S.acting)return;S.acting=true;
+  try{
+    for(let attempt=0;attempt<3;attempt++){
+      const {val,etag}=await fb.getTagged("teams/"+S.code);const t=fixTeam(val);if(!t)return;
+      const next=await fn(t);if(!next)return;
+      if(await fb.put("teams/"+S.code,next,etag))return;
+    }
+  }catch(e){console.error(e);toast("Couldn't save that move. Check your connection and try again.");}
+  finally{S.acting=false;}
+}
+function startAnswerRound(t){
+  const ids=memberIds(t);const id=(t.round?.id||0)+1;const exp=t.exp;
+  const c=needsChoice(exp);
+  if(exp.pitch>=total(exp)&&exp.choice[1])return {...t,round:{id,phase:"summit"}};
+  if(c>=0)return {...t,round:{id,phase:"camp",fork:c,votes:{}}};
+  const terrain=route(exp)[exp.pitch];const qid=pickQ(terrain,exp.used);
+  exp.used=[...exp.used,qid].slice(-60);
+  return {...t,exp,round:{id,phase:"answer",terrain,qid,leader:ids[id%ids.length],startedAt:Date.now(),dur:TERRAIN[terrain].dur}};
+}
+function advance(withAnchor){
+  const rid=S.team.round.id;
+  guarded(t=>{
+    if(t.round.id!==rid)return null;
+    if(withAnchor&&t.round.phase==="reveal"&&t.exp.anchor!==t.exp.pitch){
+      t.exp.anchor=t.exp.pitch;const rs=rivalStep(t.rival,t.exp.rival);t.exp.rival=rs.r;
+      if(t.exp.rival.alt>=ALT.top)t.exp.rivalTop=true;
+      t.log=t.log.slice(-39);t.log.push({at:Date.now(),text:`Anchor placed at ${fmt(altOf(t.exp,t.exp.pitch))} m. ${RIVALS[t.rival].name} ${rs.note}.`});}
+    return startAnswerRound(t);});
+}
+function setOff(choice){
+  const rid=S.team.round.id;
+  guarded(t=>{if(t.round.id!==rid||t.round.phase!=="camp")return null;
+    const f=t.round.fork;t.exp.choice[f]=choice;t.exp.anchor=t.exp.pitch;
+    t.log=t.log.slice(-39);t.log.push({at:Date.now(),text:`Set off from ${FORKS[f].camp} on ${FORKS[f][choice].name}.`});
+    return startAnswerRound(t);});
+}
+function newExpedition(){
+  const rid=S.team.round.id;
+  guarded(t=>{if(t.round.id!==rid)return null;
+    t.exp=newExp((t.exp?.n||1)+1,t.exp);t.log=t.log.slice(-39);t.log.push({at:Date.now(),text:`Expedition ${t.exp.n} begins at base camp.`});
+    return {...t,round:{id:rid+1,phase:"ready"}};});
+}
+async function vote(choice){
+  try{await fb.patch(`teams/${S.code}/round/votes`,{[S.uid]:choice});}catch(e){toast("Couldn't save your vote.");}
+}
+async function submit(payload){
+  const r=S.team.round;if(r.phase!=="answer")return;
+  try{await fb.put(`answers/${S.code}/${r.id}/${S.uid}`,{roundId:r.id,uid:S.uid,at:Date.now(),...payload});}
+  catch(e){toast("Couldn't send your answer. Check your connection.");}
+}
+async function tryResolve(){
+  if(S.resolving||!S.team)return;const rid=S.team.round.id;S.resolving=true;
+  try{
+    const {val,etag}=await fb.getTagged("teams/"+S.code);const t=fixTeam(val);
+    if(!t||t.round.id!==rid||t.round.phase!=="answer")return;
+    const ans=(await fb.get(`answers/${S.code}/${rid}`))||{};
+    const o=await judge(t,ans);
+    const ok=await fb.put("teams/"+S.code,applyOutcome(t,o),etag);
+    if(ok)fb.del(`answers/${S.code}/${rid-2}`);
+  }catch(e){console.error(e);}
+  finally{S.resolving=false;}
+}
+
+/* ============================== LOBBY ============================== */
+function rememberTeam(code,name){
+  S.myTeams=[{code,name},...S.myTeams.filter(x=>x.code!==code)].slice(0,12);LS.set("teams",S.myTeams);
+}
+function readName(){const el=$("#myname");const v=((el?el.value:S.myName)||"").trim().slice(0,24);if(v){S.myName=v;LS.set("name",v);}return v;}
+function randCode(){const a="ABCDEFGHJKMNPQRSTUVWXYZ23456789";let s="";for(let i=0;i<6;i++)s+=a[Math.floor(Math.random()*a.length)];return s;}
+const inviteLink=code=>location.origin+location.pathname+"#t-"+code;
+let lobbyRival="twins";
+function renderLobby(invite){
+  $("#teambar").innerHTML="";$("#homeBtn").hidden=true;
+  const main=$("#main");main.className="lobby";main.style.gridColumn="";
+  main.innerHTML=`
+  <div class="stage">
+    <div class="hero"><div class="eyebrow">A quiz climb for two</div>
+    <h2>Rope up, answer together, reach the summit.</h2>
+    <p>You and your partner climb one mountain, pitch by pitch. Each pitch is a different kind of question. Your rope team, your altitude and your record are saved, so you can stop at camp and carry on another night.</p></div>
+    ${sceneHtml("A rope team climbing a huge sandstone pillar from base camp to the summit")}
+    <div class="terrains" style="margin-top:14px">${Object.values(TERRAIN).map(x=>`<div><b>${x.name}</b>${esc(x.rule)}</div>`).join("")}</div>
+  </div>
+  <div class="cards">
+    ${invite?`<div class="card"><h3>You're invited</h3><p class="note">Join <strong>${esc(invite.name)}</strong>: add your name below, then press Join.</p></div>`:""}
+    <div class="card"><h3>Your name</h3>
+      <input type="text" id="myname" maxlength="24" placeholder="What your partner sees" value="${esc(S.myName)}" autocomplete="nickname">
+    </div>
+    <div class="card"><h3>Join your partner</h3>
+      <div class="row"><input type="text" id="jcode" maxlength="6" placeholder="Team code" autocomplete="off" style="text-transform:uppercase" value="${invite?esc(invite.code):""}"><button class="btn ${invite?"rope":""}" id="joinBtn">Join</button></div>
+      <div class="err" id="joinErr"></div><div id="seats"></div>
+    </div>
+    <div class="card"><h3>Start a rope team</h3>
+      <label class="note" for="tname">Team name</label>
+      <input type="text" id="tname" maxlength="32" placeholder="e.g. Kebnekaise Kids">
+      <div class="note">Race against</div>
+      <div class="seg" id="rivalSeg">${Object.entries(RIVALS).map(([k,v])=>`<button type="button" data-k="${k}" class="${k===lobbyRival?"sel":""}"><b>${v.name}</b>${v.desc}</button>`).join("")}</div>
+      <button class="btn ${invite?"":"rope"}" id="createBtn">Create rope team</button>
+      <div class="err" id="createErr"></div>
+    </div>
+    ${S.myTeams.length?`<div class="card"><h3>Your rope teams</h3><div class="teams">${S.myTeams.map(x=>`<button class="teamrow" data-code="${esc(x.code)}"><b>${esc(x.name)}</b><span>${esc(x.code)}</span></button>`).join("")}</div></div>`:""}
+  </div>`;
+  drawTopo(null);
+  main.querySelectorAll("#rivalSeg button").forEach(b=>b.onclick=()=>{lobbyRival=b.dataset.k;main.querySelectorAll("#rivalSeg button").forEach(x=>x.classList.toggle("sel",x===b));});
+  $("#myname").onchange=readName;
+  $("#createBtn").onclick=createTeam;
+  $("#joinBtn").onclick=()=>joinTeam();
+  $("#jcode").onkeydown=e=>{if(e.key==="Enter")joinTeam();};
+  main.querySelectorAll(".teamrow").forEach(b=>b.onclick=()=>openTeam(b.dataset.code));
+}
+async function createTeam(){
+  const err=$("#createErr");const me=readName();if(!me){err.textContent="Add your name first.";$("#myname").focus();return;}
+  const name=($("#tname").value||"").trim()||"Rope Team";const code=randCode();
+  const btn=$("#createBtn");btn.disabled=true;
+  const t={name,code,createdAt:Date.now(),createdBy:S.uid,members:{[S.uid]:{name:me,joined:Date.now()}},rival:lobbyRival,
+    exp:newExp(1),round:{id:0,phase:"ready"},log:[{at:Date.now(),text:`${name} roped up at base camp, ${fmt(ALT.base)} m.`}],stats:{rounds:0,summits:0,wins:0,echoes:0,falls:0}};
+  try{await fb.put("teams/"+code,t);rememberTeam(code,name);openTeam(code);}
+  catch(e){err.textContent="Couldn't create the team. Check your connection and try again.";btn.disabled=false;}
+}
+async function joinTeam(){
+  const code=($("#jcode").value||"").trim().toUpperCase();const err=$("#joinErr");err.textContent="";$("#seats").innerHTML="";
+  if(!/^[A-Z0-9]{6}$/.test(code)){err.textContent="Team codes are 6 letters and digits.";return;}
+  const me=readName();if(!me){err.textContent="Add your name first.";$("#myname").focus();return;}
+  try{
+    const {val,etag}=await fb.getTagged("teams/"+code);const t=fixTeam(val);
+    if(!t){err.textContent="No rope team with that code.";return;}
+    const ids=Object.keys(t.members);
+    if(ids.includes(S.uid)){rememberTeam(code,t.name);openTeam(code);return;}
+    if(ids.length>=2){
+      err.textContent="This rope team already has two climbers. Playing on a new device? Take over your own place:";
+      $("#seats").innerHTML=`<div class="actions" style="margin-top:8px">${ids.map(id=>`<button class="btn ghost" data-id="${esc(id)}">I'm ${esc(t.members[id].name||"this climber")}</button>`).join("")}</div>`;
+      $("#seats").querySelectorAll("button").forEach(b=>b.onclick=()=>takeSeat(code,b.dataset.id));
+      return;}
+    t.members[S.uid]={name:me,joined:Date.now()};
+    t.log=t.log.slice(-39);t.log.push({at:Date.now(),text:`${me} clipped into the rope.`});
+    if(!(await fb.put("teams/"+code,t,etag))){err.textContent="The team just changed. Press Join again.";return;}
+    rememberTeam(code,t.name);openTeam(code);
+  }catch(e){err.textContent="Couldn't join. Check your connection and try again.";}
+}
+async function takeSeat(code,old){
+  const err=$("#joinErr");
+  try{const {val,etag}=await fb.getTagged("teams/"+code);const t=fixTeam(val);if(!t||!t.members[old])return;
+    const m=t.members[old];delete t.members[old];t.members[S.uid]={...m,name:readName()||m.name};
+    if(t.round.leader===old)t.round.leader=S.uid;
+    if(t.round.votes[old]){t.round.votes[S.uid]=t.round.votes[old];delete t.round.votes[old];}
+    if(!(await fb.put("teams/"+code,t,etag))){err.textContent="The team just changed. Try again.";return;}
+    rememberTeam(code,t.name);openTeam(code);
+  }catch(e){err.textContent="Couldn't take over that place. Try again.";}
+}
+
+/* ============================== GAME SESSION ============================== */
+function closeTeam(){
+  S.unsubTeam?.();S.unsubAns?.();S.unsubPres?.();clearInterval(S.presTimer);
+  S.unsubTeam=S.unsubAns=S.unsubPres=null;S.team=null;S.code=null;S.answers={};S.ansRound=null;S.panelKey=null;S.online=new Set();S.pres={};
+}
+function goLobby(){closeTeam();try{history.replaceState(null,"",location.pathname+location.search);}catch(e){}renderLobby();}
+function beat(){if(S.code&&document.visibilityState==="visible")fb.put(`presence/${S.code}/${S.uid}`,Date.now()).catch(()=>{});}
+document.addEventListener("visibilitychange",beat);
+function updateOnline(){const now=Date.now();S.online=new Set(Object.entries(S.pres||{}).filter(([,v])=>now-v<60000).map(([k])=>k));if(S.team)renderBar();}
+function openTeam(code){
+  closeTeam();S.code=code;try{history.replaceState(null,"","#t-"+code);}catch(e){}
+  const main=$("#main");main.className="";main.innerHTML=`<div class="panel"><p class="note">Clipping in…</p></div>`;
+  let first=true;
+  S.unsubTeam=fb.listen("teams/"+code,raw=>{
+    const t=fixTeam(raw);
+    if(!t||!t.members[S.uid]){if(first||S.team){toast(t?"You're not on this rope team.":"That rope team doesn't exist.");goLobby();}return;}
+    first=false;S.team=t;S.names={};
+    for(const [id,m] of Object.entries(t.members))S.names[id]=m.name||"Partner";
+    if(t.round.id!==S.ansRound)subAnswers(t.round.id);
+    render();
+  });
+  beat();S.presTimer=setInterval(beat,25000);
+  S.unsubPres=fb.listen(`presence/${code}`,p=>{S.pres=p||{};updateOnline();});
+}
+function subAnswers(rid){
+  S.unsubAns?.();S.ansRound=rid;S.answers={};
+  S.unsubAns=fb.listen(`answers/${S.code}/${rid}`,a=>{S.answers=a||{};if(S.team)render();});
+}
+
+/* ============================== RENDER ============================== */
+function renderBar(){
+  const t=S.team;if(!t){$("#teambar").innerHTML="";return;}
+  const ids=memberIds(t);
+  $("#teambar").innerHTML=`<span class="teamname">${esc(t.name)}</span>
+   <button class="chip" id="codeChip" title="Copy invite link">${esc(t.code)} · copy invite link</button>
+   <span class="climbers">${ids.map(id=>`<span class="climber"><i class="dot ${id===S.uid||S.online.has(id)?"on":""}"></i>${esc(nameOf(id))}</span>`).join("")}${ids.length<2?'<span class="climber"><i class="dot"></i>Waiting for partner</span>':""}</span>`;
+  $("#codeChip").onclick=async()=>{const l=inviteLink(t.code);try{await navigator.clipboard.writeText(l);toast("Invite link copied");}catch(e){toast("Invite link: "+l);}};
+  $("#homeBtn").hidden=false;
+}
+function render(){
+  const t=S.team;if(!t)return;renderBar();
+  const main=$("#main");
+  if(!main.querySelector(".stage.game")){main.className="app";main.style.gridColumn="1/-1";
+    main.innerHTML=`<div class="stage game">${sceneHtml("Your rope team on the mountain")}<div class="hud" id="hud"></div></div><div class="panel" id="panel"></div>`;}
+  drawTopo(t);renderHud(t);renderPanel(t);
+}
+function renderHud(t){
+  const e=t.exp;const used=3-e.rope;
+  $("#hud").innerHTML=`
+   <div><div class="k">Altitude</div><div class="v">${fmt(altOf(e,e.pitch))} m</div></div>
+   <div><div class="k">Anchor</div><div class="v">${fmt(altOf(e,e.anchor))} m</div></div>
+   <div><div class="k">Rope</div><div class="v"><span class="ropes" aria-label="${e.rope} ropes left">${[0,1,2].map(i=>`<i class="${i<used?"used":""}"></i>`).join("")}</span></div></div>
+   <div><div class="k">${esc(RIVALS[t.rival].name)}</div><div class="v rival">${e.rivalTop?"Summit":fmt(e.rival.alt)+" m"}</div></div>`;
+}
+function remaining(r){return Math.max(0,(r.startedAt+r.dur*1000-Date.now())/1000);}
+function logHtml(t){const st=t.stats||{};
+  return `<div class="log"><h5>Expedition ${t.exp.n} · ${st.summits||0} summit${st.summits===1?"":"s"} · ${st.echoes||0} echoes${st.best?` · rarest: ${esc(st.best.answer)}`:""}</h5><ol>${(t.log||[]).slice().reverse().slice(0,14).map(l=>`<li><b>${new Date(l.at).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</b> ${esc(l.text)}</li>`).join("")}</ol></div>`;}
+
+function renderPanel(t){
+  const r=t.round;const panel=$("#panel");const mine=S.answers[S.uid];
+  const key=[r.id,r.phase,!!mine,memberIds(t).length,r.phase==="camp"?JSON.stringify(r.votes||{}):"",r.phase==="reveal"?r.resolvedAt:"",Object.values(S.names).join(",")].join("|");
+  if(key===S.panelKey){updateDynamic(t);return;}
+  S.panelKey=key;S.local={items:[],choice:null};
+  if(r.phase==="ready")panel.innerHTML=readyView(t);
+  else if(r.phase==="answer")panel.innerHTML=answerView(t,mine);
+  else if(r.phase==="reveal")panel.innerHTML=revealView(t);
+  else if(r.phase==="camp")panel.innerHTML=campView(t);
+  else if(r.phase==="summit")panel.innerHTML=summitView(t);
+  panel.insertAdjacentHTML("beforeend",logHtml(t));
+  wirePanel(t);updateDynamic(t);
+}
+function readyView(t){
+  const ids=memberIds(t);
+  return `<div class="eyebrow">Base camp · ${fmt(ALT.base)} m</div>
+   <div class="terrain">Expedition ${t.exp.n}</div>
+   <p class="rule">${ids.length<2?`Send your partner the invite link from the top bar (or the code <strong>${esc(t.code)}</strong>). You can start alone, but the Chimney and Overhang play best with two.`:"Both climbers are on the rope. Leader and belayer swap every pitch."} The first pitch is a ${TERRAIN[SEG0[0]].name}.</p>
+   <p class="rule">Falls are caught by your rope while it lasts (three per stage). With no rope left you drop to your last anchor. Camps restock rope.</p>
+   <button class="btn rope" id="goBtn">Start the climb</button>`;
+}
+function answerView(t,mine){
+  const r=t.round,q=qById(r.terrain,r.qid),T=TERRAIN[r.terrain];
+  const ids=memberIds(t);const lead=r.leader===S.uid;const solo=ids.length<2;
+  const head=`<div class="eyebrow">Pitch ${t.exp.pitch+1} · ${fmt(altOf(t.exp,t.exp.pitch))} m <span class="role ${lead?"lead":"belay"}">${lead?"You lead":"You belay"}</span></div>
+   <div class="terrain">${T.name}</div><p class="rule">${esc(T.rule)}</p>`;
+  const foot=`<div class="timer"><i id="timerBar"></i></div><div class="meta"><span id="timerTxt"></span><span id="partnerTxt"></span></div>`;
+  if(mine&&!(r.terrain==="overhang"&&!lead))return head+`<div class="prompt">${esc(promptText(r,q,lead,solo))}</div><div class="wait">Locked in: <strong>${esc(answerSummary(r.terrain,mine,q))}</strong></div>`+foot;
+  let body="";
+  if(r.terrain==="slab"||r.terrain==="chimney"){
+    body=`<div class="prompt">${esc(q.q)}</div><div class="row"><input type="text" id="ans" maxlength="60" autocomplete="off" placeholder="${r.terrain==="slab"&&!lead?"Your backup answer":"Your answer"}" aria-label="Your answer"><button class="btn rope" id="sendBtn">Lock in</button></div>`;
+  }else if(r.terrain==="crevasse"){
+    body=`<div class="prompt">${esc(q.q)}</div><div class="row"><input type="number" id="ans" inputmode="decimal" placeholder="Your estimate${q.u?" ("+q.u+")":""}" aria-label="Your estimate"><button class="btn rope" id="sendBtn">Jump</button></div>`;
+  }else if(r.terrain==="traverse"){
+    body=`<div class="prompt">${esc(q.q)}</div><div class="row"><input type="text" id="ans" maxlength="40" autocomplete="off" placeholder="Type one, press Enter" aria-label="Add an answer"><button class="btn ghost" id="addBtn">Add</button></div>
+     <div class="chips" id="chips"></div><div style="margin-top:12px"><button class="btn rope" id="sendBtn">Done, lock in my list</button></div>`;
+  }else if(r.terrain==="overhang"){
+    if(solo){body=`<div class="prompt">${esc(q.q)}</div><div class="opts">${q.o.map((x,i)=>`<button class="opt" data-i="${i}">${esc(x)}</button>`).join("")}</div>`;}
+    else if(lead){body=`<div class="prompt">Category: ${esc(q.cat)}</div><div class="wait" id="clueBox">Waiting for your belayer's clue…</div><div class="opts" style="margin-top:12px">${shuffleIdx(q.o.length,r.id).map(i=>`<button class="opt" data-i="${i}">${esc(q.o[i])}</button>`).join("")}</div>`;}
+    else{body=`<div class="prompt">${esc(q.q)}</div><div class="opts">${q.o.map((x,i)=>`<button class="opt ${i===q.c?"correct":""}" disabled>${esc(x)}${i===q.c?" ✓":""}</button>`).join("")}</div>
+      <p class="rule" style="margin-top:12px">Your leader sees only the four options. Send one word that points to the right one. Words from the options are not allowed.</p>
+      ${mine?`<div class="wait">Clue sent: <strong>${esc(mine.clue)}</strong></div>`:`<div class="row"><input type="text" id="ans" maxlength="20" autocomplete="off" placeholder="One-word clue" aria-label="One-word clue"><button class="btn rope" id="sendBtn">Send clue</button></div>`}`;}
+  }
+  return head+body+`<div class="err" id="ansErr"></div>`+foot;
+}
+function promptText(r,q,lead,solo){return r.terrain==="overhang"&&lead&&!solo?"Category: "+q.cat:q.q;}
+function answerSummary(terrain,a,q){
+  if(terrain==="crevasse")return fmt(a.num)+(q.u?" "+q.u:"");
+  if(terrain==="traverse")return (a.list||[]).length+" answers";
+  if(terrain==="overhang")return typeof a.choice==="number"?q.o[a.choice]:a.clue||"";
+  return a.text||"(blank)";}
+function shuffleIdx(n,seed){const a=[...Array(n).keys()];let s=seed*9301+49297;for(let i=n-1;i>0;i--){s=(s*9301+49297)%233280;const j=Math.floor(s/233280*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function revealView(t){
+  const o=t.round.result||{};const q=qById(t.round.terrain,t.round.qid);
+  const nextIsCamp=needsChoice(t.exp)>=0;const atTop=t.exp.pitch>=total(t.exp)&&t.exp.choice[1];
+  const canAnchor=!nextIsCamp&&!atTop&&t.exp.anchor!==t.exp.pitch;
+  return `<div class="eyebrow">${TERRAIN[t.round.terrain].name} · ${esc(q.q&&t.round.terrain!=="overhang"?q.q:q.cat||"")}</div>
+   <div class="headline ${o.tone||"good"}">${esc(o.headline)}</div>
+   ${o.detail?`<p class="rule">${esc(o.detail)}</p>`:""}
+   <div class="lines">${(o.lines||[]).map(l=>`<div class="line"><span class="who">${l.who?esc(nameOf(l.who))+(l.note?" · "+l.note:""):"Team"}</span><span class="what">${esc(l.text)}</span>${l.tag||"<span></span>"}</div>`).join("")}</div>
+   <div class="moves"><div><b>${esc(o.moveText||"")}</b></div>${o.arrived&&o.arrived!=="summit"?`<div>Reached ${esc(o.arrived)}. Anchor set and rope restocked.</div>`:""}<div class="r">${esc(o.rivalNote||"")}</div></div>
+   <div class="actions">${atTop?`<button class="btn rope" id="nextBtn">Stand on the summit</button>`:nextIsCamp?`<button class="btn rope" id="nextBtn">Rest at camp</button>`:`<button class="btn rope" id="nextBtn">Climb on</button>${canAnchor?`<button class="btn ghost" id="anchorBtn" title="Locks this height, but the rival gets a free move">Place anchor, then climb</button>`:""}`}</div>`;
+}
+function campView(t){
+  const f=FORKS[t.round.fork];const votes=t.round.votes||{};const ids=memberIds(t);
+  const lead=ids[t.round.id%ids.length]===S.uid||ids.length<2;const my=votes[S.uid];
+  const card=k=>{const x=f[k];const n=x.p.length;
+    return `<button class="route ${my===k?"sel":""}" data-k="${k}"><h4>${x.name}</h4><span>${esc(x.desc)}</span><span class="pp">${n} pitches · ${x.p.map(p=>TERRAIN[p].name).join(" · ")}</span><span class="votes">${ids.filter(i=>votes[i]===k).map(i=>esc(nameOf(i))).join(", ")||"&nbsp;"}</span></button>`;};
+  return `<div class="eyebrow">${f.camp} · ${fmt(altOf(t.exp,t.exp.pitch))} m · rope restocked</div>
+   <div class="terrain">Choose a route</div><p class="rule">Talk it over. Vote, then ${lead?"you":"your partner"} make${lead?"":"s"} the final call.</p>
+   <div class="routes">${card("A")}${card("B")}</div>
+   ${lead?`<button class="btn rope" id="setOffBtn" ${my?"":"disabled"}>${my?`Set off on ${f[my].name}`:"Vote to set off"}</button>`:`<p class="note">Waiting for your partner to set off.</p>`}`;
+}
+function summitView(t){const st=t.stats||{};const won=t.exp.finished==="won";
+  return `<div class="eyebrow">Summit · ${fmt(ALT.top)} m</div>
+   <div class="terrain">${t.exp.rivalTop&&!won?"Summit, second place":"Summit first"}</div>
+   <p class="rule">${t.exp.rivalTop&&!won?`${esc(RIVALS[t.rival].name)} got there before you. The mountain will be here next time.`:`You beat ${esc(RIVALS[t.rival].name)} to the top.`}</p>
+   <div class="lines">
+     <div class="line"><span class="who">Summits</span><span class="what">${st.summits||0} (${st.wins||0} won)</span><span></span></div>
+     <div class="line"><span class="who">Echoes</span><span class="what">${st.echoes||0}</span><span></span></div>
+     <div class="line"><span class="who">Pitches played</span><span class="what">${st.rounds||0}</span><span></span></div>
+     ${st.best?`<div class="line"><span class="who">Rarest</span><span class="what">${esc(st.best.answer)} <span class="note">for “${esc(st.best.prompt)}”</span></span><span class="tag"><span class="rar">${dots(st.best.tier)}</span></span></div>`:""}
+   </div>
+   <button class="btn rope" id="newExpBtn">Start a new expedition</button>`;}
+
+function wirePanel(t){
+  const r=t.round;const P=$("#panel");
+  P.querySelector("#goBtn")?.addEventListener("click",()=>advance(false));
+  P.querySelector("#nextBtn")?.addEventListener("click",()=>advance(false));
+  P.querySelector("#anchorBtn")?.addEventListener("click",()=>advance(true));
+  P.querySelector("#newExpBtn")?.addEventListener("click",newExpedition);
+  P.querySelectorAll(".route").forEach(b=>b.addEventListener("click",()=>vote(b.dataset.k)));
+  P.querySelector("#setOffBtn")?.addEventListener("click",()=>{const v=(t.round.votes||{})[S.uid];if(v)setOff(v);});
+  if(r.phase!=="answer")return;
+  const inp=P.querySelector("#ans"),send=P.querySelector("#sendBtn"),err=P.querySelector("#ansErr");
+  if(r.terrain==="traverse"&&inp){
+    const add=()=>{const v=inp.value.trim();if(!v)return;if(!S.local.items.some(x=>norm(x)===norm(v)))S.local.items.push(v);inp.value="";drawChips();};
+    inp.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();add();}});
+    P.querySelector("#addBtn").addEventListener("click",add);
+    send.addEventListener("click",()=>{add();submit({list:S.local.items.slice(0,80)});});
+  }else if(inp&&send){
+    const go=()=>{const q=qById(r.terrain,r.qid);
+      if(r.terrain==="crevasse"){const n=parseFloat(String(inp.value).replace(",","."));if(!isFinite(n)){err.textContent="Enter a number.";return;}submit({num:n});}
+      else if(r.terrain==="overhang"){const c=norm(inp.value);
+        if(!/^[a-z0-9]{2,20}$/.test(c.replace(/ /g,"_"))||c.includes(" ")){err.textContent="One word, letters only.";return;}
+        const banned=q.o.flatMap(x=>norm(x).split(" ")).filter(w=>w.length>=3);
+        if(banned.some(w=>c.includes(w)||w.includes(c)&&c.length>=4)){err.textContent="That word is in the options. Try another.";return;}
+        submit({clue:inp.value.trim()});}
+      else{if(!inp.value.trim()){err.textContent="Type an answer first.";return;}submit({text:inp.value.trim()});}};
+    send.addEventListener("click",go);inp.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();go();}});
+    if(!matchMedia("(hover:none)").matches)inp.focus();
+  }
+  P.querySelectorAll(".opt[data-i]").forEach(b=>b.addEventListener("click",()=>{if(S.answers[S.uid])return;P.querySelectorAll(".opt").forEach(x=>x.classList.toggle("sel",x===b));submit({choice:+b.dataset.i});}));
+  if(r.terrain==="traverse")drawChips();
+}
+function drawChips(){const c=$("#chips");if(!c)return;c.innerHTML=S.local.items.map(x=>`<span>${esc(x)}</span>`).join("");}
+
+function requiredIds(t){const r=t.round;const ids=memberIds(t);return r.terrain==="overhang"?[r.leader]:ids;}
+function updateDynamic(t){
+  const r=t.round;if(r.phase!=="answer")return;
+  const rem=remaining(r);const bar=$("#timerBar"),txt=$("#timerTxt"),ptx=$("#partnerTxt");
+  if(bar)bar.style.width=(100*rem/r.dur)+"%";
+  if(txt)txt.textContent=rem>0?`${Math.ceil(rem)} s`:"Time";
+  const pid=partnerId(t);
+  if(ptx)ptx.textContent=pid?(S.answers[pid]?`${nameOf(pid)} is locked in`:`${nameOf(pid)} is thinking…`):"";
+  const cb=$("#clueBox");if(cb){const c=pid&&S.answers[pid]?.clue;cb.innerHTML=c?`Clue from ${esc(nameOf(pid))}: <span class="clue">${esc(c)}</span>`:"Waiting for your belayer's clue…";}
+}
+
+/* ============================== TICK ============================== */
+let tickN=0;
+setInterval(()=>{
+  if(++tickN%20===0)updateOnline();
+  const t=S.team;if(!t||t.round.phase!=="answer")return;
+  updateDynamic(t);const r=t.round;const rem=remaining(r);
+  if(rem<=0&&!S.answers[S.uid]&&S._autoSent!==r.id){S._autoSent=r.id;
+    const inp=$("#ans");const lead=r.leader===S.uid;
+    if(r.terrain==="traverse")submit({list:S.local.items.concat(inp&&inp.value.trim()?[inp.value.trim()]:[])});
+    else if(r.terrain==="crevasse"){const n=parseFloat(String(inp?.value||"").replace(",","."));submit(isFinite(n)?{num:n}:{num:null});}
+    else if(r.terrain==="overhang"){if(lead)submit({choice:-1});}
+    else submit({text:inp?.value.trim()||""});}
+  const all=requiredIds(t).every(id=>S.answers[id]);
+  // the round's leader judges; the partner steps in if the leader is away or slow
+  const mine=r.leader===S.uid||!t.members[r.leader]||!S.online.has(r.leader)||rem<=-10;
+  if((all||rem<=-2)&&mine&&Date.now()-(S._lastTry||0)>2500){S._lastTry=Date.now();tryResolve();}
+},500);
+
+/* ============================== SCENE ============================== */
+/* A 1930s rubber-hose cartoon of the climb, drawn on a <canvas>: we watch the rope team from behind on the face
+   of a huge sandstone pillar, with the valley opening up on the left and the light warming from morning to sunset
+   as they gain height. Ink lines, watercolour fills and an old-film finish give the look; the motion is fluid:
+   climbers are procedural rigs with rubber-hose IK limbs (hands move hold to hold, the body follows on a spring,
+   feet step, pompoms and scarves trail), the rope is a verlet chain through the clipped bolts, and the camera
+   eases after the leader. Outlines "boil" at 12 fps like hand-inked frames.
+   World units: x across the face, y = 0 at the base-camp meadow and negative going up (WK per metre); holds sit
+   every HS units of height along the route. Static rock is painted once into cached chunks.
+   Event animations play off round.result, so both partners see the same climb. */
+const WK=1.6,HS=32,CHK=256,X0=100,XW=1150,SX=555;
+const WY=a=>-(a-ALT.base)*WK,TOPY=WY(ALT.top);
+const IDX_C1=Math.round(-WY(ALT.c1)/HS),IDX_C2=Math.round(-WY(ALT.c2)/HS),IDX_TOP=Math.round(-TOPY/HS);
+const RM=matchMedia("(prefers-reduced-motion: reduce)");
+const INK="#1d130f",CREAM="#fff3d6",TOON='"Luckiest Guy","Arial Black",sans-serif';
+const FX={cv:null,g:null,W:1,H:1,dpr:1,rs:1.5,raf:0,last:0,time:0,dt:0,ts:1,boil:0,ch:{main:0,rival:0},tw:[],A:null,exp:null,mode:"",state:null,
+  cam:null,camW:600,focus:"me",shake:0,kick:0,parts:[],pops:[],chunks:new Map(),lit:{c1:1,c2:1},litAt:{},rope:null,pins:[],visible:true,
+  birds:[],nextBird:2,wisps:[],nextWisp:1,motes:[],spr:null,label:null,sun:[0,0]};
+const DEMO={choice:["A","A"]};
+
+/* ---------- small maths ---------- */
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),lerp=(a,b,t)=>a+(b-a)*t;
+const ease=k=>k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2,smooth=k=>k*k*(3-2*k),backOut=k=>1+2.4*Math.pow(k-1,3)+1.4*Math.pow(k-1,2);
+function hash(x,y){let h=Math.imul(x|0,374761393)+Math.imul(y|0,668265263)|0;h=Math.imul(h^h>>>13,1274126177);return((h^h>>>16)>>>0)/4294967296;}
+function noise1(x){const i=Math.floor(x);return lerp(hash(i,7),hash(i+1,7),smooth(x-i));}
+const fbm=x=>noise1(x)*.55+noise1(x*2.1+11)*.28+noise1(x*4.3+23)*.17;
+const ridge=(x,sd)=>{const r=1-Math.abs(noise1(x*1.9+sd*1.3)*2-1);return fbm(x+sd)*.55+r*r*.45;};
+function rng(s){return()=>{s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const hexA=h=>{const n=parseInt(h.slice(1),16);return [n>>16,n>>8&255,n&255];};
+const rgb=(c,a=1)=>`rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a})`;
+const mixC=(a,b,t)=>a.map((v,i)=>lerp(v,b[i],t));
+const boilJ=(k,amt)=>(hash(FX.boil*37+k,k*13+5)-.5)*amt; // per-frame jitter for hand-inked lines
+function play(ms,fn,ch="main"){return new Promise(res=>FX.tw.push({t0:performance.now(),ms,fn,res,ch,id:ch?FX.ch[ch]:0}));}
+const wait=(ms,ch)=>play(ms,()=>{},ch);
+const SPK=`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path class="on" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path class="off" d="M16.5 9.5l5 5m0-5l-5 5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>`;
+const sceneHtml=label=>`<div class="scene"><canvas id="topo" role="img" aria-label="${esc(label)}"></canvas><div class="fx" id="fx" aria-hidden="true"></div><button class="snd" id="sndBtn" type="button" title="Sound" aria-label="Sound">${SPK}</button></div>`;
+
+/* ---------- sound: synthesised on the fly (no files), started by the first tap ---------- */
+const SND={ctx:null,out:null,noise:null,on:LS.get("sound",true),last:{}};
+function sndStart(){if(SND.ctx||!SND.on)return;const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
+  try{const c=SND.ctx=new AC(),o=SND.out=c.createGain();o.gain.value=.55;o.connect(c.destination);
+    const nb=c.createBuffer(1,c.sampleRate*2,c.sampleRate),d=nb.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;SND.noise=nb;
+    // wind off the valley: looping band-passed noise with a slow swell
+    const src=c.createBufferSource(),bp=c.createBiquadFilter(),wg=c.createGain(),lfo=c.createOscillator(),lg=c.createGain();
+    src.buffer=nb;src.loop=true;bp.type="bandpass";bp.frequency.value=420;bp.Q.value=.6;wg.gain.value=.05;lfo.frequency.value=.13;lg.gain.value=.035;
+    lfo.connect(lg);lg.connect(wg.gain);src.connect(bp);bp.connect(wg);wg.connect(o);src.start();lfo.start();}catch(e){SND.ctx=null;}}
+addEventListener("pointerdown",()=>{sndStart();if(SND.ctx&&SND.ctx.state==="suspended")SND.ctx.resume();},{passive:true});
+function sfx(kind){const c=SND.ctx;if(!c||!SND.on||c.state!=="running")return;const now=c.currentTime;
+  if(SND.last[kind]&&now-SND.last[kind]<.05)return;SND.last[kind]=now;
+  const osc=(type,f,f2,v,a,d,at=0)=>{const o=c.createOscillator(),gn=c.createGain();o.type=type;o.frequency.setValueAtTime(f,now+at);if(f2)o.frequency.exponentialRampToValueAtTime(f2,now+at+a+d);
+    gn.gain.setValueAtTime(0,now+at);gn.gain.linearRampToValueAtTime(v,now+at+a);gn.gain.exponentialRampToValueAtTime(.0001,now+at+a+d);o.connect(gn);gn.connect(SND.out);o.start(now+at);o.stop(now+at+a+d+.05);};
+  const hiss=(f,q,v,d,at=0)=>{const s=c.createBufferSource(),b=c.createBiquadFilter(),gn=c.createGain();s.buffer=SND.noise;b.type="bandpass";b.frequency.value=f;b.Q.value=q;
+    gn.gain.setValueAtTime(v,now+at);gn.gain.exponentialRampToValueAtTime(.0001,now+at+d);s.connect(b);b.connect(gn);gn.connect(SND.out);s.start(now+at,Math.random());s.stop(now+at+d+.05);};
+  if(kind==="grab"){hiss(1600,1.5,.2,.05);osc("sine",170+Math.random()*50,110,.1,.003,.08);}
+  else if(kind==="chalk")hiss(3200,.8,.05,.18);
+  else if(kind==="hup"){osc("square",330,560,.045,.01,.13);hiss(900,1,.06,.1);}
+  else if(kind==="whistle")osc("sine",1150,240,.08,.02,.75);
+  else if(kind==="boing"){osc("triangle",190,85,.26,.005,.5);osc("sine",380,170,.07,.005,.32);}
+  else if(kind==="thud"){osc("sine",130,60,.22,.005,.18);hiss(500,1,.1,.08);}
+  else if(kind==="crackle")hiss(2200+Math.random()*1800,4,.04+Math.random()*.05,.03);
+  else if(kind==="pop")osc("sine",520,940,.06,.005,.1);
+  else if(kind==="fanfare"||kind==="summit"){const n=kind==="summit"?[523,659,784,1047,880,1047,1319]:[392,494,587,784];
+    n.forEach((f,i)=>{osc("square",f,0,.045,.01,.15,i*.11);osc("triangle",f/2,0,.09,.01,.2,i*.11);});osc("triangle",n[n.length-1]/4,0,.12,.02,.6,n.length*.11);}}
+
+/* ---------- light: time of day follows altitude (morning at base camp, gold by Camp II, sunset on top) ---------- */
+const PAL=[
+ {u:0, skyT:"#8ec9c4",skyH:"#f8e6bf",sun:"#ffe28a",haze:"#ece4c8",far3:"#b4d0c2",far2:"#90b8a8",far1:"#6e9c8a",mid:"#c39566",lit:"#f6cf98",rock:"#dca26c",shade:"#8f5d55",fog:"#f6ecd2",tint:"#fff2d8",cloud:"#fffaf0"},
+ {u:.5,skyT:"#7fb8c8",skyH:"#fbd9a0",sun:"#ffd36a",haze:"#f1dab2",far3:"#c5cbb0",far2:"#a2b59b",far1:"#7d9781",mid:"#bc8a5c",lit:"#f9c584",rock:"#d9955e",shade:"#85524f",fog:"#f7e0ba",tint:"#ffe6bf",cloud:"#fff6e6"},
+ {u:1, skyT:"#5a5f9a",skyH:"#ff9f6a",sun:"#ffc76a",haze:"#f1ae90",far3:"#c897a2",far2:"#a27b98",far1:"#7c6288",mid:"#a66c5f",lit:"#ffad78",rock:"#c87c5c",shade:"#5d3f5c",fog:"#f3b9a1",tint:"#ffcaa2",cloud:"#ffe3d1"}]
+ .map(p=>{const o={u:p.u};for(const k in p)if(k!=="u")o[k]=hexA(p[k]);return o;});
+function palette(u){u=clamp(u,0,1);const a=PAL[u<.5?0:1],b=PAL[u<.5?1:2],t=(u-a.u)/(b.u-a.u),o={};for(const k in a)if(k!=="u")o[k]=mixC(a[k],b[k],t);return o;}
+const C0=PAL[0]; // rock is painted in neutral morning colours; the whole frame is graded per altitude afterwards
+
+/* ---------- geometry: the pillar, the route lanes and the holds ---------- */
+const uOf=y=>clamp(y/TOPY,0,1),topT=y=>Math.max(0,(uOf(y)-.78)/.22);
+const edgeL=y=>250+fbm(y*.004+3)*70+Math.pow(topT(y),1.5)*215;
+const edgeR=y=>uOf(y)<.78?2000:1150-Math.pow(topT(y),1.3)*540+fbm(y*.004+9)*40;
+const sideW=y=>26+fbm(y*.01+5)*22;
+const groundY=x=>3+Math.sin(x*.005)*5+(fbm(x*.008+2)-.5)*12;
+const LANE={s0:t=>420+38*Math.sin(Math.PI*2*t),
+  A0:t=>420-62*Math.sin(Math.PI*t)+14*Math.sin(Math.PI*3*t),B0:t=>420+92*Math.sin(Math.PI*t)-16*Math.sin(Math.PI*3*t),
+  A1:t=>lerp(420,SX,smooth(t))-58*Math.sin(Math.PI*t),B1:t=>lerp(420,SX,smooth(t))+70*Math.sin(Math.PI*t)};
+function laneX(ch,y){const a=ALT.base-y/WK;
+  if(a<=ALT.c1)return LANE.s0(clamp((a-ALT.base)/(ALT.c1-ALT.base),0,1));
+  if(a<=ALT.c2)return LANE[(ch[0]||"A")+"0"]((a-ALT.c1)/(ALT.c2-ALT.c1));
+  return LANE[(ch[1]||"A")+"1"](clamp((a-ALT.c2)/(ALT.top-ALT.c2),0,1));}
+const holdXY=(ch,i)=>[laneX(ch,-i*HS)+(i%2?13:-13)+(hash(i,3)-.5)*8,-i*HS+(hash(i,5)-.5)*7];
+const boltXY=(ch,i)=>[laneX(ch,-i*HS)+(hash(i,11)-.5)*6,-i*HS+12];
+const rivX=y=>{const u=uOf(y);return lerp(640+26*Math.sin(u*9),SX+60,smooth(clamp((u-.74)/.26,0,1)));};
+const rivHold=i=>[rivX(-i*HS)+(i%2?12:-12),-i*HS+(hash(i,8)-.5)*7];
+const idxOf=(exp,p)=>Math.round(-WY(altOf(exp,p))/HS);
+const rivIdx=alt=>Math.min(IDX_TOP,Math.round((alt-ALT.base)*WK/HS));
+function restSpot(i,m){if(i<=0){const x=m?382:420;return {x,y:groundY(x)};}
+  if(i===IDX_C1||i===IDX_C2)return {x:m?452:420,y:-i*HS};if(i>=IDX_TOP)return {x:m?SX+30:SX,y:TOPY};return null;}
+function mateIdx(li){if(li<=0||li===IDX_C1||li===IDX_C2||li>=IDX_TOP)return li;return Math.max(li>IDX_C2?IDX_C2:li>IDX_C1?IDX_C1:0,li-5);}
+
+/* ---------- ink helpers ---------- */
+function inkPath(g,w,a=1){g.lineJoin=g.lineCap="round";g.strokeStyle=a<1?`rgba(29,19,15,${a})`:INK;g.lineWidth=w;g.stroke();}
+function blob(g,fill,w){g.fillStyle=fill;g.fill();inkPath(g,w);}
+function star(g,x,y,r){g.beginPath();for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,rr=i%2?r*.45:r;g.lineTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr);}g.closePath();}
+
+/* ---------- painted rock, cached in chunks ---------- */
+function plant(g,x,y,typ,R){
+  if(typ<.45){for(let i=0;i<6;i++){const a=-Math.PI/2+(R()-.5)*1.2,l=7+R()*9;g.beginPath();g.moveTo(x+(R()-.5)*6,y);g.quadraticCurveTo(x+Math.cos(a)*l*.5,y+Math.sin(a)*l*.6,x+Math.cos(a)*l,y+Math.sin(a)*l);
+      g.strokeStyle=INK;g.lineWidth=2.6;g.lineCap="round";g.stroke();g.strokeStyle=i%2?"#8fae4f":"#6d8f3c";g.lineWidth=1.3;g.stroke();}}
+  else if(typ<.75){for(let i=0;i<5;i++){const bx=x+(R()-.5)*16,by=y-R()*7,r=4+R()*4;g.beginPath();g.arc(bx,by,r,0,7);blob(g,"#6f8f45",1.6);
+      g.fillStyle="rgba(190,214,120,.85)";g.beginPath();g.arc(bx-r*.3,by-r*.35,r*.45,0,7);g.fill();}}
+  else{const len=30+R()*60;g.beginPath();g.moveTo(x,y);g.bezierCurveTo(x+8,y+len*.3,x-8,y+len*.7,x+3,y+len);g.strokeStyle=INK;g.lineWidth=1.8;g.stroke();
+    for(let i=1;i<8;i++){const k=i/8;g.beginPath();g.ellipse(x+Math.sin(k*5)*5+(i%2?4:-4),y+len*k,3.2,1.8,i%2?.5:-.5,0,7);blob(g,"#86a64e",1.1);}}
+}
+function paintChunk(ci){
+  const c=document.createElement("canvas"),rs=FX.rs,yTop=-(ci+1)*CHK,yBot=-ci*CHK+2;
+  c.width=Math.ceil(XW*rs);c.height=Math.ceil((CHK+2)*rs);
+  if(yBot<TOPY)return c;
+  const g=c.getContext("2d"),C=C0,R=rng(ci*977+13),ys=[];
+  g.scale(rs,rs);g.translate(-X0,-yTop);
+  for(let y=Math.max(yTop-8,TOPY);y<yBot+12;y+=8)ys.push(y);
+  const rx=y=>Math.min(edgeR(y),X0+XW+20);
+  const poly=(l,r)=>{const p=new Path2D();p.moveTo(l(ys[0]),ys[0]);for(const y of ys)p.lineTo(l(y),y);for(let i=ys.length-1;i>=0;i--)p.lineTo(r(ys[i]),ys[i]);p.closePath();return p;};
+  // the sunlit side of the pillar
+  const side=poly(y=>edgeL(y)-sideW(y),edgeL);
+  let gr=g.createLinearGradient(200,0,340,0);gr.addColorStop(0,rgb(mixC(C.lit,[255,244,222],.45)));gr.addColorStop(1,rgb(C.lit));g.fillStyle=gr;g.fill(side);
+  g.save();g.clip(side);g.strokeStyle="rgba(29,19,15,.28)";g.lineWidth=1.4;g.lineCap="round";
+  for(let k=Math.floor(-yBot/34)-1;k<=Math.ceil(-yTop/34)+1;k++){const y=-k*34+(hash(k,4)-.5)*10;g.beginPath();g.moveTo(180,y);g.lineTo(380,y+(hash(k,6)-.5)*10);g.stroke();}
+  g.restore();
+  if(ys.some(y=>edgeR(y)<X0+XW)){const rsd=poly(rx,y=>rx(y)+sideW(y)*.8);g.fillStyle=rgb(mixC(C.rock,C.shade,.6));g.fill(rsd);g.save();g.clip(rsd);
+    g.strokeStyle="rgba(29,19,15,.35)";g.lineWidth=1.2;for(let y=yTop;y<yBot;y+=6){g.beginPath();g.moveTo(700,y);g.lineTo(1300,y+60);g.stroke();}g.restore();}
+  // the face: watercolour planes with inked edges
+  const face=poly(edgeL,rx);
+  g.fillStyle=rgb(C.rock);g.fill(face);g.save();g.clip(face);
+  const CW=150,CR=118,V=(r,col)=>[X0+col*CW+(hash(r*31+col,1)-.5)*CW*.7+(r&1)*CW*.5,-r*CR+(hash(r*17+col,2)-.5)*CR*.6];
+  const ink=[];
+  for(let r=Math.floor(-yBot/CR)-1;r<=Math.ceil(-yTop/CR)+1;r++)for(let col=-1;col<=8;col++){
+    const a=V(r,col),b=V(r,col+1),cc=V(r+1,col+1),d=V(r+1,col),tris=hash(r*7+col,3)<.5?[[a,b,cc],[a,cc,d]]:[[a,b,d],[b,cc,d]];
+    tris.forEach((tr,k)=>{const sh=hash(r*13+col*5+k,4),col2=rgb(sh<.5?mixC(C.rock,C.shade,(.5-sh)*.95):mixC(C.rock,C.lit,(sh-.5)*1.3));
+      g.fillStyle=g.strokeStyle=col2;g.lineWidth=1;g.beginPath();g.moveTo(tr[0][0],tr[0][1]);g.lineTo(tr[1][0],tr[1][1]);g.lineTo(tr[2][0],tr[2][1]);g.closePath();g.fill();g.stroke();
+      if(sh<.24){g.save();g.clip();g.strokeStyle="rgba(29,19,15,.22)";g.lineWidth=1.1;const x0=Math.min(tr[0][0],tr[1][0],tr[2][0]),y0=Math.min(tr[0][1],tr[1][1],tr[2][1]);
+        for(let h=0;h<CW*2;h+=7){g.beginPath();g.moveTo(x0+h,y0);g.lineTo(x0+h-CR,y0+CR);g.stroke();}g.restore();}});
+    ink.push([d,cc,"lit"],[a,d,"ink",hash(r*3+col,6)],[a,cc,"ink2",hash(r*5+col,8)]);}
+  // broad watercolour washes so the face reads as big sculpted masses
+  for(let x=X0;x<X0+XW;x+=60)for(let y=Math.floor(yTop/60)*60;y<yBot;y+=60){const n=fbm(x*.0021+y*.0013+40)*.6+fbm(y*.0031-x*.0009+7)*.4-.5;
+    g.fillStyle=n<0?rgb(C.shade,Math.min(.24,-n*.6)):rgb(C.lit,Math.min(.2,n*.45));g.fillRect(x,y,60,60);}
+  gr=g.createLinearGradient(260,0,X0+XW,0);gr.addColorStop(0,"rgba(255,236,200,.16)");gr.addColorStop(.45,"rgba(255,236,200,0)");gr.addColorStop(1,rgb(C.shade,.2));
+  g.fillStyle=gr;g.fillRect(X0,yTop,XW,CHK+2);
+  for(const [p,q,k,h] of ink){g.beginPath();g.moveTo(p[0],p[1]);g.lineTo(q[0],q[1]);
+    if(k==="lit"){g.strokeStyle="rgba(255,240,210,.45)";g.lineWidth=2.2;g.stroke();}
+    else if(k==="ink"&&h<.7){inkPath(g,1.3+h*1.8,.7);}else if(k==="ink2"&&h<.25){inkPath(g,1.2,.45);}}
+  // sandstone strata: broken inked lines with a light lip
+  g.setLineDash([22,9,7,12]);
+  for(let k=Math.floor(-yBot/46)-1;k<=Math.ceil(-yTop/46)+1;k++){const base=-k*46+(hash(k,9)-.5)*12;g.beginPath();
+    for(let x=X0;x<=X0+XW;x+=24){const y=base+Math.sin(x*.013+k*1.7)*5+Math.sin(x*.041+k)*2;x===X0?g.moveTo(x,y):g.lineTo(x,y);}
+    g.lineDashOffset=hash(k,2)*40;inkPath(g,1.5,.45);g.translate(0,-2.6);g.strokeStyle="rgba(255,240,210,.32)";g.lineWidth=1.4;g.stroke();g.translate(0,2.6);}
+  g.setLineDash([]);
+  // small jutting ledges: light lip, ink underline, hatched shadow
+  for(let k=0;k<2;k++)if(R()<.55){const y=yTop+30+R()*(CHK-60),x0=X0+120+R()*700,w=60+R()*160;
+    g.save();g.beginPath();g.rect(x0,y,w,20);g.clip();g.strokeStyle="rgba(29,19,15,.3)";g.lineWidth=1.1;for(let h=-20;h<w;h+=6){g.beginPath();g.moveTo(x0+h,y);g.lineTo(x0+h+14,y+20);g.stroke();}g.restore();
+    g.beginPath();g.moveTo(x0,y);g.quadraticCurveTo(x0+w/2,y-3,x0+w,y+1);g.strokeStyle="rgba(255,240,210,.8)";g.lineWidth=3;g.stroke();g.translate(0,2.4);inkPath(g,1.8,.85);g.translate(0,-2.4);}
+  for(let k=0;k<4;k++){let x=X0+150+R()*800,y=yTop+R()*CHK;g.beginPath();g.moveTo(x,y);for(let j=0;j<6;j++){x+=(R()-.5)*14;y+=8+R()*12;g.lineTo(x,y);}inkPath(g,2.1,.85);}
+  for(let k=0;k<420;k++){g.fillStyle=R()<.5?"rgba(255,240,210,.14)":"rgba(29,19,15,.1)";g.fillRect(X0+R()*XW,yTop+R()*CHK,.6+R()*1.4,.6+R()*1.4);}
+  for(let k=0;k<7;k++)plant(g,X0+60+R()*(XW-120),yTop+R()*CHK,R(),R);
+  g.restore();
+  // heavy ink on the pillar's silhouette
+  const edge=(f)=>{g.beginPath();ys.forEach((y,i)=>i?g.lineTo(f(y),y):g.moveTo(f(y),y));};
+  edge(edgeL);g.strokeStyle="rgba(255,240,214,.55)";g.lineWidth=5;g.stroke();edge(y=>edgeL(y)+1.6);inkPath(g,2.4,.9);
+  edge(y=>edgeL(y)-sideW(y));inkPath(g,4.4);
+  if(ys.some(y=>edgeR(y)<X0+XW)){edge(rx);inkPath(g,3.6);}
+  for(let k=0;k<2;k++){const y=yTop+R()*CHK;plant(g,edgeL(y)-sideW(y)+2,y,.8+R()*.2,R);}
+  return c;
+}
+function chunk(ci){let c=FX.chunks.get(ci);if(c){FX.chunks.delete(ci);FX.chunks.set(ci,c);return c;}
+  c=paintChunk(ci);FX.chunks.set(ci,c);if(FX.chunks.size>18)FX.chunks.delete(FX.chunks.keys().next().value);return c;}
+const chunkRange=(vy0,vy1)=>[Math.max(-1,Math.floor(-vy1/CHK)),Math.min(Math.floor(-TOPY/CHK),Math.floor(-vy0/CHK))];
+
+/* ---------- sprites ---------- */
+function makeSprites(){
+  const puff=document.createElement("canvas");puff.width=puff.height=128;let g=puff.getContext("2d");
+  let gr=g.createRadialGradient(64,64,0,64,64,64);gr.addColorStop(0,"rgba(255,255,255,1)");gr.addColorStop(.5,"rgba(255,255,255,.5)");gr.addColorStop(1,"rgba(255,255,255,0)");g.fillStyle=gr;g.fillRect(0,0,128,128);
+  const grain=document.createElement("canvas");grain.width=grain.height=192;g=grain.getContext("2d");const d=g.createImageData(192,192);
+  for(let i=0;i<d.data.length;i+=4){const v=Math.random()*255;d.data[i]=d.data[i+1]=d.data[i+2]=v;d.data[i+3]=255;}g.putImageData(d,0,0);
+  return {puff,grain};
+}
+
+/* ---------- climbers: rubber-hose rigs, seen from behind until they turn round to cheer ---------- */
+const BASE={boot:"#6b3a1f",pk:"#a4733f",pkl:"#c9935a",pkd:"#7c522b",roll:"#4f9a8f",rope:"#e0472b",skin:"#ffd7b0",hair:"#5a3523",pom:CREAM};
+const LOOK={me:{...BASE,jk:"#e0472b",jkd:"#a92f1a",pt:"#2f4a6b",hat:"#f2b233",hatd:"#c98c1c",sc:"#fff3d6"},
+  mate:{...BASE,jk:"#2f8f8a",jkd:"#1f6662",pt:"#6b4a2e",hat:"#e0472b",hatd:"#a92f1a",sc:"#f2b233",hair:"#2b1d14"},
+  rival:{...BASE,jk:"#3f6fb5",jkd:"#2b4f86",pt:"#2a2f3e",hat:"#e8e0c8",hatd:"#b8ae90",sc:"#a8c4ec",pk:"#7d7c86",pkl:"#9d9ca6",pkd:"#5d5c66"}};
+function ik(rx,ry,tx,ty,a,b,bend){let dx=tx-rx,dy=ty-ry,d=Math.hypot(dx,dy)||1e-4;const m=a+b-.01;if(d>m){tx=rx+dx/d*m;ty=ry+dy/d*m;d=m;}
+  const ang=Math.atan2(ty-ry,tx-rx),j=ang+bend*Math.acos(clamp((a*a+d*d-b*b)/(2*a*d),-1,1));return [rx+Math.cos(j)*a,ry+Math.sin(j)*a,tx,ty];}
+// rubber hose: one smooth curve through the IK joint instead of a hinge
+function hose(g,ax,ay,jx,jy,ex,ey,w,col,k){const cx=2*jx-(ax+ex)/2+boilJ(k,1.2),cy=2*jy-(ay+ey)/2+boilJ(k+1,1.2);
+  g.beginPath();g.moveTo(ax,ay);g.quadraticCurveTo(cx,cy,ex,ey);g.lineCap="round";g.strokeStyle=INK;g.lineWidth=w+2.8;g.stroke();g.strokeStyle=col;g.lineWidth=w;g.stroke();}
+function rr(g,x,y,w,h,r){g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath();}
+function fly(o,dt){const F=o.f;F.t+=dt;const k=Math.min(1,F.t/F.d),e=F.back?backOut(k):ease(k);o.x=lerp(F.x0,F.x1,e);o.y=lerp(F.y0,F.y1,e)-(F.oy||0)*Math.sin(Math.PI*k);
+  if(k>=1){o.f=null;return true;}return false;}
+let RIG_ID=0;
+class Rig{
+  constructor(L,hold,rest,s=1){this.L=L;this.hold=hold;this.rest=rest;this.s=s;this.id=++RIG_ID;this.mode="stand";this.N={x:0,y:0};this.v={x:0,y:0};this.lean=0;
+    this.h=[{x:0,y:0,f:null,i:0,sq:0},{x:0,y:0,f:null,i:0,sq:0}];this.ft=[{x:0,y:0,f:null},{x:0,y:0,f:null}];this.hi=0;this.gx=0;this.gy=0;
+    this.cheer=0;this.dizzy=0;this.fall=null;this.fid=null;this.lastMove=0;this.sq=0;this.sqv=0;this.pp={x:0,y:0,vx:0,vy:0};this.cnt=0;
+    this.sc=Array.from({length:7},()=>({x:0,y:0,px:0,py:0}));this.ph=Math.random()*6;}
+  front(){return this.cheer>0||this.dizzy>0||this.mode==="fall";}
+  shoulders(){const s=this.s;return [{x:this.N.x-8*s,y:this.N.y+3*s},{x:this.N.x+8*s,y:this.N.y+3*s}];}
+  pelvis(){return {x:this.N.x+Math.sin(this.lean)*22*this.s,y:this.N.y+Math.cos(this.lean)*22*this.s};}
+  moved(){if(this.fid&&this.mode==="climb"){const h=this.h[this.fid.j],[x,y]=this.hold(h.i);this.flyHand(h,x,y,.18,1);}this.lastMove=FX.time;this.fid=null;}
+  standAt(x,y){const s=this.s;this.moved();this.mode="stand";this.fall=null;this.gx=x;this.gy=y;this.N.x=x;this.N.y=y-55*s;this.v.x=this.v.y=0;this.lean=0;const S=this.shoulders();
+    this.h.forEach((h,j)=>{h.f=null;h.x=S[j].x+(j?4:-4)*s;h.y=S[j].y+28*s;});this.ft.forEach((f,j)=>{f.f=null;f.x=x+(j?7:-7)*s;f.y=y;});this.settleTrail();}
+  grab(i){const s=this.s;this.moved();this.mode="climb";this.fall=null;this.hi=i;const a=this.hold(i),b=this.hold(i-1),hh=this.h[i&1],hl=this.h[(i+1)&1];
+    hh.x=a[0];hh.y=a[1];hh.i=i;hl.x=b[0];hl.y=b[1];hl.i=i-1;hh.f=hl.f=null;this.N.x=(a[0]+b[0])/2;this.N.y=(a[1]+b[1])/2+15*s;this.v.x=this.v.y=0;this.lean=0;
+    const P=this.pelvis();this.ft.forEach((f,j)=>{f.f=null;f.x=P.x+(j?13:-13)*s;f.y=P.y+29*s;});this.settleTrail();}
+  flyHand(h,x,y,d,back){h.f={x0:h.x,y0:h.y,x1:x,y1:y,t:0,d,oy:7*this.s,back};}
+  stepUp(d){this.moved();const n=this.hi+1,h=this.h[n&1];h.i=n;this.hi=n;const [x,y]=this.hold(n);this.flyHand(h,x,y,d,1);this.v.y+=40*this.s;} // a little dip before each reach
+  dyno(d){this.moved();const a=this.hi+1,b=this.hi+2;this.hi=b;[a,b].forEach(k=>{const h=this.h[k&1];h.i=k;const [x,y]=this.hold(k);this.flyHand(h,x,y,d,1);h.f.oy=20*this.s;});
+    this.v.y-=240*this.s;this.sq=.2;this.sqv=0;}
+  stepDown(d){this.moved();const n=this.hi-2;if(n<0)return;const h=this.h[this.hi&1];h.i=n;this.hi--;const [x,y]=this.hold(n);this.flyHand(h,x,y,d);h.f.oy=-3;}
+  reachFrom(i,d){this.moved();this.mode="climb";this.fall=null;this.hi=i;[i,i-1].forEach(k=>{const h=this.h[k&1];h.i=k;const [x,y]=this.hold(k);this.flyHand(h,x,y,d,1);});}
+  startFall(ax,ay,len){this.moved();this.mode="fall";this.fall={ax,ay,len,caught:0};this.v.y=-70;this.v.x=(Math.random()-.5)*40;this.h.forEach(h=>h.f=null);}
+  settleTrail(){this.sc.forEach((p,i)=>{p.x=p.px=this.N.x+2*this.s+i*4;p.y=p.py=this.N.y+this.s;});Object.assign(this.pp,{x:this.N.x,y:this.N.y-28*this.s,vx:0,vy:0});}
+  update(dt,t){
+    const s=this.s,me=this===FX.A.me||this===FX.A.mate;
+    this.h.forEach((h,j)=>{if(h.f&&fly(h,dt)&&this.mode==="climb"){h.sq=1;puff(h.x,h.y);if(me){sfx("grab");if(Math.random()<.3)sfx("chalk");}}h.sq*=Math.exp(-dt*9);});
+    // idle fidgets keep them alive while the quiz runs: shake out an arm, chalk up, or look up the route from a ledge
+    const idle=FX.time-this.lastMove;
+    if(!this.fid&&!RM.matches&&idle>2.6+this.ph%2.5&&Math.random()<dt*.6){
+      if(this.mode==="climb"&&!this.h[0].f&&!this.h[1].f){const j=this.h[0].i<this.h[1].i?0:1;this.fid={k:Math.random()<.55?"shake":"chalk",j,t:0,d:1.3};}
+      else if(this.mode==="stand"&&this.cheer<=0)this.fid={k:"look",j:1,t:0,d:1.8};}
+    if(this.fid){const F=this.fid;F.t+=dt;if(F.t>=F.d){const h=this.h[F.j];this.fid=null;this.lastMove=FX.time;if(this.mode==="climb"){const [x,y]=this.hold(h.i);this.flyHand(h,x,y,.24,1);}}
+      else if(F.k==="chalk"&&F.t>.55&&!F.puffed){F.puffed=1;const h=this.h[F.j];puff(h.x,h.y);}}
+    const anchorOf=j=>this.fid&&this.fid.j===j&&this.mode==="climb"?(()=>{const [x,y]=this.hold(this.h[j].i);return {x,y};})():this.h[j];
+    let tx=this.N.x,ty=this.N.y,k=95;
+    if(this.mode==="climb"){const a=anchorOf(0),b=anchorOf(1),mx=(a.x+b.x)/2;tx=mx+Math.sin(t*1.1+this.ph)*1.2;ty=(a.y+b.y)/2+15*s;
+      this.lean=lerp(this.lean,clamp((this.N.x-mx)*.02+Math.sin(t*.9+this.ph)*.04,-.3,.3),1-Math.exp(-dt*5));}
+    else if(this.mode==="stand"){tx=this.gx;ty=this.gy-55*s+Math.sin(t*1.9+this.ph)*.6;k=60;
+      if(this.cheer>0){this.cheer-=dt;ty-=Math.max(0,Math.sin(t*7))*8*s;}this.lean=lerp(this.lean,0,1-Math.exp(-dt*4));}
+    if(this.mode==="fall"){const F=this.fall;this.v.y+=900*dt;this.N.x+=this.v.x*dt;this.N.y+=this.v.y*dt;
+      const dx=this.N.x-F.ax,dy=this.N.y-F.ay,d=Math.hypot(dx,dy);
+      if(d>F.len){const nx=dx/d,ny=dy/d,vr=this.v.x*nx+this.v.y*ny;this.N.x=F.ax+nx*F.len;this.N.y=F.ay+ny*F.len;
+        if(vr>0){this.v.x-=nx*vr*1.4;this.v.y-=ny*vr*1.4;if(!F.caught){F.caught=1;this.sq=-.25;if(this.onCatch)this.onCatch(vr);}}}
+      const dm=Math.pow(.5,dt);this.v.x*=dm;this.v.y*=dm;
+      this.lean=lerp(this.lean,clamp(-this.v.x*.004,-.7,.7)+Math.sin(t*7)*.12,1-Math.exp(-dt*6));}
+    else{const c=2*Math.sqrt(k);this.v.x+=((tx-this.N.x)*k-this.v.x*c)*dt;this.v.y+=((ty-this.N.y)*k-this.v.y*c)*dt;this.N.x+=this.v.x*dt;this.N.y+=this.v.y*dt;}
+    if(this.dizzy>0)this.dizzy-=dt;
+    this.sqv+=(-this.sq*170-this.sqv*12)*dt;this.sq+=this.sqv*dt;
+    const S=this.shoulders();
+    this.h.forEach((h,j)=>{if(h.f)return;const sd=j?1:-1,F=this.fid&&this.fid.j===j?this.fid:null;let x,y,r=10;
+      if(F&&F.k==="shake"){x=S[j].x+sd*9*s+Math.sin(t*34)*3*s;y=S[j].y+27*s+Math.cos(t*29)*2*s;r=22;}
+      else if(F&&F.k==="chalk"){const P=this.pelvis();x=P.x+sd*10*s;y=P.y-2*s;r=12;}
+      else if(F&&F.k==="look"){x=this.N.x+3*s;y=this.N.y-14*s;r=9;}
+      else if(this.mode==="climb")return;
+      else if(this.mode==="fall"){x=S[j].x+sd*(11+Math.sin(t*21+j*2)*5)*s;y=S[j].y-(22+Math.cos(t*17+j)*7)*s;r=16;}
+      else if(this.cheer>0){x=S[j].x+sd*(12+Math.sin(t*10+j)*3)*s;y=S[j].y-28*s+Math.sin(t*14+j*2)*4*s;r=14;}
+      else{x=S[j].x+sd*4*s;y=S[j].y+28*s+Math.sin(t*1.6+j*1.3)*.8;}
+      const q=1-Math.exp(-dt*r);h.x=lerp(h.x,x,q);h.y=lerp(h.y,y,q);});
+    const P=this.pelvis();
+    this.ft.forEach((f,j)=>{const sd=j?1:-1;
+      if(this.mode==="fall"){const q=1-Math.exp(-dt*14);f.f=null;f.x=lerp(f.x,P.x+sd*(6+Math.sin(t*15+j*3)*6)*s,q);f.y=lerp(f.y,P.y+(32+Math.cos(t*12+j)*4)*s,q);return;}
+      if(f.f){if(fly(f,dt)&&this.mode==="stand"&&me&&Math.random()<.5)sfx("thud");return;}
+      const st=this.mode==="stand",ix=st?this.gx+sd*7*s:P.x+sd*13*s,iy=st?this.gy:P.y+(29+(j?-4:4))*s;
+      if(Math.hypot(ix-f.x,iy-f.y)>(st?3:16)*s&&!this.ft[1-j].f)f.f={x0:f.x,y0:f.y,x1:ix,y1:iy-(st?0:6*s),t:0,d:.2,oy:5*s};});
+    // trailing bits: scarf in the wind, pompom on a spring
+    const sc=this.sc,ax=this.N.x+2*s,ay=this.N.y+s,wind=(150+Math.sin(t*1.7+this.ph)*60+noise1(t*2+this.ph)*90)*s;
+    for(let i=1;i<sc.length;i++){const p=sc[i],vx=(p.x-p.px)*.96,vy=(p.y-p.py)*.96;p.px=p.x;p.py=p.y;p.x+=vx+wind*dt*dt;p.y+=vy+260*dt*dt;}
+    sc[0].x=ax;sc[0].y=ay;
+    for(let it=0;it<3;it++)for(let i=1;i<sc.length;i++){const a=sc[i-1],b=sc[i],dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1,df=(d-4.4*s)/d;
+      if(i===1){b.x-=dx*df;b.y-=dy*df;}else{a.x+=dx*df*.5;a.y+=dy*df*.5;b.x-=dx*df*.5;b.y-=dy*df*.5;}}
+    const pp=this.pp,hx=this.N.x,hy=this.N.y-31*s*(1+this.sq*.5);pp.vx+=((hx-pp.x)*140-pp.vx*9+wind*.15)*dt;pp.vy+=((hy-pp.y)*140-pp.vy*9)*dt;pp.x+=pp.vx*dt;pp.y+=pp.vy*dt;
+    const pd=Math.hypot(pp.x-hx,pp.y-hy);if(pd>7*s){pp.x=hx+(pp.x-hx)/pd*7*s;pp.y=hy+(pp.y-hy)/pd*7*s;}
+  }
+  draw(g,t){
+    const s=this.s,L=this.L,P=this.pelvis(),front=this.front(),sx=1-this.sq*.6,sy=1+this.sq;
+    const q=p=>({x:P.x+(p.x-P.x)*sx,y:P.y+(p.y-P.y)*sy}),N=q(this.N),S=this.shoulders().map(q),id=this.id*50;
+    let gr=g.createRadialGradient(N.x+9*s,N.y+18*s,2,N.x+9*s,N.y+18*s,34*s);gr.addColorStop(0,"rgba(60,30,40,.26)");gr.addColorStop(1,"rgba(60,30,40,0)");
+    if(this.mode!=="fall"){g.fillStyle=gr;g.fillRect(N.x-30*s,N.y-20*s,80*s,80*s);}
+    // legs and big cartoon boots
+    for(let j=0;j<2;j++){const f=this.ft[j],hx=P.x+(j?6:-6)*s,[kx,ky,fx,fy]=ik(hx,P.y,f.x,f.y,18*s,18*s,j?-1:1);
+      hose(g,hx,P.y,kx,ky,fx,fy,7*s,L.pt,id+j*7);
+      g.beginPath();g.ellipse(fx+(j?2:-2)*s,fy+1.2*s,6.4*s,4.2*s,(j?.12:-.12),0,7);blob(g,L.boot,1.8*s);
+      g.fillStyle="rgba(255,236,206,.55)";g.beginPath();g.ellipse(fx+(j?.5:-3.5)*s,fy-.6*s,2*s,1.1*s,0,0,7);g.fill();}
+    const jx=boilJ(id+20,.7*s),jy=boilJ(id+21,.7*s);g.save();g.translate(jx,jy);
+    // bean-shaped body
+    g.beginPath();g.moveTo(S[0].x-2.5*s,S[0].y-1*s);g.quadraticCurveTo(N.x,N.y-5*s,S[1].x+2.5*s,S[1].y-1*s);g.quadraticCurveTo(P.x+12*s,lerp(N.y,P.y,.6),P.x+8*s,P.y+2*s);
+    g.quadraticCurveTo(P.x,P.y+6*s,P.x-8*s,P.y+2*s);g.quadraticCurveTo(P.x-12*s,lerp(N.y,P.y,.6),S[0].x-2.5*s,S[0].y-1*s);g.closePath();
+    gr=g.createLinearGradient(N.x-12*s,0,N.x+12*s,0);gr.addColorStop(0,L.jk);gr.addColorStop(.6,L.jk);gr.addColorStop(1,L.jkd);blob(g,gr,2.2*s);
+    if(front){g.beginPath();g.moveTo(N.x,N.y+2*s);g.lineTo(N.x,P.y);inkPath(g,1.4*s);for(const d of [-1,1]){g.beginPath();g.arc(N.x+d*3*s,lerp(N.y,P.y,.5),1.3*s,0,7);g.fillStyle=INK;g.fill();}}
+    else if(!L.nopack){g.save();g.translate(lerp(N.x,P.x,.45),lerp(N.y,P.y,.45));g.rotate(-this.lean);
+      rr(g,-12*s,-12*s,24*s,25*s,6*s);gr=g.createLinearGradient(-12*s,0,12*s,0);gr.addColorStop(0,L.pkl);gr.addColorStop(.55,L.pk);gr.addColorStop(1,L.pkd);blob(g,gr,2*s);
+      rr(g,-12*s,-12*s,24*s,9*s,5*s);blob(g,L.pkd,1.6*s);g.beginPath();g.arc(0,-4*s,2*s,0,7);blob(g,"#f2b233",1.2*s);
+      g.beginPath();g.moveTo(-5*s,-2*s);g.lineTo(-5*s,11*s);g.moveTo(5*s,-2*s);g.lineTo(5*s,11*s);inkPath(g,1.2*s,.7);
+      g.beginPath();g.ellipse(12*s,3*s,4.8*s,7.6*s,0,0,7);g.strokeStyle=INK;g.lineWidth=5*s;g.stroke();g.strokeStyle=L.rope;g.lineWidth=2.6*s;g.stroke();
+      rr(g,-15*s,-19*s,30*s,8.5*s,4.2*s);blob(g,L.roll,1.8*s);g.beginPath();g.moveTo(-8*s,-19*s);g.lineTo(-8*s,-10.5*s);g.moveTo(8*s,-19*s);g.lineTo(8*s,-10.5*s);inkPath(g,1.3*s);
+      g.restore();}
+    else{g.beginPath();g.moveTo(P.x-9*s,P.y-2*s);g.quadraticCurveTo(P.x,P.y+2*s,P.x+9*s,P.y-2*s);inkPath(g,2*s);}
+    // scarf trailing in the wind
+    const sc=this.sc;g.beginPath();g.moveTo(sc[0].x,sc[0].y);for(let i=1;i<sc.length;i++)g.lineTo(sc[i].x,sc[i].y);g.lineCap=g.lineJoin="round";
+    g.strokeStyle=INK;g.lineWidth=6.6*s;g.stroke();g.strokeStyle=L.sc;g.lineWidth=4*s;g.stroke();
+    // big round head: back of the head while climbing, a pie-eyed face when they turn round
+    const hx=N.x,hy=N.y-13*s,R=10.5*s;
+    for(const d of [-1,1]){g.beginPath();g.ellipse(hx+d*R,hy+1*s,2.4*s,3.2*s,0,0,7);blob(g,L.skin,1.6*s);}
+    g.beginPath();g.arc(hx,hy,R,0,7);blob(g,front?L.skin:L.hair,2.2*s);
+    if(front){const ey=hy+1.6*s,big=this.mode==="fall"?1.3:1;
+      if(this.dizzy>0){for(const d of [-1,1]){g.beginPath();g.moveTo(hx+d*4*s-2*s,ey-2*s);g.lineTo(hx+d*4*s+2*s,ey+2*s);g.moveTo(hx+d*4*s+2*s,ey-2*s);g.lineTo(hx+d*4*s-2*s,ey+2*s);inkPath(g,1.6*s);}}
+      else for(const d of [-1,1]){g.beginPath();g.ellipse(hx+d*3.8*s,ey,2.2*s*big,3.6*s*big,0,0,7);g.fillStyle=INK;g.fill();
+        g.fillStyle="#fff";g.beginPath();g.moveTo(hx+d*3.8*s+.4*s,ey-2.6*s*big);g.lineTo(hx+d*3.8*s+1.9*s*big,ey-1.3*s*big);g.lineTo(hx+d*3.8*s+.5*s,ey-.6*s);g.closePath();g.fill();}
+      g.fillStyle="rgba(240,110,100,.5)";g.beginPath();g.arc(hx-7*s,hy+5*s,2.3*s,0,7);g.arc(hx+7*s,hy+5*s,2.3*s,0,7);g.fill();
+      g.beginPath();g.ellipse(hx,hy+4*s,2.4*s,2*s,0,0,7);blob(g,"#ef7f63",1.2*s);
+      if(this.mode==="fall"||this.dizzy>0){g.beginPath();g.ellipse(hx,hy+8*s,2.2*s,2.8*s,0,0,7);g.fillStyle=INK;g.fill();}
+      else{g.beginPath();g.moveTo(hx-5*s,hy+6.5*s);g.quadraticCurveTo(hx,hy+12.5*s,hx+5*s,hy+6.5*s);g.closePath();blob(g,"#8c2a1d",1.4*s);}}
+    else{g.strokeStyle="rgba(255,236,206,.6)";g.lineWidth=1.4*s;g.beginPath();g.arc(hx,hy,R-1.6*s,Math.PI*.72,Math.PI*1.2);g.stroke();}
+    // beanie with a pompom on a spring
+    const hb=hy-(front?6:2)*s; // pushed back off the brow when they face us, so the eyes show
+    g.beginPath();g.moveTo(hx-R-.6*s,hb);g.quadraticCurveTo(hx-R,hy-R-5*s,hx,hy-R-5.5*s);g.quadraticCurveTo(hx+R,hy-R-5*s,hx+R+.6*s,hb);g.closePath();blob(g,L.hat,2*s);
+    rr(g,hx-R-1.4*s,hb-2.4*s,2*R+2.8*s,4.6*s,2.3*s);blob(g,L.hatd,1.8*s);
+    g.beginPath();g.moveTo(hx,hy-R-4.5*s);g.lineTo(this.pp.x,this.pp.y);inkPath(g,1.4*s);g.beginPath();g.arc(this.pp.x,this.pp.y,3.8*s,0,7);blob(g,L.pom,1.8*s);
+    if(this.dizzy>0)for(let i=0;i<3;i++){const a=t*6+i*2.09;star(g,hx+Math.cos(a)*14*s,hy-R-6*s+Math.sin(a)*4*s,4*s);blob(g,"#f2b233",1.3*s);}
+    g.restore();
+    // arms and white gloves
+    for(let j=0;j<2;j++){const h=this.h[j],[ex,ey,wx,wy]=ik(S[j].x,S[j].y,h.x,h.y,16*s,16*s,j?1:-1);hose(g,S[j].x,S[j].y,ex,ey,wx,wy,6*s,L.jk,id+30+j*3);
+      const k=h.sq,ang=Math.atan2(wy-ey,wx-ex);g.save();g.translate(wx,wy);g.rotate(ang);g.scale(1+k*.3,1-k*.25);
+      g.beginPath();g.ellipse(-3.6*s,0,2.2*s,3.6*s,0,0,7);blob(g,"#fff",1.4*s);g.beginPath();g.arc(1*s,0,4.4*s,0,7);blob(g,"#fff",1.6*s);
+      g.beginPath();g.moveTo(1.5*s,-2*s);g.lineTo(3.6*s,-.8*s);g.moveTo(1.5*s,1.8*s);g.lineTo(3.6*s,.7*s);inkPath(g,.9*s,.8);g.restore();}
+  }
+}
+
+/* ---------- rope: a verlet chain from the partner's harness through the clipped bolts to the leader ---------- */
+class Rope{
+  constructor(n){this.n=n;this.p=null;this.reset=1;}
+  update(path,dt){const n=this.n,cum=[0];for(let i=1;i<path.length;i++)cum.push(cum[i-1]+Math.hypot(path[i][0]-path[i-1][0],path[i][1]-path[i-1][1]));
+    const tot=Math.max(cum[cum.length-1],1),pin=cum.map(c=>Math.round(c/tot*(n-1)));
+    const at=k=>{const d=k/(n-1)*tot;let j=1;while(j<cum.length-1&&cum[j]<d)j++;const f=clamp((d-cum[j-1])/Math.max(cum[j]-cum[j-1],1e-6),0,1);return [lerp(path[j-1][0],path[j][0],f),lerp(path[j-1][1],path[j][1],f)];};
+    if(!this.p||this.reset){this.p=Array.from({length:n},(_,k)=>{const [x,y]=at(k);return {x,y,px:x,py:y};});this.reset=0;}
+    const seg=Math.max(tot*1.06,tot+14)/(n-1),gv=500*dt*dt,wd=40*dt*dt;
+    for(const q of this.p){const vx=(q.x-q.px)*.97,vy=(q.y-q.py)*.97;q.px=q.x;q.py=q.y;q.x+=vx+wd;q.y+=vy+gv;}
+    for(let it=0;it<8;it++){for(let i=1;i<n;i++){const a=this.p[i-1],b=this.p[i],dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1e-6;if(d<=seg)continue;
+      const df=(d-seg)/d*.5;a.x+=dx*df;a.y+=dy*df;b.x-=dx*df;b.y-=dy*df;}
+      pin.forEach((ix,k)=>{const q=this.p[ix];q.x=path[k][0];q.y=path[k][1];});}}
+  draw(g){const p=this.p;if(!p)return;g.beginPath();g.moveTo(p[0].x,p[0].y);
+    for(let i=1;i<p.length-1;i++)g.quadraticCurveTo(p[i].x,p[i].y,(p[i].x+p[i+1].x)/2,(p[i].y+p[i+1].y)/2);g.lineTo(p[p.length-1].x,p[p.length-1].y);
+    g.lineCap=g.lineJoin="round";g.strokeStyle=INK;g.lineWidth=4.4;g.stroke();g.strokeStyle="#e0472b";g.lineWidth=2.2;g.stroke();
+    g.setLineDash([3,4]);g.strokeStyle="rgba(255,236,206,.7)";g.lineWidth=.9;g.stroke();g.setLineDash([]);}
+}
+
+/* ---------- particles and pop-up words ---------- */
+function emit(p){if(FX.parts.length<420&&!RM.matches)FX.parts.push(p);}
+function puff(x,y){for(let i=0;i<5;i++)emit({k:"chalk",x:x+(Math.random()-.5)*4,y:y+(Math.random()-.5)*3,vx:(Math.random()-.5)*14,vy:-4-Math.random()*8,g:-2,l:.9,m:.9,r:1.2+Math.random()*1.5});}
+function pebbles(r){for(let i=0;i<7;i++)emit({k:"peb",x:r.N.x+(Math.random()-.5)*18,y:r.N.y-22,vx:(Math.random()-.5)*30,vy:-20-Math.random()*30,g:700,l:1.8,m:1.8,r:1.5+Math.random()*2});}
+function embers(x,y,amt){const dt=FX.dt;if(Math.random()<dt*9*amt)emit({k:"ember",x:x+(Math.random()-.5)*8,y:y-6,vx:(Math.random()-.5)*10+6,vy:-26-Math.random()*22,g:-6,l:1.3+Math.random(),m:2.3,r:.9+Math.random()*.8});
+  if(Math.random()<dt*1.6*amt)emit({k:"smoke",x:x+(Math.random()-.5)*4,y:y-16,vx:7,vy:-15,g:-2,l:3.2,m:3.2,r:4});}
+function pop(r,text){if(RM.matches)return;FX.pops.push({x:r.N.x+(Math.random()-.5)*10,y:r.N.y-48*r.s,text,t:0});sfx("pop");}
+function stepParts(dt){FX.parts=FX.parts.filter(p=>{p.l-=dt;p.vy+=p.g*dt;p.x+=(p.vx+(p.k==="ember"?Math.sin(p.l*7)*8:0))*dt;p.y+=p.vy*dt;return p.l>0;});
+  FX.pops=FX.pops.filter(p=>(p.t+=dt)<1.1);}
+function drawParts(g){for(const p of FX.parts){const a=clamp(p.l/p.m,0,1);
+  if(p.k==="chalk"){g.fillStyle=`rgba(255,252,245,${.6*a})`;g.beginPath();g.arc(p.x,p.y,p.r*(1+(1-a)*2.5),0,7);g.fill();}
+  else if(p.k==="ember"){g.globalCompositeOperation="lighter";g.fillStyle=`rgba(255,${150+Math.random()*60|0},70,${a})`;g.beginPath();g.arc(p.x,p.y,p.r,0,7);g.fill();g.globalCompositeOperation="source-over";}
+  else if(p.k==="smoke"){const r=p.r*(1.4+(1-a)*3.5);g.globalAlpha=.5*a;g.beginPath();g.arc(p.x,p.y,r,0,7);blob(g,"#e9e0d0",1.2);g.globalAlpha=1;}
+  else{g.beginPath();g.arc(p.x,p.y,p.r,0,7);blob(g,"#8d7466",1);}}
+  for(const p of FX.pops){const k=p.t/1.1,sc=k<.25?backOut(k/.25):1;g.save();g.translate(p.x,p.y-k*22);g.rotate(-.12+Math.sin(k*9)*.05);g.scale(sc,sc);g.globalAlpha=k>.75?(1-k)/.25:1;
+    g.font=`17px ${TOON}`;g.textAlign="center";g.lineJoin="round";g.strokeStyle=INK;g.lineWidth=5;g.strokeText(p.text,0,0);g.fillStyle="#f2b233";g.fillText(p.text,0,0);g.restore();}}
+
+/* ---------- sky: grinning sun, smiling clouds, watercolour ranges, inked spires (screen space, parallax) ---------- */
+const TOWERS=[[.24,.05,.5,31,.85],[.36,.04,.42,37,.8],[.43,.05,.7,21,.55],[.3,.06,.56,13,.4],[.15,.075,.86,9,.3],[.02,.11,.66,5,.15]]; // x, width, height, seed, depth (far first)
+const CLOUDS=[[.08,.12,1,.006],[.55,.08,.8,.004],[.82,.22,1.15,.008],[.33,.3,.7,.005]]; // x, y, size, drift
+function range(g,W,H,u,cx,L,col,pal,line){const ys=H*(L.base+u*L.drop),sh=cx*L.px*W/1000;if(ys-L.amp*H>H)return;
+  g.beginPath();g.moveTo(-4,H+4);for(let x=-4;x<=W+8;x+=8)g.lineTo(x,ys-ridge((x+sh)/W*L.fq,L.seed)*L.amp*H);g.lineTo(W+4,H+4);g.closePath();
+  const gr=g.createLinearGradient(0,ys-L.amp*H,0,ys+H*.25);gr.addColorStop(0,rgb(col));gr.addColorStop(1,rgb(pal.haze));g.fillStyle=gr;g.fill();if(line)inkPath(g,line,.5);}
+function cloudShape(g,x,y,w){const h=w*.42;g.beginPath();g.moveTo(x-w*.5,y);g.bezierCurveTo(x-w*.62,y,x-w*.6,y-h*.6,x-w*.38,y-h*.55);g.bezierCurveTo(x-w*.36,y-h*1.2,x-w*.04,y-h*1.25,x+w*.02,y-h*.8);
+  g.bezierCurveTo(x+w*.12,y-h*1.3,x+w*.48,y-h*1.1,x+w*.4,y-h*.5);g.bezierCurveTo(x+w*.62,y-h*.5,x+w*.64,y,x+w*.48,y);g.closePath();}
+function drawSky(g,W,H,pal,u,t,cx){
+  let gr=g.createLinearGradient(0,0,0,H);gr.addColorStop(0,rgb(pal.skyT));gr.addColorStop(.62,rgb(pal.skyH));gr.addColorStop(1,rgb(pal.haze));g.fillStyle=gr;g.fillRect(0,0,W,H);
+  const sx=W*.19-(cx-420)*.05*W/1000,sy=H*lerp(.17,.44,u)+Math.sin(t*1.3)*2,sr=H*.072;FX.sun=[sx,sy];
+  gr=g.createRadialGradient(sx,sy,0,sx,sy,H*1.05);gr.addColorStop(0,rgb(pal.sun,.65));gr.addColorStop(.18,rgb(pal.sun,.22));gr.addColorStop(1,rgb(pal.sun,0));g.fillStyle=gr;g.fillRect(0,0,W,H);
+  // the sun has a face, of course
+  g.save();g.translate(sx,sy);g.save();g.rotate(t*.18);for(let i=0;i<12;i++){g.rotate(Math.PI/6);g.beginPath();g.moveTo(-sr*.16,-sr*1.18);g.lineTo(0,-sr*1.62);g.lineTo(sr*.16,-sr*1.18);g.closePath();blob(g,rgb(pal.sun),2);}g.restore();
+  g.rotate(Math.sin(t*1.1)*.06);g.beginPath();g.arc(0,0,sr,0,7);blob(g,rgb(pal.sun),3);
+  for(const d of [-1,1]){g.beginPath();g.ellipse(d*sr*.33,-sr*.15,sr*.11,sr*.19,0,0,7);g.fillStyle=INK;g.fill();g.fillStyle="#fff";g.beginPath();g.moveTo(d*sr*.33+sr*.02,-sr*.3);g.lineTo(d*sr*.33+sr*.1,-sr*.24);g.lineTo(d*sr*.33+sr*.03,-sr*.2);g.fill();}
+  g.fillStyle="rgba(240,120,90,.45)";g.beginPath();g.arc(-sr*.58,sr*.2,sr*.13,0,7);g.arc(sr*.58,sr*.2,sr*.13,0,7);g.fill();
+  g.beginPath();g.moveTo(-sr*.4,sr*.22);g.quadraticCurveTo(0,sr*.72,sr*.4,sr*.22);inkPath(g,2.6);g.restore();
+  for(const [fx,fy,fs,dr] of CLOUDS){const w=H*.2*fs,x=(((fx+t*dr-cx*.00006)%1.3+1.3)%1.3-.15)*W,y=H*fy+u*H*.5;if(y>H)continue;
+    cloudShape(g,x,y,w);blob(g,rgb(pal.cloud),2.2);g.save();g.translate(x+w*.02,y-w*.18);g.rotate(Math.sin(t*1.4+fx*9)*.08);
+    for(const d of [-1,1]){g.beginPath();g.ellipse(d*w*.08,0,w*.022,w*.036,0,0,7);g.fillStyle=INK;g.fill();}g.beginPath();g.moveTo(-w*.07,w*.07);g.quadraticCurveTo(0,w*.13,w*.07,w*.07);inkPath(g,1.6);g.restore();}
+  range(g,W,H,u,cx,{base:.5,drop:.16,amp:.2,fq:2.2,px:.02,seed:3},pal.far3,pal,0);
+  range(g,W,H,u,cx,{base:.58,drop:.38,amp:.19,fq:3.1,px:.05,seed:17},pal.far2,pal,1.2);
+  // a sea of scalloped cloud at a fixed altitude: above you at the start, far below near the top
+  const ys=H*(.42+u*.85);
+  if(ys<H*1.15){const off=(t*7+cx*.3*W/1000)%60;g.beginPath();g.moveTo(-60,H+4);
+    for(let x=-60-off,i=0;x<W+70;x+=30,i++){const r=16+hash(Math.floor((x+off+cx*.3*W/1000)/30)|0,4)*14;g.lineTo(x,ys);g.arc(x+15,ys,r*.9,Math.PI,0);}
+    g.lineTo(W+60,H+4);g.closePath();gr=g.createLinearGradient(0,ys-30,0,ys+H*.4);gr.addColorStop(0,rgb(pal.cloud));gr.addColorStop(1,rgb(pal.fog));blob(g,gr,2.2);}
+  range(g,W,H,u,cx,{base:.71,drop:.8,amp:.22,fq:3.9,px:.1,seed:41},pal.far1,pal,1.8);
+  const ty=H*(.97+u*1.25);
+  for(const [fx,fw,fh,sd,dp] of TOWERS){ // ragged sandstone spires: lit flank, hatched shade, mossy cap
+    const x=fx*W-cx*(.1+.12*(1-dp))*W/1000+W*.06,w=fw*W,top=ty-fh*H*(1-dp*.25)+dp*H*.08;if(top>H)continue;
+    const col=mixC(pal.mid,pal.haze,.25+dp*.45),lit=mixC(pal.lit,pal.haze,.3+dp*.4),cap=mixC([110,150,70],pal.haze,.3+dp*.4),n=16,Lp=[],Rp=[];
+    for(let k=0;k<=n;k++){const yy=lerp(top,H+4,k/n),sp=.8+.2*Math.pow(k/n,.6);Lp.push([x-w*.5*sp+(noise1(sd*3+k*.9)-.5)*w*.28,yy]);Rp.push([x+w*.5*sp+(noise1(sd*5+k*.8)-.5)*w*.28,yy]);}
+    const out=[...Lp,...Rp.slice().reverse()];g.beginPath();out.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.closePath();g.fillStyle=rgb(col);g.fill();
+    g.save();g.clip();g.fillStyle=rgb(lit,.9);g.beginPath();Lp.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));for(let k=n;k>=0;k--)g.lineTo(lerp(Lp[k][0],x,.55),Lp[k][1]);g.closePath();g.fill();
+    g.strokeStyle=`rgba(29,19,15,${.25*(1-dp)})`;g.lineWidth=1;for(let h=0;h<H;h+=6){g.beginPath();g.moveTo(x+w*.1,top+h);g.lineTo(x+w*.7,top+h+w*.5);g.stroke();}g.restore();
+    g.beginPath();out.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.closePath();inkPath(g,2.2*(1-dp*.6),1-dp*.5);
+    g.beginPath();g.moveTo(Lp[0][0]-w*.06,top+w*.05);g.quadraticCurveTo(x,top-w*.18,Rp[0][0]+w*.06,top+w*.05);
+    for(let k=6;k>=0;k--)g.lineTo(lerp(Lp[0][0],Rp[0][0],k/6),top+w*(.08+hash(sd,k+9)*.16));g.closePath();g.fillStyle=rgb(cap);g.fill();inkPath(g,1.8*(1-dp*.6),1-dp*.5);}
+  gr=g.createLinearGradient(0,ty-H*.35,0,ty);gr.addColorStop(0,rgb(pal.haze,0));gr.addColorStop(1,rgb(pal.haze,.7));g.fillStyle=gr;g.fillRect(0,ty-H*.35,W,H*1.5);
+  for(const b of FX.birds)for(let i=0;i<b.n;i++){const x=(b.x-i*.013)*W,y=(b.y+(i%2?1:-1)*i*.0045)*H+Math.sin(b.t*1.3+i)*2,f=Math.sin(b.t*9+i*1.7)*3.5,s=5;
+    g.beginPath();g.moveTo(x-s,y-f);g.quadraticCurveTo(x-s*.4,y-f*.2,x,y);g.quadraticCurveTo(x+s*.4,y-f*.2,x+s,y-f);inkPath(g,1.8,.8);}
+}
+
+/* ---------- props in the world ---------- */
+function hold(g,x,y,chalk,a=1){g.globalAlpha=a;g.fillStyle="rgba(60,30,30,.3)";g.beginPath();g.ellipse(x+1.6,y+2.8,5.4,3,0,0,7);g.fill();
+  g.beginPath();g.ellipse(x,y,5.2,3.6,0,0,7);blob(g,"#f0c18c",1.5);g.fillStyle="rgba(255,248,230,.85)";g.beginPath();g.ellipse(x-1.4,y-1.2,2.4,1.2,-.3,0,7);g.fill();
+  if(chalk){g.fillStyle="rgba(255,255,250,.6)";g.beginPath();g.ellipse(x,y-.4,3.8,2,0,0,7);g.fill();}g.globalAlpha=1;}
+function drawRoute(g,vy0,vy1){const e=FX.exp,ch=e.choice,lo=Math.max(1,Math.floor(-vy1/HS)-1),hi=Math.min(IDX_TOP-1,Math.ceil(-vy0/HS)+1),used=FX.A.me.hi;
+  const lanes=i=>{const a=ALT.base+i*HS/WK;if(a<=ALT.c1)return [ch];if(a<=ALT.c2)return ch[0]?[ch]:[["A",null],["B",null]];return ch[1]?[ch]:[[ch[0]||"A","A"],[ch[0]||"A","B"]];};
+  for(let i=lo;i<=hi;i++){if(i===IDX_C1||i===IDX_C2)continue;
+    for(const c of lanes(i)){const [x,y]=holdXY(c,i);hold(g,x,y,c===ch&&i<=used);
+      if(i%4===2){const [bx,by]=boltXY(c,i);g.beginPath();g.arc(bx,by,2.4,0,7);g.strokeStyle=INK;g.lineWidth=2.6;g.stroke();g.strokeStyle="#c7ccd4";g.lineWidth=1.2;g.stroke();}}
+    if(FX.A.rival){const [x,y]=rivHold(i);hold(g,x,y,false,.85);}}}
+function quickdraws(g){const p=FX.pins;for(let i=1;i<p.length-1;i++){const [x,y]=p[i];g.beginPath();g.moveTo(x,y);g.lineTo(x,y+7);g.strokeStyle=INK;g.lineWidth=3;g.stroke();g.strokeStyle="#f2b233";g.lineWidth=1.4;g.stroke();
+  g.beginPath();g.ellipse(x,y+9.5,2,2.8,0,0,7);g.strokeStyle=INK;g.lineWidth=2.6;g.stroke();g.strokeStyle="#d6dae0";g.lineWidth=1.2;g.stroke();}}
+function tent(g,x,y,s){g.save();g.translate(x,y);g.scale(s,s);
+  g.fillStyle="rgba(60,30,30,.28)";g.beginPath();g.ellipse(4,1,32,4.5,0,0,7);g.fill();
+  g.beginPath();g.moveTo(-25,0);g.quadraticCurveTo(-13,-15,0,-32);g.quadraticCurveTo(13,-15,25,0);g.closePath();g.fillStyle="#e0472b";g.fill();
+  g.save();g.clip();g.fillStyle=CREAM;for(let k=-3;k<4;k+=2){g.beginPath();g.moveTo(0,-34);g.lineTo(k*8,0);g.lineTo((k+1)*8,0);g.closePath();g.fill();}
+  g.fillStyle="rgba(120,30,20,.28)";g.fillRect(0,-34,26,34);g.restore();
+  g.beginPath();g.moveTo(-25,0);g.quadraticCurveTo(-13,-15,0,-32);g.quadraticCurveTo(13,-15,25,0);g.closePath();inkPath(g,2.4);
+  g.beginPath();g.moveTo(0,-22);g.quadraticCurveTo(-5,-8,-7,0);g.lineTo(6,0);g.quadraticCurveTo(4,-8,0,-22);blob(g,"#3a1f18",1.8);
+  g.beginPath();g.moveTo(0,-32);g.lineTo(0,-40);inkPath(g,2.2);g.beginPath();g.moveTo(0,-40);g.lineTo(10+Math.sin(FX.time*5)*1.5,-37);g.lineTo(0,-34);blob(g,"#f2b233",1.4);
+  g.beginPath();g.moveTo(-25,0);g.lineTo(-33,3);g.moveTo(25,0);g.lineTo(33,3);inkPath(g,1.4);g.restore();}
+function fire(g,x,y,t,amt){for(let i=0;i<6;i++){const a=i/6*Math.PI*2;g.beginPath();g.ellipse(x+Math.cos(a)*10,y+Math.sin(a)*2.6,3.6,2.4,0,0,7);blob(g,"#9a918a",1.3);}
+  for(const d of [-1,1]){g.save();g.translate(x,y-2);g.rotate(d*.32);rr(g,-9,-2.5,18,5,2.5);blob(g,"#7a4628",1.5);g.restore();}
+  if(amt<=0)return;embers(x,y,amt);
+  const b=FX.boil;for(let k=0;k<2;k++){const h=(k?11:19)*amt*(1+(hash(b,k)-.5)*.25),w=(k?3.6:6.4)*amt,sx=x+(hash(b,k+5)-.5)*2.4,lean=(hash(b,k+9)-.5)*5;
+    g.beginPath();g.moveTo(sx-w,y-2);g.quadraticCurveTo(sx-w*1.15,y-h*.5,sx+lean,y-h);g.quadraticCurveTo(sx+w*1.15,y-h*.5,sx+w,y-2);g.quadraticCurveTo(sx,y+1,sx-w,y-2);
+    blob(g,k?"#ffe27a":"#ff8a2a",k?1.2:2);}}
+function fireGlow(g,x,y,t,amt){if(amt<=0)return;const r=110*(1+Math.sin(t*9)*.03+noise1(t*3)*.06);g.save();g.globalCompositeOperation="lighter";
+  const gr=g.createRadialGradient(x,y-6,2,x,y-6,r);gr.addColorStop(0,`rgba(255,170,80,${.28*amt})`);gr.addColorStop(.4,`rgba(255,130,60,${.1*amt})`);gr.addColorStop(1,"rgba(255,120,60,0)");
+  g.fillStyle=gr;g.fillRect(x-r,y-6-r,r*2,r*2);g.restore();}
+function plaque(g,x,y,text,size=11){g.font=`${size}px ${TOON}`;const w=g.measureText(text).width+16,h=size+9;g.save();g.translate(x,y);g.rotate(-.04);
+  rr(g,-w/2,-h/2,w,h,4);blob(g,"#c98c4a",2);g.fillStyle="rgba(255,236,206,.35)";g.fillRect(-w/2+3,-h/2+2,w-6,2);
+  g.fillStyle=INK;g.beginPath();g.arc(-w/2+4.5,0,1.3,0,7);g.arc(w/2-4.5,0,1.3,0,7);g.fill();g.textAlign="center";g.textBaseline="middle";g.fillStyle=INK;g.fillText(text,0,1);g.restore();}
+function label(g,x,y,text,size=11,fill=CREAM){g.font=`${size}px ${TOON}`;g.textAlign="center";g.textBaseline="alphabetic";g.lineJoin="round";g.strokeStyle=INK;g.lineWidth=3.6;g.strokeText(text,x,y);g.fillStyle=fill;g.fillText(text,x,y);}
+const fireAmt=k=>!FX.lit[k]?0:FX.litAt[k]?clamp((FX.time-FX.litAt[k])/1.2,0,1):1;
+function drawCamp(g,cx,cy,t,k){const C=C0,x0=Math.max(cx-120,edgeL(cy)+2),x1=cx+130;
+  g.save();g.beginPath();g.moveTo(x0,cy);g.lineTo(x1,cy);g.lineTo(x1-30,cy+70);g.lineTo(x0+20,cy+70);g.clip();g.strokeStyle="rgba(29,19,15,.3)";g.lineWidth=1.2;
+  for(let h=-80;h<x1-x0;h+=6){g.beginPath();g.moveTo(x0+h,cy);g.lineTo(x0+h+60,cy+70);g.stroke();}g.restore();
+  g.beginPath();g.moveTo(x0-4,cy-2);for(let x=x0;x<=x1;x+=14)g.lineTo(x,cy+12+hash(x|0,cy|0)*10);g.lineTo(x1+6,cy-2);g.closePath();blob(g,rgb(mixC(C.rock,C.shade,.35)),2.4);
+  g.beginPath();g.moveTo(x0-6,cy+1);g.quadraticCurveTo((x0+x1)/2,cy-9,x1+8,cy+1);g.lineTo(x1+6,cy+3);g.lineTo(x0-4,cy+3);g.closePath();blob(g,rgb(mixC(C.rock,C.lit,.7)),2.2);
+  for(let x=x0+4;x<x1;x+=8){const h=3+hash(x|0,9)*6,yy=cy-Math.sin((x-x0)/(x1-x0)*Math.PI)*5;g.beginPath();g.moveTo(x,yy);g.lineTo(x+(hash(x|0,3)-.5)*4,yy-h);inkPath(g,2.4);
+    g.strokeStyle=hash(x|0,2)<.5?"#6d8f3c":"#a6c35e";g.lineWidth=1.1;g.stroke();}
+  tent(g,cx-64,cy-1,1);fire(g,cx+66,cy-1,t,fireAmt(k));
+  plaque(g,cx-64,cy-58,`${k==="c1"?"CAMP I":"CAMP II"} · ${fmt(k==="c1"?ALT.c1:ALT.c2)} M`);}
+function drawSummit(g,t){const y=TOPY,x0=edgeL(y)-sideW(y),x1=edgeR(y);
+  g.beginPath();g.moveTo(x0-6,y+3);g.quadraticCurveTo((x0+x1)/2,y-10,x1+8,y+3);g.lineTo(x1+6,y+9);g.lineTo(x0-4,y+9);g.closePath();blob(g,"#8fae4f",2.4);
+  for(let x=x0;x<x1;x+=6){const h=3+hash(x|0,4)*5,yy=y+3-Math.sin((x-x0)/(x1-x0)*Math.PI)*8;g.beginPath();g.moveTo(x,yy);g.lineTo(x+1.5,yy-h);g.strokeStyle="#6d8f3c";g.lineWidth=1.3;g.stroke();}
+  for(const [dx,dy,r] of [[0,0,8],[1,-7,6.5],[-1,-13,5],[0,-18,3.6]]){g.beginPath();g.ellipse(SX-44+dx,y-2+dy,r,r*.62,0,0,7);blob(g,"#a99a8c",1.8);
+    g.fillStyle="rgba(255,244,222,.5)";g.beginPath();g.ellipse(SX-45+dx,y-3.5+dy,r*.5,r*.25,0,0,7);g.fill();}
+  const fx=SX+52,fy=y-3;g.beginPath();g.moveTo(fx,fy);g.lineTo(fx,fy-54);g.strokeStyle=INK;g.lineWidth=4;g.stroke();g.strokeStyle="#8a5a34";g.lineWidth=2;g.stroke();
+  g.beginPath();g.arc(fx,fy-55,2.6,0,7);blob(g,"#f2b233",1.4);
+  g.beginPath();g.moveTo(fx,fy-52);for(let k=1;k<=6;k++)g.lineTo(fx+k*5.4,fy-52+Math.sin(t*6-k*.9)*k*.7);for(let k=6;k>=0;k--)g.lineTo(fx+k*5.4,fy-34+Math.sin(t*6-k*.9)*k*.7);g.closePath();blob(g,"#e0472b",2.2);
+  g.beginPath();star(g,fx+15,fy-43+Math.sin(t*6-2.6)*2,4.4);blob(g,CREAM,1.2);
+  plaque(g,SX-2,y-92,`SUMMIT · ${fmt(ALT.top)} M`,12);}
+const TREES=[[40,6,1.3,0],[120,2,1,1],[190,9,1.15,0],[268,4,.8,1],[700,3,1.25,1],[790,8,1,0],[880,4,1.35,1],[960,7,1.05,0]];
+function tree(g,x,y,s,t,i,round){g.save();g.translate(x,y);g.rotate(Math.sin(t*.9+i)*.02);g.scale(s,s);rr(g,-3,-14,6,15,2);blob(g,"#7a4a2c",1.6);
+  if(round){g.beginPath();g.arc(0,-26,15,0,7);blob(g,"#6f9a45",2.2);g.fillStyle="rgba(200,226,130,.8)";g.beginPath();g.arc(-5,-31,6,0,7);g.fill();}
+  else for(let k=0;k<3;k++){const ty=-10-k*13,w=19-k*4.5,h=24-k*3;g.beginPath();g.moveTo(-w,ty);g.quadraticCurveTo(-w*.4,ty-h*.4,0,ty-h);g.quadraticCurveTo(w*.4,ty-h*.4,w,ty);g.closePath();blob(g,"#4f7a45",2);
+    g.fillStyle="rgba(180,214,120,.6)";g.beginPath();g.moveTo(-w+3,ty-1);g.quadraticCurveTo(-w*.4,ty-h*.4,0,ty-h+3);g.lineTo(-w*.2,ty-h*.4);g.closePath();g.fill();}
+  g.restore();}
+function drawGround(g,t,vx0,vx1){const a=Math.floor((vx0-60)/30)*30,b=vx1+60;
+  g.beginPath();g.moveTo(a,400);for(let x=a;x<=b;x+=30)g.lineTo(x,groundY(x));g.lineTo(b,400);g.closePath();
+  let gr=g.createLinearGradient(0,-10,0,200);gr.addColorStop(0,"#b6cf6e");gr.addColorStop(.4,"#8fae4f");gr.addColorStop(1,"#5f8a3c");g.fillStyle=gr;g.fill();
+  g.beginPath();for(let x=a;x<=b;x+=30)x===a?g.moveTo(x,groundY(x)):g.lineTo(x,groundY(x));inkPath(g,2.6);
+  for(let x=Math.floor(a/11)*11;x<b;x+=11){const h=5+hash(x,1)*7,y=groundY(x)+1,l=hash(x,2)-.5;g.beginPath();g.moveTo(x,y);g.quadraticCurveTo(x+l*3,y-h*.6,x+l*6,y-h);inkPath(g,2.2);
+    g.strokeStyle=hash(x,3)<.5?"#6d8f3c":"#c3da7c";g.lineWidth=1;g.stroke();}
+  TREES.forEach(([x,y,s,rd],i)=>{if(x>vx0-60&&x<vx1+60)tree(g,x,groundY(x)+y,s,t,i,rd);});
+  tent(g,330,groundY(330)+1,1.1);fire(g,488,groundY(488),t,1);plaque(g,330,groundY(330)-58,`BASE CAMP · ${fmt(ALT.base)} M`);
+  gr=g.createLinearGradient(0,-70,0,30);gr.addColorStop(0,"rgba(246,236,210,0)");gr.addColorStop(1,"rgba(246,236,210,.3)");g.fillStyle=gr;g.fillRect(a,-70,b-a,100);}
+
+/* ---------- setup, loop and frame ---------- */
+function ensureScene(){
+  const cv=$("#topo");if(!cv)return false;if(FX.cv===cv)return true;
+  FX.cv=cv;FX.g=cv.getContext("2d");FX.mode="";FX.state=null;FX.tw=[];FX.ch.main++;FX.ch.rival++;FX.cam=null;FX.parts=[];FX.pops=[];FX.wisps=[];FX.rope=new Rope(30);FX.label=null;FX.pins=[];
+  if(!FX.spr)FX.spr=makeSprites();FX.grainPat=null;
+  FX.motes=Array.from({length:30},()=>({x:Math.random(),y:Math.random(),s:.6+Math.random()*1.4,p:Math.random()*6}));
+  const fit=()=>{const r=cv.getBoundingClientRect(),W=Math.max(1,r.width),H=Math.max(1,r.height),dpr=Math.min(2,devicePixelRatio||1);
+    if(W===FX.W&&H===FX.H&&dpr===FX.dpr)return;FX.W=W;FX.H=H;FX.dpr=dpr;cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);FX.grainPat=null;
+    const rs=clamp(dpr*W/620,1,2.2);if(Math.abs(rs-FX.rs)>.2){FX.rs=rs;FX.chunks.clear();}};
+  fit();try{new ResizeObserver(fit).observe(cv);}catch(e){addEventListener("resize",fit);}
+  FX.visible=true; // skip painting while scrolled out of view; a removed canvas's observer must not switch the new one off
+  try{const io=new IntersectionObserver(es=>{if(es[0].target!==FX.cv){io.disconnect();return;}FX.visible=es[0].isIntersecting;});io.observe(cv);}catch(e){}
+  const btn=$("#sndBtn");if(btn){const sync=()=>btn.setAttribute("aria-pressed",SND.on?"true":"false");sync();
+    btn.onclick=()=>{SND.on=!SND.on;LS.set("sound",SND.on);sync();if(SND.on)sndStart();if(SND.out)SND.out.gain.value=SND.on?.55:0;};}
+  const me=new Rig(LOOK.me,i=>holdXY(FX.exp.choice,i),i=>restSpot(i,0)),mate=new Rig(LOOK.mate,i=>holdXY(FX.exp.choice,i),i=>restSpot(i,1));
+  me.onCatch=v=>{FX.shake=Math.max(FX.shake,clamp(v/240,.35,1.3));FX.ts=.3;FX.kick=-.08;mate.v.y-=Math.min(160,v*.5);mate.sq=-.2;sfx("boing");pop(me,"WHOA!");};
+  FX.A={me,mate,rival:null,rkind:null};
+  if(!FX.raf)FX.raf=requestAnimationFrame(frame);
+  return true;
+}
+function setRival(kind){const A=FX.A;if(A.rkind===kind)return;A.rkind=kind;
+  A.rival=kind?new Rig({...LOOK.rival,nopack:kind==="soloist",hat:kind==="tourists"?"#eadaae":kind==="twins"?"#f2b233":LOOK.rival.hat},rivHold,
+    i=>i<=0?{x:610,y:groundY(610)}:i>=IDX_TOP?{x:SX+62,y:TOPY}:null,.92):null;}
+function stepAmbient(dt){
+  FX.nextBird-=dt;if(FX.nextBird<0&&!RM.matches){FX.nextBird=9+Math.random()*10;FX.birds.push({x:-.05,y:.18+Math.random()*.24,v:.03+Math.random()*.02,n:3+(Math.random()*4|0),t:0});}
+  FX.birds=FX.birds.filter(b=>{b.x+=b.v*dt;b.t+=dt;return b.x<1.15;});
+  const c=FX.cam;if(!c)return;const ch=c.w*FX.H/FX.W;
+  FX.nextWisp-=dt;if(FX.nextWisp<0&&!RM.matches){FX.nextWisp=5+Math.random()*7;const r=160+Math.random()*220;FX.wisps.push({x:c.x-c.w/2-r,y:c.y+(Math.random()-.5)*ch*.9,r,v:12+Math.random()*12,a:.14+Math.random()*.12});}
+  FX.wisps=FX.wisps.filter(w=>{w.x+=w.v*dt;return w.x-w.r<c.x+c.w/2+60&&Math.abs(w.y-c.y)<ch*2;});
+  for(const m of FX.motes){m.x+=(.006+Math.sin(FX.time*.4+m.p)*.003)*dt;m.y-=.004*dt;if(m.x>1)m.x-=1;if(m.y<0)m.y+=1;}
+  // fires crackle when they are on screen
+  const vy0=c.y-ch/2,vy1=c.y+ch/2;for(const [k,ix] of [["c1",IDX_C1],["c2",IDX_C2]]){const y=-ix*HS;if(y>vy0&&y<vy1&&fireAmt(k)>0&&Math.random()<dt*5)sfx("crackle");}
+  if(vy1>-120&&Math.random()<dt*4)sfx("crackle");
+}
+function updateCam(dt){const me=FX.A.me,mt=FX.A.mate;let fx,fy,w=FX.camW*(1+FX.kick);
+  // frame the leader in the upper middle with the partner below, and leave room for the valley on the left
+  if(FX.focus==="summit"){fx=SX-70;fy=TOPY-110;}else{fx=me.N.x-w*.13;fy=lerp(me.N.y,mt.N.y,.32)-6;}
+  const ch=w*FX.H/FX.W;fy=clamp(fy,TOPY-520+ch/2,150-ch/2);
+  if(!FX.cam||Math.abs(fy-FX.cam.y)>1200)FX.cam={x:fx,y:fy,w};
+  else{const k=1-Math.exp(-dt*2.2);FX.cam.x+=(fx-FX.cam.x)*k;FX.cam.y+=(fy-FX.cam.y)*k;FX.cam.w+=(w-FX.cam.w)*(1-Math.exp(-dt*4));}
+  FX.shake*=Math.exp(-dt*4);FX.kick*=Math.exp(-dt*2.5);}
+function frame(now){
+  const cv=FX.cv;if(!cv||!cv.isConnected){FX.raf=0;FX.cv=null;return;}
+  const raw=Math.min(.05,Math.max(0,(now-(FX.last||now))/1000));FX.last=now;
+  FX.ts+=(1-FX.ts)*(1-Math.exp(-raw*2.2));const dt=raw*FX.ts; // slow motion when the rope catches
+  FX.time+=dt;FX.dt=dt;FX.boil=Math.floor(now/83);const t=FX.time;
+  for(const w of FX.tw.slice()){
+    if(w.ch&&FX.ch[w.ch]!==w.id){FX.tw.splice(FX.tw.indexOf(w),1);w.res(false);continue;}
+    const k=w.ms?clamp((now-w.t0)/w.ms,0,1):1;w.fn(k);if(k>=1){FX.tw.splice(FX.tw.indexOf(w),1);w.res(true);}}
+  const A=FX.A;
+  if(FX.exp){A.me.update(dt,t);A.mate.update(dt,t);if(A.rival)A.rival.update(dt,t);
+    const ch=FX.exp.choice,pm=A.mate.pelvis(),pl=A.me.pelvis(),path=[[pm.x,pm.y]];
+    if(A.me.mode!=="stand"||A.mate.mode!=="stand")for(let i=A.mate.hi+1;i<A.me.hi;i++)if(i%4===2)path.push(boltXY(ch,i));
+    path.push([pl.x,pl.y]);FX.pins=path;FX.rope.update(path,dt);}
+  stepParts(dt);stepAmbient(dt);updateCam(raw);
+  if(FX.visible&&!document.hidden)paint(t);
+  FX.raf=requestAnimationFrame(frame);
+}
+function paint(t){
+  const g=FX.g,W=FX.W,H=FX.H,dpr=FX.dpr,c0=FX.cam;if(!c0||!FX.exp)return;
+  const sw=RM.matches?0:1,b=FX.boil,weave=sw*.5,jx=(Math.random()-.5)*FX.shake*10+(hash(b,1)-.5)*weave,jy=(Math.random()-.5)*FX.shake*10+(hash(b,2)-.5)*weave;
+  const c={x:c0.x+(Math.sin(t*.31)*4+Math.sin(t*.13)*3)*sw+jx,y:c0.y+Math.sin(t*.23)*3*sw+jy,w:c0.w};
+  const u=uOf(c.y),pal=palette(u),sc=W/c.w,ch=c.w*H/W,vy0=c.y-ch/2,vy1=c.y+ch/2,vx0=c.x-c.w/2,vx1=c.x+c.w/2;
+  const screen=()=>g.setTransform(dpr,0,0,dpr,0,0),world=()=>g.setTransform(dpr*sc,0,0,dpr*sc,dpr*(W/2-c.x*sc),dpr*(H/2-c.y*sc));
+  screen();g.globalCompositeOperation="source-over";g.globalAlpha=1;
+  drawSky(g,W,H,pal,u,t,c.x);
+  world();
+  const [c1,c2]=chunkRange(vy0,vy1);for(let ci=c1;ci<=c2;ci++)g.drawImage(chunk(ci),X0,-(ci+1)*CHK,XW,CHK+2);
+  if(vy1>-260)drawGround(g,t,vx0,vx1);
+  drawRoute(g,vy0,vy1);
+  for(const [k,ix] of [["c1",IDX_C1],["c2",IDX_C2]]){const y=-ix*HS;if(y>vy0-140&&y<vy1+140)drawCamp(g,420,y,t,k);}
+  if(vy0<TOPY+160)drawSummit(g,t);
+  screen();const fa=.55*clamp(-c.y/700,0,1);
+  if(fa>0){const gr=g.createLinearGradient(0,H*.62,0,H);gr.addColorStop(0,rgb(pal.fog,0));gr.addColorStop(1,rgb(pal.fog,fa));g.fillStyle=gr;g.fillRect(0,H*.62,W,H*.38);}
+  world();
+  const A=FX.A;
+  if(A.rival){A.rival.draw(g,t);if(A.rkind)label(g,A.rival.N.x,A.rival.N.y-34,RIVALS[A.rkind].name.toUpperCase(),10,"#a8c4ec");}
+  if(FX.label){const i=FX.label.i,x=laneX(FX.exp.choice,-i*HS),y=-i*HS;g.beginPath();g.moveTo(x,y+4);g.lineTo(x,y-24);g.strokeStyle=INK;g.lineWidth=3.4;g.stroke();g.strokeStyle="#8a5a34";g.lineWidth=1.6;g.stroke();
+    g.beginPath();g.moveTo(x,y-24);g.lineTo(x+15,y-20+Math.sin(t*5)*1.5);g.lineTo(x,y-15);g.closePath();blob(g,"#f2b233",1.6);
+    g.font=`11px ${TOON}`;const lw=g.measureText(FX.label.text).width;plaque(g,x+26+lw/2,y-16,FX.label.text,11);}
+  FX.rope.draw(g);quickdraws(g);A.mate.draw(g,t);A.me.draw(g,t);
+  if(vy1>-260)fireGlow(g,488,groundY(488),t,1);
+  for(const [k,ix] of [["c1",IDX_C1],["c2",IDX_C2]]){const y=-ix*HS;if(y>vy0-140&&y<vy1+140)fireGlow(g,486,y-1,t,fireAmt(k));}
+  drawParts(g);
+  for(const w of FX.wisps){g.globalAlpha=w.a;g.drawImage(FX.spr.puff,w.x-w.r,w.y-w.r*.45,w.r*2,w.r*.9);}g.globalAlpha=1;
+  // light, grade and the old-film finish
+  screen();const [sx,sy]=FX.sun;
+  g.globalCompositeOperation="lighter";
+  for(let k=0;k<5;k++){const a=.3+k*.14+Math.sin(t*.07+k*1.3)*.03,sp=.022+hash(k,3)*.02,L=W*1.4,gr=g.createLinearGradient(sx,sy,sx+Math.cos(a)*L,sy+Math.sin(a)*L);
+    gr.addColorStop(0,rgb(pal.sun,.06));gr.addColorStop(1,rgb(pal.sun,0));g.fillStyle=gr;g.beginPath();g.moveTo(sx,sy);g.lineTo(sx+Math.cos(a-sp)*L,sy+Math.sin(a-sp)*L);g.lineTo(sx+Math.cos(a+sp)*L,sy+Math.sin(a+sp)*L);g.closePath();g.fill();}
+  for(const m of FX.motes){const x=m.x*W,y=m.y*H,a=(.5+.5*Math.sin(t*1.5+m.p))*.3*clamp(1-Math.hypot(x-sx,y-sy)/(W*.9),0,1);g.fillStyle=rgb(pal.sun,a);g.beginPath();g.arc(x,y,m.s,0,7);g.fill();}
+  g.globalCompositeOperation="multiply";g.fillStyle=rgb(pal.tint,.3);g.fillRect(0,0,W,H);
+  g.globalCompositeOperation="soft-light";g.fillStyle="rgba(255,236,200,.35)";g.fillRect(0,0,W,H); // warm, punchy print colour rather than a muddy wash
+  g.globalCompositeOperation="source-over";
+  const vg=g.createRadialGradient(W/2,H*.48,H*.32,W/2,H*.5,H*.95);vg.addColorStop(0,"rgba(40,20,10,0)");vg.addColorStop(1,"rgba(40,20,10,.46)");g.fillStyle=vg;g.fillRect(0,0,W,H);
+  if(sw){g.fillStyle=`rgba(30,15,5,${hash(b,3)*.05})`;g.fillRect(0,0,W,H); // projector flicker
+    g.fillStyle="rgba(29,19,15,.55)";g.strokeStyle="rgba(29,19,15,.45)";g.lineWidth=1;
+    for(let i=0;i<4;i++){const x=hash(b,10+i)*W,y=hash(b,20+i)*H;if(hash(b,30+i)<.6){g.beginPath();g.arc(x,y,.6+hash(b,40+i)*1.4,0,7);g.fill();}
+      else{g.beginPath();g.moveTo(x,y);g.quadraticCurveTo(x+6,y+3,x+4+hash(b,50+i)*8,y+9);g.stroke();}}
+    if(hash(Math.floor(b/3),7)<.35){const x=hash(Math.floor(b/3),8)*W;g.fillStyle="rgba(29,19,15,.25)";g.fillRect(x,0,1,H);}}
+  if(!FX.grainPat)FX.grainPat=g.createPattern(FX.spr.grain,"repeat");
+  g.save();g.translate(-hash(b,4)*192,-hash(b,5)*192);g.globalAlpha=.09;g.globalCompositeOperation="overlay";g.fillStyle=FX.grainPat;g.fillRect(0,0,W+192,H+192);g.restore();
+  g.globalAlpha=1;g.globalCompositeOperation="source-over";
+  // paint one chunk ahead of the camera while it is idle, so climbing never waits on it
+  const [n1,n2]=chunkRange(vy0-CHK,vy1+CHK);for(let ci=n1;ci<=n2;ci++)if(!FX.chunks.has(ci)){chunk(ci);break;}
+}
+
+/* ---------- overlays: cartoon title cards, captions and confetti ---------- */
+const BURST=(()=>{let d="";for(let i=0;i<32;i++){const r=i%2?40:57,a=i/32*Math.PI*2;d+=(i?"L":"M")+(Math.cos(a)*r).toFixed(1)+","+(Math.sin(a)*r).toFixed(1);}return d+"Z";})();
+function title(text,sub,tone){const fx=$("#fx");if(!fx)return;fx.querySelectorAll(".tcard").forEach(x=>x.remove());
+  const el=document.createElement("div");el.className="tcard "+(tone||"");const fs=Math.min(11,125/text.length).toFixed(2);
+  // per-letter nudge, like hand-set type that is never quite aligned
+  el.innerHTML=`<svg class="burst" viewBox="-60 -60 120 120"><g><path d="${BURST}"/><circle r="31"/></g></svg>
+   <b style="font-size:min(${fs}cqw,84px)">${[...text].map((ch,i)=>{const c=ch.charCodeAt(0),s1=((c*31+i*17)%100)/100,s2=((c*53+i*7)%100)/100;
+     return `<span style="--i:${i};--y:${((s1-.5)*.16).toFixed(3)}em;--r:${((s2-.5)*10).toFixed(1)}deg">${ch===" "?"&nbsp;":esc(ch)}</span>`;}).join("")}</b>
+   ${sub?`<small>${esc(sub)}</small>`:""}`;
+  fx.appendChild(el);setTimeout(()=>el.remove(),2700);}
+function caption(text){const fx=$("#fx");if(!fx)return;fx.querySelectorAll(".cap").forEach(x=>x.remove());
+  const el=document.createElement("div");el.className="cap";el.textContent=text;fx.appendChild(el);setTimeout(()=>el.remove(),2900);}
+function confetti(n=28){const fx=$("#fx");if(!fx||RM.matches)return;const cols=["#e0472b","#f2b233","#2f8f8a","#fff3d6","#9bd16a"];
+  for(let i=0;i<n;i++){const c=document.createElement("i");c.className="conf";
+    c.style.cssText=`--x:${(Math.random()*100).toFixed(1)}%;--d:${(Math.random()*.5).toFixed(2)}s;--c:${cols[i%cols.length]};--dr:${Math.round((Math.random()*2-1)*60)}px;--rot:${Math.round(Math.random()*720-360)}deg;--dur:${(1.4+Math.random()).toFixed(2)}s`;
+    fx.appendChild(c);setTimeout(()=>c.remove(),3200);}}
+
+/* ---------- sequences ---------- */
+const stepMsFor=n=>clamp(3600/Math.max(n,1),230,460);
+function place(r,i){const rs=r.rest(i);if(rs){r.standAt(rs.x,rs.y);r.hi=i;}else r.grab(Math.max(i,2));}
+function placeTeam(exp,li){FX.exp=exp;place(FX.A.me,li);place(FX.A.mate,mateIdx(li));FX.rope.reset=1;}
+async function climbRig(r,to,ms,id,ch="main"){
+  const ok=()=>FX.ch[ch]===id,lead=r===FX.A.me;
+  if(to<r.hi)return downRig(r,to,ms,id,ch);
+  if(r.mode==="stand"){if(to<=r.hi)return ok();r.reachFrom(r.hi+3,.4);if(!(await wait(440,ch)))return false;}
+  while(r.hi<to){
+    // on long runs the leader throws the odd dyno: both hands let go and catch two holds higher
+    if(lead&&to-r.hi>=4&&ms<=330&&++r.cnt%5===0){r.dyno(ms*1.4/1000);sfx("hup");pop(r,"HUP!");if(!(await wait(ms*1.7,ch)))return false;continue;}
+    r.stepUp(ms/1000*.92);if(!(await wait(ms,ch)))return false;}
+  const rs=r.rest(to);
+  if(rs&&r.mode==="climb"){r.h.forEach((h,j)=>r.flyHand(h,rs.x+(j?11:-11)*r.s,rs.y-1,.32,1));if(!(await wait(340,ch)))return false;
+    r.mode="stand";r.gx=rs.x;r.gy=rs.y;r.hi=to;r.moved();r.sq=-.22;if(r===FX.A.me||r===FX.A.mate)sfx("thud");if(!(await wait(520,ch)))return false;}
+  return ok();
+}
+async function downRig(r,to,ms,id,ch){const ok=()=>FX.ch[ch]===id,rs=r.rest(to),stop=rs?to+2:to;
+  if(r.mode==="stand")r.grab(Math.max(r.hi,stop+1));
+  while(r.hi>stop){r.stepDown(ms/1000*.9);if(!(await wait(ms,ch)))return false;}
+  if(rs){r.mode="stand";r.gx=rs.x;r.gy=rs.y;r.hi=to;r.moved();if(!(await wait(520,ch)))return false;}
+  return ok();}
+async function fallRig(r,anchor,back,id,ch,caught){
+  const rs=r.rest(anchor),[ax,ay]=rs?[rs.x,rs.y-40]:r.hold(anchor),near=r===FX.A.me;
+  pebbles(r);if(near)sfx("whistle");r.startFall(ax,ay+(caught?10:0),caught?Math.hypot(r.N.x-ax,r.N.y-ay-10)+16:34);
+  if(!(await wait(caught?1500:1900,ch)))return false;
+  if(!caught){r.dizzy=1.6;FX.shake=Math.max(FX.shake,.6);}
+  r.reachFrom(clamp(Math.round(-(r.N.y-31*r.s)/HS),2,IDX_TOP-1),.3);
+  if(!(await wait(caught?360:900,ch)))return false;
+  return climbRig(r,back,260,id,ch);
+}
+function arrive(name,exp,to){const top=name==="summit";title(top?"SUMMIT!":name.toUpperCase()+"!",`${fmt(to*HS/WK+ALT.base)} m`,"camp");confetti();
+  sfx(top?"summit":"fanfare");FX.kick=-.1;FX.A.me.cheer=2.6;}
+async function runEvent(exp,o){
+  const id=++FX.ch.main,A=FX.A,me=A.me,mate=A.mate,ok=()=>FX.ch.main===id;
+  const to=idxOf(exp,typeof o.to==="number"?o.to:exp.pitch),plan=mateIdx(to);
+  if(o.fall&&to<me.hi){title("WHOOPS!",`Down to ${fmt(to*HS/WK+ALT.base)} m`,"bad");
+    const lower=wait(500).then(r=>r&&mate.hi>plan&&climbRig(mate,plan,240,id)); // the partner lowers off to meet them
+    if(!(await fallRig(me,to,to,id,"main",false)))return;await lower;}
+  else if(o.fall){caption("Slip! The rope holds");if(!(await fallRig(me,me.hi-1,me.hi,id,"main",true)))return;}
+  else if(to>me.hi){const ms=stepMsFor(to-me.hi),follow=wait(700).then(r=>r&&climbRig(mate,plan,ms,id));
+    if(!(await climbRig(me,to,ms,id)))return;
+    if(o.arrived)arrive(o.arrived,exp,to);else if(o.echo)title("ECHO!","A double pitch","good");else pop(me,o.move>=2?"HUP HUP!":"HUP!");
+    if(!(await follow))return;if(o.arrived)mate.cheer=1.8;}
+  else{caption("Holding on…");pop(me,"PHEW!");}
+  if(ok()&&mate.hi!==plan)await climbRig(mate,plan,320,id);
+}
+async function runRival(a1){const R=FX.A.rival;if(!R)return;const id=++FX.ch.rival,to=rivIdx(a1);
+  if(!(await wait(600,"rival")))return;
+  if(to<R.hi)await fallRig(R,to,to,id,"rival",false);else if(to>R.hi)await climbRig(R,to,330,id,"rival");
+  if(to>=IDX_TOP)R.cheer=4;}
+async function runSummit(t){const id=++FX.ch.main,A=FX.A,won=t.exp.finished==="won";
+  if(A.me.mode!=="stand"||A.me.hi<IDX_TOP)placeTeam(t.exp,IDX_TOP);
+  title(won?"FIRST TO THE TOP!":"MADE IT!",won?`Ahead of ${RIVALS[t.rival].name}`:"Second place","camp");confetti(44);sfx("summit");
+  A.me.cheer=3.2;if(!(await wait(400)))return;A.mate.cheer=3;}
+async function runDemo(){ // lobby: a rope team climbs the whole pillar on a loop
+  const id=++FX.ch.main,A=FX.A,ok=()=>FX.ch.main===id,tot=total(DEMO);
+  placeTeam(DEMO,0);if(RM.matches)return;
+  while(ok()){placeTeam(DEMO,0);FX.cam=null;if(!(await wait(1500)))return;
+    for(let p=0;p<tot;p++){const to=idxOf(DEMO,p+1),ms=stepMsFor(to-A.me.hi),f=wait(700).then(r=>r&&climbRig(A.mate,mateIdx(to),ms,id));
+      if(!(await climbRig(A.me,to,ms,id)))return;
+      if(p===2&&!(await fallRig(A.me,A.me.hi-1,A.me.hi,id,"main",true)))return;
+      if(A.me.rest(to)){A.me.cheer=2;pop(A.me,to>=IDX_TOP?"SUMMIT!":"CAMP!");}
+      if(!(await f))return;
+      if(A.me.rest(to)){A.mate.cheer=1.6;if(!(await wait(2600)))return;}else if(!(await wait(600)))return;}
+    if(!(await wait(2500)))return;}}
+function snap(exp,t){FX.ch.main++;FX.ch.rival++;const A=FX.A;placeTeam(exp,idxOf(exp,exp.pitch));
+  if(A.rival)place(A.rival,rivIdx(exp.rival.alt));if(t.round.phase==="summit"){A.me.cheer=2;A.mate.cheer=2;}FX.cam=null;}
+
+function drawTopo(t){
+  if(!ensureScene())return;
+  if(!t){setRival(null);FX.focus="me";FX.camW=660;FX.label=null;FX.lit={c1:1,c2:1};FX.litAt={};
+    if(FX.mode!=="lobby"){FX.mode="lobby";FX.exp=DEMO;FX.cam=null;runDemo();}return;}
+  const exp=t.exp,r=t.round;FX.exp=exp;setRival(t.rival);
+  const reached=Math.max(idxOf(exp,exp.pitch),idxOf(exp,exp.anchor));
+  for(const [k,ix] of [["c1",IDX_C1],["c2",IDX_C2]]){const on=reached>=ix;if(on&&!FX.lit[k]&&FX.mode==="game")FX.litAt[k]=FX.time+1.6;FX.lit[k]=on;}
+  FX.focus=r.phase==="summit"?"summit":"me";FX.camW=r.phase==="camp"?820:r.phase==="summit"?900:600;
+  const tot=total(exp),ter=route(exp)[exp.pitch];
+  FX.label=r.phase!=="summit"&&exp.pitch<tot&&needsChoice(exp)<0&&ter?{i:idxOf(exp,exp.pitch+1),text:`P${exp.pitch+1} · ${TERRAIN[ter].name.toUpperCase()}`}:null;
+  const st={n:exp.n,pitch:exp.pitch,ralt:exp.rival.alt,res:r.phase==="reveal"?r.resolvedAt:null,phase:r.phase};
+  const prev=FX.state;FX.state=st;
+  if(FX.mode!=="game"||!prev||prev.n!==st.n){FX.mode="game";FX.litAt={};snap(exp,t);return;}
+  if(st.res&&st.res!==prev.res&&r.result)runEvent(exp,r.result);
+  else if(st.pitch!==prev.pitch){const id=++FX.ch.main,to=idxOf(exp,st.pitch);climbRig(FX.A.me,to,300,id).then(k=>k&&climbRig(FX.A.mate,mateIdx(to),300,id));}
+  if(st.ralt!==prev.ralt)runRival(st.ralt);
+  if(st.phase==="summit"&&prev.phase!=="summit")runSummit(t);
+}
+/* ============================== BOOT ============================== */
+$("#homeBtn").onclick=goLobby;
+(function boot(){
+  S.uid=LS.get("pid",null);
+  if(!S.uid){const a="abcdefghijkmnpqrstuvwxyz23456789";S.uid=Array.from(crypto.getRandomValues(new Uint8Array(12)),b=>a[b%32]).join("");LS.set("pid",S.uid);}
+  S.myName=LS.get("name","");S.myTeams=LS.get("teams",[]);
+  renderLobby();
+  const m=/^#t-([A-Z0-9]{6})$/.exec(location.hash||"");
+  if(m)fb.get("teams/"+m[1]).then(v=>{const t=fixTeam(v);
+    if(t&&t.members[S.uid])openTeam(m[1]);
+    else if(t)renderLobby({code:m[1],name:t.name});
+    else toast("That invite link's rope team doesn't exist.");}).catch(()=>toast("Couldn't reach the mountain. Check your connection."));
+})();
+</script>
+</body>
+</html>
