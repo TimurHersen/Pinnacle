@@ -1088,7 +1088,7 @@ const holdXY=(ch,i)=>[laneX(ch,-i*HS)+(i%2?13:-13)+(hash(i,3)-.5)*8,-i*HS+(hash(
 const boltXY=(ch,i)=>[laneX(ch,-i*HS)+(hash(i,11)-.5)*6,-i*HS+12];
 const idxOf=(exp,p)=>Math.round(-WY(altOf(exp,p))/HS);
 function restSpot(i,m){if(i<=0){const x=m?382:420;return {x,y:groundY(x)};}
-  if(i===IDX_C1||i===IDX_C2)return {x:m?452:420,y:-i*HS-6}; // on the camp shelf's top surface
+  if(i===IDX_C1||i===IDX_C2)return {x:m?458:418,y:-i*HS-6}; // on the camp shelf's top surface
   if(i>=IDX_TOP)return {x:m?SX+30:SX,y:TOPY};return null;}
 function mateIdx(li){if(li<=0||li===IDX_C1||li===IDX_C2||li>=IDX_TOP)return li;return Math.max(li>IDX_C2?IDX_C2:li>IDX_C1?IDX_C1:0,li-5);}
 
@@ -1162,7 +1162,7 @@ function paintChunk(ci){
   return c;
 }
 function chunk(ci){let c=FX.chunks.get(ci);if(c){FX.chunks.delete(ci);FX.chunks.set(ci,c);return c;}
-  c=paintChunk(ci);FX.chunks.set(ci,c);if(FX.chunks.size>18)FX.chunks.delete(FX.chunks.keys().next().value);return c;}
+  c=paintChunk(ci);FX.chunks.set(ci,c);if(FX.chunks.size>12)FX.chunks.delete(FX.chunks.keys().next().value);return c;}
 const chunkRange=(vy0,vy1)=>[Math.max(-1,Math.floor(-vy1/CHK)),Math.min(Math.floor(-TOPY/CHK),Math.floor(-vy0/CHK))];
 
 /* ---------- sprites ---------- */
@@ -1182,9 +1182,12 @@ function makeFilm(W,H,dpr){const pad=14,c=document.createElement("canvas"),w=W+p
 
 /* ---------- climbers: rubber-hose rigs, seen from behind until they turn round to cheer ---------- */
 const BASE={boot:"#7a4322",bootl:"#b8763f",bootd:"#4a2512",pk:"#a4733f",pkl:"#d9a262",pkd:"#6f4722",roll:"#3f8c82",rolll:"#86cdbf",rope:"#e0472b",
-  skin:"#ffd2a6",skinl:"#ffeed6",skind:"#e7a57a",hair:"#5a3523",hairl:"#8f5f40",haird:"#33190e",pom:CREAM};
-const LOOK={me:{...BASE,jk:"#e0472b",jkl:"#ff9466",jkd:"#9e2914",pt:"#2f4a6b",hat:"#f2b233",hatl:"#ffe596",hatd:"#c4851a",sc:"#fff3d6"},
-  mate:{...BASE,jk:"#2f8f8a",jkl:"#79cfc3",jkd:"#1b5f5b",pt:"#6b4a2e",hat:"#e0472b",hatl:"#ff9a78",hatd:"#9e2914",sc:"#f2b233",hair:"#2b1d14",hairl:"#5e4231",haird:"#120a06"}};
+  skin:"#ffd2a6",skinl:"#ffeed6",skind:"#e7a57a",hair:"#5a3523",hairl:"#8f5f40",haird:"#33190e",pom:CREAM,hn:"#3d5fa8",cb:"#9b5fc0"};
+// two different people: a wiry, freckled leader in a bobble beanie, and a big, moustached belayer in a trapper hat
+const LOOK={me:{...BASE,jk:"#e0472b",jkl:"#ff9466",jkd:"#9e2914",pt:"#2f4a6b",ptl:"#5776a0",ptd:"#1d3049",hat:"#f2b233",hatl:"#ffe596",hatd:"#c4851a",sc:"#fff3d6",
+    wb:.92,hr:11,hatk:"beanie",freck:1,patch:0,hn:"#f08a24",cb:"#3f8c82"},
+  mate:{...BASE,jk:"#2f8f8a",jkl:"#79cfc3",jkd:"#1b5f5b",pt:"#6b4a2e",ptl:"#9a7350",ptd:"#43301c",hat:"#e0472b",hatl:"#ff9a78",hatd:"#9e2914",sc:"#f2b233",
+    hair:"#2b1d14",hairl:"#5e4231",haird:"#120a06",skin:"#f4b98a",skinl:"#ffdcb8",skind:"#d48c60",wb:1.16,hr:11.8,hatk:"trapper",stache:1,patch:1}};
 function ik(rx,ry,tx,ty,a,b,bend){let dx=tx-rx,dy=ty-ry,d=Math.hypot(dx,dy)||1e-4;const m=a+b-.01;if(d>m){tx=rx+dx/d*m;ty=ry+dy/d*m;d=m;}
   const ang=Math.atan2(ty-ry,tx-rx),j=ang+bend*Math.acos(clamp((a*a+d*d-b*b)/(2*a*d),-1,1));return [rx+Math.cos(j)*a,ry+Math.sin(j)*a,tx,ty];}
 // rubber hose: one smooth curve through the IK joint instead of a hinge
@@ -1259,6 +1262,11 @@ class Rig{
       if(f.f){if(fly(f,dt)&&this.mode==="stand"&&me&&Math.random()<.5)sfx("thud");return;}
       const st=this.mode==="stand",ix=st?this.gx+sd*7*s:P.x+sd*13*s,iy=st?this.gy:P.y+(29+(j?-4:4))*s;
       if(Math.hypot(ix-f.x,iy-f.y)>(st?3:16)*s&&!this.ft[1-j].f)f.f={x0:f.x,y0:f.y,x1:ix,y1:iy-(st?0:6*s),t:0,d:.2,oy:5*s};});
+    // where they look: up the route toward the next hold while climbing, across at their partner on a ledge
+    const other=FX.A&&(this===FX.A.me?FX.A.mate:FX.A.me);let tt=this.tt||.65,up=0;
+    if(this.mode==="climb"){const nx=this.hold(this.hi+1);if(nx&&Math.abs(nx[0]-this.N.x)>4)tt=(nx[0]>this.N.x?1:-1)*.72;up=this.h.some(h=>h.f)?1:.4;}
+    else if(this.mode==="stand"&&other&&other!==this){if(Math.abs(other.N.x-this.N.x)>4)tt=(other.N.x>this.N.x?1:-1)*.7;if(this.fid&&this.fid.k==="look"){tt*=.4;up=1;}}
+    this.tt=tt;this.turn=lerp(this.turn||0,tt,1-Math.exp(-dt*5));this.up=lerp(this.up||0,up,1-Math.exp(-dt*5));
     // trailing bits: scarf in the wind, pompom on a spring
     const sc=this.sc,ax=this.N.x+2*s,ay=this.N.y+s,wind=(150+Math.sin(t*1.7+this.ph)*60+noise1(t*2+this.ph)*90)*s;
     for(let i=1;i<sc.length;i++){const p=sc[i],vx=(p.x-p.px)*.96,vy=(p.y-p.py)*.96;p.px=p.x;p.py=p.y;p.x+=vx+wind*dt*dt;p.y+=vy+260*dt*dt;}
@@ -1269,73 +1277,151 @@ class Rig{
     const pd=Math.hypot(pp.x-hx,pp.y-hy);if(pd>7*s){pp.x=hx+(pp.x-hx)/pd*7*s;pp.y=hy+(pp.y-hy)/pd*7*s;}
   }
   draw(g,t){
-    const s=this.s,L=this.L,P=this.pelvis(),front=this.front(),sx=1-this.sq*.6,sy=1+this.sq;
+    const s=this.s,L=this.L,P=this.pelvis(),front=this.front(),wb=L.wb||1,br=1+Math.sin(t*2.3+this.ph)*.02,sx=(1-this.sq*.6)*br,sy=1+this.sq;
     const q=p=>({x:P.x+(p.x-P.x)*sx,y:P.y+(p.y-P.y)*sy}),N=q(this.N),S=this.shoulders().map(q),id=this.id*50;
+    const reach=this.mode==="climb"&&this.h.some(h=>h.f),blink=((t+this.ph*1.7)%3.9)<.13;
     // soft round shading: light from the upper left, a darker rim on the lower right
     const shade=(x,y,r,c0,c1,c2)=>{const gr=g.createRadialGradient(x-r*.35,y-r*.4,r*.08,x,y,r*1.15);gr.addColorStop(0,c0);gr.addColorStop(.55,c1);gr.addColorStop(1,c2);return gr;};
     if(this.mode!=="fall"){const gr=g.createRadialGradient(N.x+10*s,N.y+20*s,2,N.x+10*s,N.y+20*s,36*s);gr.addColorStop(0,"rgba(60,30,40,.26)");gr.addColorStop(1,"rgba(60,30,40,0)");
       g.fillStyle=gr;g.fillRect(N.x-30*s,N.y-20*s,80*s,80*s);}
-    // legs and round bean-shaped boots
-    for(let j=0;j<2;j++){const f=this.ft[j],hx=P.x+(j?6:-6)*s,[kx,ky,fx,fy]=ik(hx,P.y,f.x,f.y,18*s,18*s,j?-1:1);
-      hose(g,hx,P.y,kx,ky,fx,fy,7.4*s,L.pt,id+j*7);
-      const bx=fx+(j?2:-2)*s,by=fy+1*s,d=j?1:-1;g.beginPath();g.moveTo(bx-6.4*d*s,by+2.8*s);g.bezierCurveTo(bx-7.6*d*s,by-4.4*s,bx+3.6*d*s,by-6*s,bx+7*d*s,by-.4*s);
-      g.bezierCurveTo(bx+8.4*d*s,by+2.6*s,bx+5*d*s,by+4.2*s,bx-6.4*d*s,by+2.8*s);g.closePath();blob(g,L.boot,1.8*s);g.fillStyle=L.bootl;g.beginPath();g.ellipse(bx-1.5*d*s,by-2.2*s,2.6*s,1.2*s,0,0,7);g.fill();}
+    // legs: baggy trousers with a harness leg loop, a knee patch on one, rolled cuffs, chunky boots with a tread sole and laces
+    for(let j=0;j<2;j++){const f=this.ft[j],d=j?1:-1,hx=P.x+d*6*s*wb,[kx,ky,fx,fy]=ik(hx,P.y,f.x,f.y,18*s,18*s,j?-1:1);
+      hose(g,hx,P.y,kx,ky,fx,fy,8*s,L.pt,id+j*7);
+      if(j===L.patch){g.save();g.translate(kx,ky);g.rotate(Math.atan2(fy-ky,fx-kx));rr(g,-1.4*s,-3.6*s,7*s,7.2*s,2*s);blob(g,L.ptl,1.2*s);
+        g.setLineDash([1.2*s,1.2*s]);rr(g,-.2*s,-2.4*s,4.6*s,4.8*s,1.2*s);g.strokeStyle=INK;g.lineWidth=.7*s;g.stroke();g.setLineDash([]);g.restore();}
+      const tx=lerp(hx,kx,.34),ty=lerp(P.y,ky,.34),ta=Math.atan2(ky-P.y,kx-hx);
+      g.beginPath();g.ellipse(tx,ty,1.7*s,5.2*s,ta,0,7);g.strokeStyle=INK;g.lineWidth=3.6*s;g.stroke();g.strokeStyle=L.hn;g.lineWidth=2*s;g.stroke();
+      g.beginPath();g.ellipse(fx,fy-4.2*s,4.9*s,2.2*s,0,0,7);blob(g,L.ptd,1.4*s);
+      const bx=fx+2*d*s,by=fy+1*s;
+      g.beginPath();g.ellipse(bx+1*d*s,by+2.8*s,8.2*s,2.7*s,0,0,7);blob(g,L.bootd,1.6*s);
+      g.beginPath();g.moveTo(bx-6.4*d*s,by+2.4*s);g.bezierCurveTo(bx-7.6*d*s,by-4.8*s,bx+3.6*d*s,by-6.4*s,bx+7.2*d*s,by-.6*s);
+      g.bezierCurveTo(bx+8.6*d*s,by+2.2*s,bx+5*d*s,by+3.6*s,bx-6.4*d*s,by+2.4*s);g.closePath();blob(g,shade(bx-d*s,by-3*s,8*s,L.bootl,L.boot,L.bootd),1.8*s);
+      g.beginPath();g.moveTo(bx-3*d*s,by-4.6*s);g.lineTo(bx+.8*d*s,by-2.4*s);g.moveTo(bx-3*d*s,by-2.4*s);g.lineTo(bx+.8*d*s,by-4.6*s);inkPath(g,1*s);
+      g.fillStyle="rgba(255,240,214,.7)";g.beginPath();g.ellipse(bx+3.6*d*s,by-2.6*s,1.8*s,.9*s,0,0,7);g.fill();}
     const jx=boilJ(id+20,.6*s),jy=boilJ(id+21,.6*s);g.save();g.translate(jx,jy);
-    // egg-shaped body
-    const mx=(N.x+P.x)/2,my=lerp(N.y,P.y,.5);
-    g.beginPath();g.moveTo(N.x,N.y-3*s);g.bezierCurveTo(N.x+12*s,N.y-3*s,P.x+14*s,P.y-7*s,P.x+9*s,P.y+3*s);g.bezierCurveTo(P.x+4*s,P.y+7*s,P.x-4*s,P.y+7*s,P.x-9*s,P.y+3*s);
-    g.bezierCurveTo(P.x-14*s,P.y-7*s,N.x-12*s,N.y-3*s,N.x,N.y-3*s);g.closePath();blob(g,shade(mx,my,17*s,L.jkl,L.jk,L.jkd),2.2*s);
-    if(front){g.beginPath();g.moveTo(N.x,N.y+1*s);g.quadraticCurveTo(N.x+.6*s,my,P.x,P.y+4*s);inkPath(g,1.4*s);
-      for(const d of [-1,1]){g.beginPath();g.arc(N.x+d*3.4*s,my,1.4*s,0,7);g.fillStyle=INK;g.fill();}}
+    // egg-shaped puffer jacket: quilted bands with a soft shine on each
+    const mx=(N.x+P.x)/2,my=lerp(N.y,P.y,.5),W1=12*wb*s,W2=14*wb*s,W3=9*wb*s,body=new Path2D();
+    body.moveTo(N.x,N.y-3*s);body.bezierCurveTo(N.x+W1,N.y-3*s,P.x+W2,P.y-7*s,P.x+W3,P.y+3*s);body.bezierCurveTo(P.x+4*s,P.y+7*s,P.x-4*s,P.y+7*s,P.x-W3,P.y+3*s);
+    body.bezierCurveTo(P.x-W2,P.y-7*s,N.x-W1,N.y-3*s,N.x,N.y-3*s);body.closePath();
+    g.fillStyle=shade(mx,my,17*s*wb,L.jkl,L.jk,L.jkd);g.fill(body);
+    g.save();g.clip(body);g.lineCap="round";g.lineWidth=1.3*s;g.strokeStyle="rgba(29,19,15,.34)";
+    for(const k of [.3,.6,.88]){const y=lerp(N.y,P.y,k);g.beginPath();g.moveTo(mx-20*s,y-3*s);g.quadraticCurveTo(mx,y+3.2*s,mx+20*s,y-3*s);g.stroke();}
+    g.strokeStyle="rgba(255,255,255,.3)";g.lineWidth=1.6*s;
+    for(const k of [.14,.45,.74]){const y=lerp(N.y,P.y,k);g.beginPath();g.moveTo(mx-11*s*wb,y);g.quadraticCurveTo(mx-6*s,y+2*s,mx-1.5*s,y+2.2*s);g.stroke();}
+    g.restore();g.lineJoin="round";g.strokeStyle=INK;g.lineWidth=2.4*s;g.stroke(body);
+    // harness waist belt
+    g.beginPath();g.moveTo(P.x-11*wb*s,P.y-1*s);g.quadraticCurveTo(P.x,P.y+4.5*s,P.x+11*wb*s,P.y-1*s);g.lineCap="round";g.strokeStyle=INK;g.lineWidth=5.2*s;g.stroke();g.strokeStyle=L.hn;g.lineWidth=3*s;g.stroke();
+    if(front){// zip with its pull, a little mountain badge, and the belt buckle
+      g.beginPath();g.moveTo(N.x,N.y+1*s);g.quadraticCurveTo(N.x+.6*s,my,P.x,P.y+1*s);inkPath(g,1.4*s);rr(g,N.x+.2*s,N.y+2.4*s,2.2*s,3.6*s,.9*s);blob(g,"#c7ccd4",.9*s);
+      const bxp=N.x-6.4*s*wb,byp=my-3*s;g.beginPath();g.arc(bxp,byp,3.2*s,0,7);blob(g,CREAM,1.1*s);
+      g.beginPath();g.moveTo(bxp-2.2*s,byp+1.4*s);g.lineTo(bxp-.4*s,byp-1.8*s);g.lineTo(bxp+.5*s,byp-.3*s);g.lineTo(bxp+1.2*s,byp-1.1*s);g.lineTo(bxp+2.2*s,byp+1.4*s);g.closePath();g.fillStyle=L.jk;g.fill();
+      rr(g,P.x-2.8*s,P.y,5.6*s,3.8*s,1*s);blob(g,"#c7ccd4",1.1*s);}
     else if(!L.nopack){g.save();g.translate(lerp(N.x,P.x,.46),lerp(N.y,P.y,.46));g.rotate(-this.lean);
-      // rope coil, then a soft sack with a flap and brass button, then the rolled bedroll
+      // rope coil, then a soft sack with a flap, side pocket and brass button, then the rolled bedroll on its straps
       g.beginPath();g.ellipse(12*s,3*s,4.8*s,7.6*s,0,0,7);g.strokeStyle=INK;g.lineWidth=5.2*s;g.stroke();g.strokeStyle=L.rope;g.lineWidth=2.8*s;g.stroke();
+      g.beginPath();g.ellipse(12*s,3*s,4.8*s,7.6*s,0,-1.2,.2);g.strokeStyle="rgba(255,236,206,.6)";g.lineWidth=1*s;g.stroke();
       g.beginPath();g.moveTo(-10*s,-11*s);g.bezierCurveTo(-15.5*s,-2*s,-15*s,12*s,-6*s,13.5*s);g.quadraticCurveTo(0,15.5*s,6*s,13.5*s);g.bezierCurveTo(15*s,12*s,15.5*s,-2*s,10*s,-11*s);
       g.quadraticCurveTo(0,-14*s,-10*s,-11*s);g.closePath();blob(g,shade(0,0,15*s,L.pkl,L.pk,L.pkd),2*s);
+      g.beginPath();g.moveTo(-7*s,5*s);g.quadraticCurveTo(-7.4*s,11.6*s,0,11.8*s);g.quadraticCurveTo(7.4*s,11.6*s,7*s,5*s);g.closePath();blob(g,shade(0,7*s,8*s,L.pkl,L.pk,L.pkd),1.4*s);
+      g.setLineDash([1.2*s,1.2*s]);g.beginPath();g.moveTo(-5.6*s,6.2*s);g.quadraticCurveTo(-5.8*s,10.4*s,0,10.5*s);g.quadraticCurveTo(5.8*s,10.4*s,5.6*s,6.2*s);inkPath(g,.7*s,.6);g.setLineDash([]);
       g.beginPath();g.moveTo(-10.5*s,-10*s);g.quadraticCurveTo(0,-13.5*s,10.5*s,-10*s);g.quadraticCurveTo(11*s,-1*s,0,2*s);g.quadraticCurveTo(-11*s,-1*s,-10.5*s,-10*s);g.closePath();
       blob(g,shade(0,-7*s,11*s,L.pk,L.pkd,L.pkd),1.6*s);g.beginPath();g.arc(0,-.5*s,2.1*s,0,7);blob(g,"#f2b233",1.2*s);
       const bw=14*s;g.beginPath();g.moveTo(-bw,-19.5*s);g.lineTo(bw,-19.5*s);g.arc(bw,-15.5*s,4*s,-Math.PI/2,Math.PI/2);g.lineTo(-bw,-11.5*s);g.arc(-bw,-15.5*s,4*s,Math.PI/2,Math.PI*1.5);g.closePath();
       const rg=g.createLinearGradient(0,-19.5*s,0,-11.5*s);rg.addColorStop(0,L.rolll);rg.addColorStop(.6,L.roll);rg.addColorStop(1,L.roll);blob(g,rg,1.8*s);
-      g.beginPath();g.ellipse(bw+.6*s,-15.5*s,2.2*s,4*s,0,0,7);blob(g,L.rolll,1.2*s);
-      g.beginPath();g.moveTo(-7*s,-19.5*s);g.quadraticCurveTo(-8.2*s,-15.5*s,-7*s,-11.5*s);g.moveTo(7*s,-19.5*s);g.quadraticCurveTo(5.8*s,-15.5*s,7*s,-11.5*s);inkPath(g,1.3*s);
-      g.restore();}
+      g.beginPath();g.ellipse(bw+.6*s,-15.5*s,2.2*s,4*s,0,0,7);blob(g,L.rolll,1.2*s);g.beginPath();g.ellipse(bw+.6*s,-15.5*s,1*s,2*s,0,0,7);inkPath(g,.8*s,.6);
+      for(const x of [-7*s,7*s]){rr(g,x-1.4*s,-20.4*s,2.8*s,9.8*s,.8*s);blob(g,"#6f4722",1.1*s);}
+      g.restore();
+      // chalk bag hanging off the back of the belt
+      const cx=P.x+1*s,cy=P.y+3.6*s;g.beginPath();g.moveTo(cx-3.8*s,cy);g.lineTo(cx+3.8*s,cy);g.quadraticCurveTo(cx+4.6*s,cy+7.6*s,cx,cy+8*s);g.quadraticCurveTo(cx-4.6*s,cy+7.6*s,cx-3.8*s,cy);g.closePath();
+      blob(g,shade(cx,cy+4*s,6*s,"#ffffffaa",L.cb,L.cb),1.4*s);rr(g,cx-4.4*s,cy-1.5*s,8.8*s,2.8*s,1.3*s);blob(g,"#f2efe6",1.2*s);}
     else{g.beginPath();g.moveTo(P.x-9*s,P.y-2*s);g.quadraticCurveTo(P.x,P.y+2*s,P.x+9*s,P.y-2*s);inkPath(g,2*s);}
     // the gear rack on the harness: one carabiner per hook left, swinging as they move
-    if(this.gear&&!front)for(let i=0;i<this.gear;i++){g.save();g.translate(P.x+(-9+i*9)*s,P.y+3*s);g.rotate(Math.sin(t*3+i*1.7)*.25+this.lean*.5);
-      g.beginPath();g.ellipse(0,3.4*s,2.3*s,3.8*s,0,0,7);g.strokeStyle=INK;g.lineWidth=2.8*s;g.stroke();g.strokeStyle=i%2?"#f2b233":"#e0472b";g.lineWidth=1.4*s;g.stroke();g.restore();}
-    // scarf trailing in the wind, drawn as one smooth ribbon
+    if(this.gear&&!front)for(let i=0;i<this.gear;i++){g.save();g.translate(P.x+[-13,-8.5,9.5,14][i%4]*s*wb,P.y+2.4*s);g.rotate(Math.sin(t*3+i*1.7)*.25+this.lean*.5);
+      g.beginPath();g.ellipse(0,3.4*s,2.3*s,3.8*s,0,0,7);g.strokeStyle=INK;g.lineWidth=2.8*s;g.stroke();g.strokeStyle=i%2?"#f2b233":"#e0472b";g.lineWidth=1.4*s;g.stroke();
+      g.beginPath();g.moveTo(1.4*s,.6*s);g.lineTo(1.4*s,4.6*s);g.strokeStyle="#c7ccd4";g.lineWidth=.8*s;g.stroke();g.restore();}
+    // scarf trailing in the wind, drawn as one smooth ribbon with a stripe
     const sc=this.sc;g.beginPath();g.moveTo(sc[0].x,sc[0].y);for(let i=1;i<sc.length-1;i++)g.quadraticCurveTo(sc[i].x,sc[i].y,(sc[i].x+sc[i+1].x)/2,(sc[i].y+sc[i+1].y)/2);
     g.lineTo(sc[sc.length-1].x,sc[sc.length-1].y);g.lineCap=g.lineJoin="round";g.strokeStyle=INK;g.lineWidth=6.8*s;g.stroke();g.strokeStyle=L.sc;g.lineWidth=4.2*s;g.stroke();
-    // big round head: the back of the head while climbing, a pie-eyed face when they turn round
-    const hx=N.x,hy=N.y-13*s,R=11*s;
-    for(const d of [-1,1]){g.beginPath();g.ellipse(hx+d*R,hy+1*s,2.5*s,3.3*s,0,0,7);blob(g,L.skin,1.6*s);}
-    g.beginPath();g.arc(hx,hy,R,0,7);blob(g,front?shade(hx,hy,R,L.skinl,L.skin,L.skind):shade(hx,hy,R,L.hairl,L.hair,L.haird),2.2*s);
-    if(front){const ey=hy+1.6*s,big=this.mode==="fall"?1.3:1;
+    g.setLineDash([2.4*s,3.2*s]);g.strokeStyle=L.jk;g.lineWidth=4.2*s;g.lineCap="butt";g.stroke();g.setLineDash([]);g.lineCap="round";
+    // sleeves go behind the head so a raised arm never hides the face; the gloves are drawn last, on top. Elbows always point outward
+    const arm=[0,1].map(j=>{const h=this.h[j],a=ik(S[j].x-jx,S[j].y-jy,h.x-jx,h.y-jy,16*s,16*s,(j?1:-1)*(h.y>S[j].y+4*s?-1:1));hose(g,S[j].x-jx,S[j].y-jy,a[0],a[1],a[2],a[3],6.6*s,L.jk,id+30+j*3);return a;});
+    // the head: from behind while climbing, but turned three-quarters toward the next hold (or the partner) so the face shows
+    const R=(L.hr||11)*s,hx=N.x,hy=N.y-13*s,tn=front?0:(this.turn||0),ad=Math.abs(tn),sd=tn<0?-1:1;
+    if(front){for(const d of [-1,1]){g.beginPath();g.ellipse(hx+d*R,hy+1*s,2.5*s,3.3*s,0,0,7);blob(g,L.skin,1.6*s);}
+      g.beginPath();g.arc(hx,hy,R,0,7);blob(g,shade(hx,hy,R,L.skinl,L.skin,L.skind),2.2*s);
+      const ey=hy+1.6*s,big=this.mode==="fall"?1.3:1;
       if(this.dizzy>0){for(const d of [-1,1]){g.beginPath();g.moveTo(hx+d*4*s-2*s,ey-2*s);g.lineTo(hx+d*4*s+2*s,ey+2*s);g.moveTo(hx+d*4*s+2*s,ey-2*s);g.lineTo(hx+d*4*s-2*s,ey+2*s);inkPath(g,1.6*s);}}
       else for(const d of [-1,1]){g.beginPath();g.ellipse(hx+d*3.8*s,ey,2.2*s*big,3.6*s*big,0,0,7);g.fillStyle=INK;g.fill();
         g.fillStyle="#fff";g.beginPath();g.moveTo(hx+d*3.8*s+.4*s,ey-2.6*s*big);g.lineTo(hx+d*3.8*s+1.9*s*big,ey-1.3*s*big);g.lineTo(hx+d*3.8*s+.5*s,ey-.6*s);g.closePath();g.fill();}
+      const fb=this.mode==="fall"?-1.6*s:0;for(const d of [-1,1]){g.beginPath();g.moveTo(hx+d*1.6*s,ey-5*s+fb);g.quadraticCurveTo(hx+d*4*s,ey-7.2*s+fb,hx+d*6.4*s,ey-5.4*s+fb*.4);inkPath(g,1.4*s);}
       g.fillStyle="rgba(240,110,100,.45)";g.beginPath();g.arc(hx-7*s,hy+5*s,2.4*s,0,7);g.arc(hx+7*s,hy+5*s,2.4*s,0,7);g.fill();
+      if(L.freck){g.fillStyle="rgba(150,80,50,.7)";for(const d of [-1,1])for(const [a,b] of [[-1,-.6],[.4,.5],[1.2,-.8]]){g.beginPath();g.arc(hx+d*7*s+a*s,hy+4.6*s+b*s,.45*s,0,7);g.fill();}}
       g.beginPath();g.ellipse(hx,hy+4*s,2.5*s,2.1*s,0,0,7);blob(g,"#ef7f63",1.2*s);
-      if(this.mode==="fall"||this.dizzy>0){g.beginPath();g.ellipse(hx,hy+8*s,2.2*s,2.8*s,0,0,7);g.fillStyle=INK;g.fill();}
-      else{g.beginPath();g.moveTo(hx-5*s,hy+6.5*s);g.quadraticCurveTo(hx,hy+12.5*s,hx+5*s,hy+6.5*s);g.closePath();blob(g,"#8c2a1d",1.4*s);
-        g.fillStyle="#ef7f63";g.beginPath();g.ellipse(hx,hy+9.6*s,2.2*s,1.1*s,0,0,7);g.fill();}}
-    else{g.strokeStyle="rgba(255,236,206,.55)";g.lineWidth=1.5*s;g.lineCap="round";g.beginPath();g.arc(hx,hy,R-1.8*s,Math.PI*.72,Math.PI*1.2);g.stroke();}
-    // beanie: a smooth dome, a curved ribbed band and a pompom on a spring
+      if(L.stache){g.beginPath();g.moveTo(hx,hy+5.4*s);for(const d of [-1,1]){g.moveTo(hx,hy+5.6*s);g.bezierCurveTo(hx+d*3*s,hy+4.4*s,hx+d*7*s,hy+5*s,hx+d*7.4*s,hy+7.6*s);g.quadraticCurveTo(hx+d*4*s,hy+7.6*s,hx,hy+6.8*s);}
+        g.fillStyle=L.hair;g.fill();inkPath(g,1.2*s);}
+      if(this.mode==="fall"||this.dizzy>0){g.beginPath();g.ellipse(hx,hy+8.6*s,2.2*s,2.8*s,0,0,7);g.fillStyle=INK;g.fill();}
+      else{g.beginPath();g.moveTo(hx-5*s,hy+6.8*s);g.quadraticCurveTo(hx,hy+12.8*s,hx+5*s,hy+6.8*s);g.closePath();blob(g,"#8c2a1d",1.4*s);
+        g.fillStyle="#fff";g.fillRect(hx-3.4*s,hy+6.9*s,6.8*s,1.3*s);g.fillStyle="#ef7f63";g.beginPath();g.ellipse(hx,hy+10*s,2.2*s,1.1*s,0,0,7);g.fill();}}
+    else{const hp=new Path2D();hp.arc(hx,hy,R,0,7);
+      if(ad<.7){g.beginPath();g.ellipse(hx-sd*R*.98,hy+1.5*s,2.4*s,3.2*s,0,0,7);blob(g,L.skind,1.6*s);}
+      g.fillStyle=shade(hx,hy,R,L.skinl,L.skin,L.skind);g.fill(hp);
+      // the hair is a second circle that slides away from the side they turn toward, uncovering the cheek
+      const hcx=hx-sd*R*ad*.95,hcy=hy-R*.06;g.save();g.clip(hp);g.beginPath();g.arc(hcx,hcy,R*1.03,0,7);g.fillStyle=shade(hcx,hcy,R,L.hairl,L.hair,L.haird);g.fill();
+      g.strokeStyle="rgba(29,19,15,.6)";g.lineWidth=1.3*s;g.stroke();
+      g.strokeStyle="rgba(255,236,206,.45)";g.lineWidth=1.4*s;g.beginPath();g.arc(hcx,hcy,R*.82,Math.PI*.75,Math.PI*1.15);g.stroke();g.restore();
+      for(const k of [-1,0,1]){const px=hcx+k*3.6*s,py=hy+R*.86-Math.abs(k)*1.4*s;if(Math.abs(px-hx)>R*.8)continue;
+        g.beginPath();g.moveTo(px-2.2*s,py-1.4*s);g.quadraticCurveTo(px+.4*s,py+3.4*s,px+2.2*s,py-1.2*s);g.closePath();g.fillStyle=L.hair;g.fill();inkPath(g,1.1*s);}
+      g.lineWidth=2.4*s;g.strokeStyle=INK;g.stroke(hp);
+      if(ad>.18){const a=clamp((ad-.18)/.3,0,1),xb=hx+sd*R*(1.03-.95*ad),xe=hx+sd*R,ex=lerp(xb,xe,.6),ey=hy-.2*s-(this.up||0)*1.8*s,cx=lerp(xb,xe,.42);
+        g.globalAlpha=a;
+        g.beginPath();g.ellipse(xb,hy+1.8*s,2.6*s,3.5*s,0,0,7);blob(g,shade(xb,hy+1.8*s,3*s,L.skinl,L.skin,L.skind),1.5*s);
+        g.beginPath();g.arc(xb+sd*.4*s,hy+1.9*s,1.3*s,sd>0?-1.3:Math.PI-1.3,sd>0?1.3:Math.PI+1.3);inkPath(g,.9*s,.6);
+        // eye: a pie-cut oval looking up the route, squeezed shut with effort mid-reach
+        if(reach||blink){g.beginPath();g.moveTo(ex-1.9*s,ey);g.quadraticCurveTo(ex,ey+(reach?-2.4:1.4)*s,ex+1.9*s,ey);inkPath(g,1.5*s);}
+        else{g.beginPath();g.ellipse(ex,ey,1.7*s,3*s,0,0,7);g.fillStyle=INK;g.fill();g.fillStyle="#fff";g.beginPath();g.moveTo(ex+sd*.1*s,ey-2.3*s);g.lineTo(ex+sd*1.3*s,ey-1.3*s);g.lineTo(ex+sd*.2*s,ey-.6*s);g.closePath();g.fill();}
+        const lb=reach?1.4*s:0;g.beginPath();g.moveTo(ex-sd*2.4*s,ey-4.8*s+lb);g.quadraticCurveTo(ex,ey-6.6*s+lb*.5,ex+sd*2.2*s,ey-5.2*s);inkPath(g,1.4*s);
+        g.fillStyle="rgba(240,110,100,.45)";g.beginPath();g.arc(cx,hy+5*s,2.4*s,0,7);g.fill();
+        if(L.freck){g.fillStyle="rgba(150,80,50,.7)";for(const [a2,b2] of [[-1,-.6],[.4,.5],[1.2,-.8]]){g.beginPath();g.arc(cx+a2*sd*s,hy+4.6*s+b2*s,.45*s,0,7);g.fill();}}
+        const mxx=lerp(xb,xe,.8),myy=hy+7.4*s;
+        if(reach){g.beginPath();g.ellipse(mxx,myy,1.2*s,1.6*s,0,0,7);g.fillStyle=INK;g.fill();}
+        else{g.beginPath();g.moveTo(mxx-sd*2.4*s,myy-.6*s);g.quadraticCurveTo(mxx-sd*.4*s,myy+1.8*s,mxx+sd*1.2*s,myy);inkPath(g,1.3*s);}
+        // the nose pokes out past the outline, which is what sells the turn
+        g.beginPath();g.ellipse(xe-sd*.4*s,hy+2.8*s,3*s,2.5*s,0,0,7);blob(g,shade(xe-sd*.4*s,hy+2.8*s,3*s,L.skinl,"#f39a7c","#d9785c"),1.5*s);
+        if(L.stache){g.beginPath();g.moveTo(xe-sd*6*s,hy+5.4*s);g.bezierCurveTo(xe-sd*3*s,hy+3.8*s,xe+sd*1*s,hy+4.4*s,xe+sd*2.4*s,hy+6.4*s);g.quadraticCurveTo(xe-sd*1*s,hy+8.4*s,xe-sd*6*s,hy+5.4*s);g.closePath();
+          g.fillStyle=L.hair;g.fill();inkPath(g,1.2*s);}
+        g.globalAlpha=1;}}
+    // hats: a ribbed beanie with a pompom on a spring, or a trapper with fur trim and ear flaps that swing their ties
     const hb=hy-(front?6:2)*s;
-    g.beginPath();g.moveTo(hx-R-.6*s,hb);g.bezierCurveTo(hx-R-.6*s,hy-R-9*s,hx+R+.6*s,hy-R-9*s,hx+R+.6*s,hb);g.quadraticCurveTo(hx,hb-3*s,hx-R-.6*s,hb);g.closePath();
-    blob(g,shade(hx,hb-R*.6,R*1.2,L.hatl,L.hat,L.hatd),2*s);
-    g.beginPath();g.moveTo(hx-R-1.6*s,hb-2.2*s);g.quadraticCurveTo(hx,hb+.6*s,hx+R+1.6*s,hb-2.2*s);g.lineTo(hx+R+1.8*s,hb+2.4*s);g.quadraticCurveTo(hx,hb+5.4*s,hx-R-1.8*s,hb+2.4*s);g.closePath();
-    blob(g,L.hatd,1.8*s);for(let k=-4;k<=4;k++){const bx=hx+k*2.4*s,o=Math.abs(k)*.25*s;g.beginPath();g.moveTo(bx,hb-.6*s+o*-.6);g.lineTo(bx,hb+3.4*s-o);inkPath(g,.8*s,.35);}
-    g.beginPath();g.moveTo(hx,hy-R-5.5*s);g.lineTo(this.pp.x,this.pp.y);inkPath(g,1.4*s);
-    g.beginPath();g.arc(this.pp.x,this.pp.y,4*s,0,7);blob(g,L.pom,1.8*s);g.fillStyle="#fff";g.beginPath();g.arc(this.pp.x-1.2*s,this.pp.y-1.3*s,1.4*s,0,7);g.fill();
+    if(L.hatk==="trapper"){
+      for(const d of [-1,1]){const fx0=hx+d*(R-2.6*s);g.beginPath();g.moveTo(fx0,hb-1*s);g.quadraticCurveTo(hx+d*(R+4.4*s),hb,hx+d*(R+3*s),hy+5*s);
+        g.quadraticCurveTo(hx+d*(R+1.4*s),hy+9*s,hx+d*(R-2*s),hy+6.2*s);g.closePath();blob(g,shade(hx+d*R,hy+2*s,6*s,L.hatl,L.hat,L.hatd),1.8*s);
+        const sw=Math.sin(t*3.2+d+this.ph)*2*s,ex2=hx+d*(R-.4*s)+sw,ey2=hy+14.5*s;g.beginPath();g.moveTo(hx+d*(R+.6*s),hy+7.6*s);g.quadraticCurveTo(hx+d*(R+1.6*s)+sw*.5,hy+11*s,ex2,ey2);inkPath(g,1.2*s);
+        g.beginPath();g.arc(ex2,ey2,1.5*s,0,7);blob(g,"#f6ead2",1*s);}
+      g.beginPath();g.moveTo(hx-R-.4*s,hb);g.bezierCurveTo(hx-R,hy-R-11*s,hx+R,hy-R-11*s,hx+R+.4*s,hb);g.quadraticCurveTo(hx,hb-3*s,hx-R-.4*s,hb);g.closePath();
+      blob(g,shade(hx,hb-R*.6,R*1.2,L.hatl,L.hat,L.hatd),2*s);
+      g.beginPath();g.moveTo(hx-R*.55,hb-2.6*s);g.quadraticCurveTo(hx-R*.4,hy-R-4*s,hx-1*s,hy-R-6.6*s);inkPath(g,1*s,.4);
+      g.beginPath();g.arc(hx,hy-R-6.4*s,2.1*s,0,7);blob(g,L.hatd,1.3*s);
+      g.beginPath();for(let k=-4;k<=4;k++){const x=hx+k*2.9*s*(R/(11*s)),y=hb+Math.abs(k)*.25*s;g.moveTo(x+2.4*s,y);g.arc(x,y,2.4*s,0,7);}g.fillStyle="#f6ead2";g.fill();
+      g.strokeStyle=INK;g.lineWidth=1.3*s;g.stroke();g.beginPath();for(let k=-4;k<=4;k++){const x=hx+k*2.9*s*(R/(11*s)),y=hb+Math.abs(k)*.25*s;g.moveTo(x+1.6*s,y);g.arc(x,y,1.6*s,0,7);}g.fillStyle="#f6ead2";g.fill();}
+    else{
+      g.beginPath();g.moveTo(hx-R-.6*s,hb);g.bezierCurveTo(hx-R-.6*s,hy-R-9*s,hx+R+.6*s,hy-R-9*s,hx+R+.6*s,hb);g.quadraticCurveTo(hx,hb-3*s,hx-R-.6*s,hb);g.closePath();
+      blob(g,shade(hx,hb-R*.6,R*1.2,L.hatl,L.hat,L.hatd),2*s);
+      g.save();g.clip();g.beginPath();g.moveTo(hx-R-2*s,hy-R+1*s);g.quadraticCurveTo(hx,hy-R-2.4*s,hx+R+2*s,hy-R+1*s);g.strokeStyle=L.jk;g.lineWidth=2.6*s;g.stroke();g.restore();
+      g.beginPath();g.moveTo(hx-R-1.6*s,hb-2.2*s);g.quadraticCurveTo(hx,hb+.6*s,hx+R+1.6*s,hb-2.2*s);g.lineTo(hx+R+1.8*s,hb+2.4*s);g.quadraticCurveTo(hx,hb+5.4*s,hx-R-1.8*s,hb+2.4*s);g.closePath();
+      blob(g,L.hatd,1.8*s);for(let k=-4;k<=4;k++){const bx=hx+k*2.4*s,o=Math.abs(k)*.25*s;g.beginPath();g.moveTo(bx,hb-.6*s+o*-.6);g.lineTo(bx,hb+3.4*s-o);inkPath(g,.8*s,.35);}
+      g.beginPath();g.moveTo(hx,hy-R-5.5*s);g.lineTo(this.pp.x,this.pp.y);inkPath(g,1.4*s);
+      g.beginPath();g.arc(this.pp.x,this.pp.y,4.4*s,0,7);blob(g,shade(this.pp.x,this.pp.y,4.4*s,"#fff",L.pom,"#e4d4b4"),1.8*s);
+      for(let k=0;k<6;k++){const a=k/6*Math.PI*2+.3;g.beginPath();g.moveTo(this.pp.x+Math.cos(a)*2.4*s,this.pp.y+Math.sin(a)*2.4*s);g.lineTo(this.pp.x+Math.cos(a)*4.2*s,this.pp.y+Math.sin(a)*4.2*s);inkPath(g,.6*s,.3);}}
     if(this.dizzy>0)for(let i=0;i<3;i++){const a=t*6+i*2.09;star(g,hx+Math.cos(a)*14*s,hy-R-6*s+Math.sin(a)*4*s,4*s);blob(g,"#f2b233",1.3*s);}
     g.restore();
-    // arms and puffy white gloves
-    for(let j=0;j<2;j++){const h=this.h[j],[ex,ey,wx,wy]=ik(S[j].x,S[j].y,h.x,h.y,16*s,16*s,j?1:-1);hose(g,S[j].x,S[j].y,ex,ey,wx,wy,6.2*s,L.jk,id+30+j*3);
-      const k=h.sq,ang=Math.atan2(wy-ey,wx-ex);g.save();g.translate(wx,wy);g.rotate(ang);g.scale(1+k*.3,1-k*.25);
-      g.beginPath();g.ellipse(-3.8*s,0,2.3*s,3.8*s,0,0,7);blob(g,"#f4efe6",1.4*s);
-      g.beginPath();g.arc(1.2*s,0,4.6*s,0,7);blob(g,"#f8f4ec",1.6*s);
-      g.beginPath();g.moveTo(1.8*s,-2.1*s);g.quadraticCurveTo(3.4*s,-1.6*s,4.1*s,-.8*s);g.moveTo(1.8*s,2*s);g.quadraticCurveTo(3.4*s,1.6*s,4.1*s,.7*s);inkPath(g,.9*s,.75);g.restore();}
+    // a knit cuff and white cartoon gloves with stitched fingers
+    for(let j=0;j<2;j++){const h=this.h[j],[ex,ey,wx0,wy0]=arm[j],wx=wx0+jx,wy=wy0+jy;
+      const k=h.sq,ang=Math.atan2(wy-ey-jy,wx-ex-jx);g.save();g.translate(wx,wy);g.rotate(ang);g.scale(1+k*.3,1-k*.25);
+      g.beginPath();g.ellipse(-6.6*s,0,1.9*s,3.9*s,0,0,7);blob(g,L.jkd,1.3*s);
+      g.beginPath();g.moveTo(-5.4*s,-3.4*s);g.quadraticCurveTo(-1.6*s,-4.6*s,-1.4*s,0);g.quadraticCurveTo(-1.6*s,4.6*s,-5.4*s,3.4*s);g.quadraticCurveTo(-6.4*s,0,-5.4*s,-3.4*s);g.closePath();blob(g,"#f4efe6",1.4*s);
+      g.beginPath();g.arc(1.2*s,0,4.8*s,0,7);blob(g,shade(1.2*s,0,4.8*s,"#fff","#f8f4ec","#d9d0c0"),1.6*s);
+      g.beginPath();g.moveTo(2*s,-2.6*s);g.quadraticCurveTo(3.6*s,-2*s,4.4*s,-1*s);g.moveTo(2.2*s,0);g.lineTo(4.8*s,0);g.moveTo(2*s,2.6*s);g.quadraticCurveTo(3.6*s,2*s,4.4*s,1*s);inkPath(g,.9*s,.75);
+      g.beginPath();g.ellipse(-.4*s,-3.8*s*(j?-1:1),1.8*s,1.4*s,0,0,7);blob(g,"#fbf8f2",1.2*s);g.restore();}
   }
 }
 /* ---------- rope: a verlet chain from the partner's harness through the clipped bolts to the leader ---------- */
@@ -1539,16 +1625,17 @@ function ensureScene(){
   if(!FX.spr)FX.spr=makeSprites();FX.sky=FX.film=null;
   FX.motes=Array.from({length:30},()=>({x:Math.random(),y:Math.random(),s:.6+Math.random()*1.4,p:Math.random()*6}));
   // cap the pixels painted per frame: a large high-DPI screen would otherwise cost 4-8x more for little visible gain
-  // FX.q drops the resolution further on slow machines (see frame); the cached rock keeps its own scale so it is not repainted
-  const fit=()=>{const r=cv.getBoundingClientRect(),W=Math.max(1,r.width),H=Math.max(1,r.height),base=Math.min(2,devicePixelRatio||1,Math.sqrt(1.2e6/(W*H))),dpr=Math.max(.5,base*FX.q);
-    if(W===FX.W&&H===FX.H&&dpr===FX.dpr)return;FX.W=W;FX.H=H;FX.dpr=dpr;cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);FX.sky=FX.film=null;FX.areaAt=0;
-    const rs=clamp(base*W/620,1,1.6);if(Math.abs(rs-FX.rs)>.2){FX.rs=rs;FX.chunks.clear();}};
+  // never draw below the screen's own pixels (that is what looks blurry); only extra high-DPI detail is capped,
+  // and that is what a slow machine gives up first (FX.q, see adapt); only a very slow one drops a little below
+  const fit=()=>{const r=cv.getBoundingClientRect(),W=Math.max(1,r.width),H=Math.max(1,r.height),dev=devicePixelRatio||1,
+      base=Math.min(2,dev,Math.max(1,Math.sqrt(3.5e6/(W*H)))),hi=base>1?1+(base-1)*clamp((FX.q-.55)/.45,0,1):base,dpr=FX.q<=.55?hi*.85:hi;
+    if(W===FX.W&&H===FX.H&&dpr===FX.dpr)return;FX.W=W;FX.H=H;FX.dpr=dpr;cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);FX.sky=FX.film=null;FX.areaAt=0;FX.rsAt=-9;};
   FX.fit=fit;fit();try{new ResizeObserver(fit).observe(cv);}catch(e){addEventListener("resize",fit);}
   FX.visible=true; // skip painting while scrolled out of view; a removed canvas's observer must not switch the new one off
   try{const io=new IntersectionObserver(es=>{if(es[0].target!==FX.cv){io.disconnect();return;}FX.visible=es[0].isIntersecting;});io.observe(cv);}catch(e){}
   const btn=$("#sndBtn");if(btn){const sync=()=>btn.setAttribute("aria-pressed",SND.on?"true":"false");sync();
     btn.onclick=()=>{SND.on=!SND.on;LS.set("sound",SND.on);sync();if(SND.on)sndStart();if(SND.out)SND.out.gain.value=SND.on?.55:0;};}
-  const me=new Rig(LOOK.me,i=>holdXY(FX.exp.choice,i),i=>restSpot(i,0),1.08),mate=new Rig(LOOK.mate,i=>holdXY(FX.exp.choice,i),i=>restSpot(i,1),1.08);
+  const me=new Rig(LOOK.me,i=>holdXY(FX.exp.choice,i),i=>restSpot(i,0),1.14),mate=new Rig(LOOK.mate,i=>holdXY(FX.exp.choice,i),i=>restSpot(i,1),1.14);
   me.onCatch=v=>{FX.shake=Math.max(FX.shake,clamp(v/240,.35,1.3));FX.ts=.3;FX.kick=-.08;mate.v.y-=Math.min(160,v*.5);mate.sq=-.2;sfx("boing");pop(me,"WHOA!");};
   FX.A={me,mate};FX.fxEl=$("#fx");
   if(!FX.raf)FX.raf=requestAnimationFrame(frame);
@@ -1575,7 +1662,7 @@ function updateCam(dt){const me=FX.A.me,mt=FX.A.mate,now=performance.now();let f
   const A=FX.area;
   // the focus (leader a little above, partner below; or the summit) sits right of the open area's middle so the valley shows on the left
   if(FX.focus==="summit"){fx=SX-30;fy=TOPY-60;}else{fx=me.N.x;fy=lerp(me.N.y,mt.N.y,.32)-6;}
-  let sc=Math.max(A.h/(FX.viewH*(1+FX.kick)),A.w/620);if(A.w/sc<440)sc=A.w/440; // keep climbers a good size, and always show some valley beside them
+  let sc=Math.max(A.h/(FX.viewH*(1+FX.kick)),A.w/540);if(A.w/sc<400)sc=A.w/400; // keep climbers a good size, and always show some valley beside them
   // keep the open area (not the whole window, which the cards may cover) between the summit sky and the meadow
   const w=FX.W/sc,x=fx+(FX.W/2-(A.x+A.w*.62))/sc,y=clamp(fy+(FX.H/2-(A.y+A.h*.5))/sc,TOPY-560-(A.y-FX.H/2)/sc,150-(A.y+A.h-FX.H/2)/sc);
   if(FX.fxEl){const s=FX.fxEl.style,v=[A.x,A.y,A.w,A.h].map(n=>Math.round(n)+"px");if(s.width!==v[2]||s.height!==v[3]||s.top!==v[1]){s.left=v[0];s.top=v[1];s.width=v[2];s.height=v[3];}}
@@ -1614,14 +1701,16 @@ function paint(t){
   const c={x:c0.x+(Math.sin(t*.31)*4+Math.sin(t*.13)*3)*sw+jx,y:c0.y+Math.sin(t*.23)*3*sw+jy,w:c0.w};
   const u=uOf(c.y),pal=palette(u),sc=W/c.w,ch=c.w*H/W,vy0=c.y-ch/2,vy1=c.y+ch/2,vx0=c.x-c.w/2,vx1=c.x+c.w/2;
   const screen=()=>g.setTransform(dpr,0,0,dpr,0,0),world=()=>g.setTransform(dpr*sc,0,0,dpr*sc,dpr*(W/2-c.x*sc),dpr*(H/2-c.y*sc));
-  screen();g.globalCompositeOperation="source-over";g.globalAlpha=1;
+  screen();g.globalCompositeOperation="source-over";g.globalAlpha=1;g.imageSmoothingQuality="high";
+  // cached art (rock, meadow, camps) is painted at the size it is shown, so it stays crisp; re-checked once a second
+  if(t-(FX.rsAt||0)>1){FX.rsAt=t;const need=clamp(dpr*W/c0.w*1.05,1,2.4);if(Math.abs(need-FX.rs)/FX.rs>.2){FX.rs=need;FX.chunks.clear();}}
   // the sky and the distant valley are soft and slow, so they are painted at half resolution into a cache and
   // repainted only when the camera has moved or on the 12 fps animation tick (sun, clouds, rays)
   const sk=FX.sky||(FX.sky={c:document.createElement("canvas"),u:-1,x:0,b:-1}),u0=uOf(c0.y);
-  if(!sk.g){sk.c.width=Math.ceil(W*dpr*.5);sk.c.height=Math.ceil(H*dpr*.5);sk.g=sk.c.getContext("2d");}
+  const ss=Math.min(dpr*.8,1);if(!sk.g){sk.c.width=Math.ceil(W*ss);sk.c.height=Math.ceil(H*ss);sk.g=sk.c.getContext("2d");}
   const moved=Math.abs(sk.u-u0)*H>.4||Math.abs(sk.x-c0.x)*sc>.4;FX.fc++;
   if(sk.b!==b||moved&&FX.fc%2){sk.u=u0;sk.x=c0.x;sk.b=b;const sg=sk.g;
-    sg.setTransform(dpr*.5,0,0,dpr*.5,0,0);sg.globalCompositeOperation="source-over";const sp=palette(u0);drawSky(sg,W,H,sp,u0,t,c0.x);skyRays(sg,W,H,t,sp);
+    sg.setTransform(ss,0,0,ss,0,0);sg.globalCompositeOperation="source-over";const sp=palette(u0);drawSky(sg,W,H,sp,u0,t,c0.x);skyRays(sg,W,H,t,sp);
     sg.globalCompositeOperation="multiply";sg.fillStyle=rgb(sp.tint,.32);sg.fillRect(0,0,W,H);sg.globalCompositeOperation="source-over";}
   g.drawImage(sk.c,0,0,W,H);
   world();
@@ -1745,7 +1834,7 @@ function drawTopo(t){
   const exp=t.exp,r=t.round;FX.exp=exp;
   const reached=Math.max(idxOf(exp,exp.pitch),idxOf(exp,exp.anchor));
   for(const [k,ix] of [["c1",IDX_C1],["c2",IDX_C2]]){const on=reached>=ix;if(on&&!FX.lit[k]&&FX.mode==="game")FX.litAt[k]=FX.time+1.6;FX.lit[k]=on;}
-  FX.focus=r.phase==="summit"?"summit":"me";FX.viewH=r.phase==="camp"?640:r.phase==="summit"?680:520;
+  FX.focus=r.phase==="summit"?"summit":"me";FX.viewH=r.phase==="camp"?470:r.phase==="summit"?620:420;
   const tot=total(exp),ter=route(exp)[exp.pitch];
   FX.label=r.phase!=="summit"&&exp.pitch<tot&&needsChoice(exp)<0&&ter?{i:idxOf(exp,exp.pitch+1),text:`P${exp.pitch+1} · ${TERRAIN[ter].name.toUpperCase()}`}:null;
   const st={n:exp.n,pitch:exp.pitch,res:r.phase==="reveal"?r.resolvedAt:null,phase:r.phase,gear:exp.rope};
