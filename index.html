@@ -84,9 +84,21 @@ button,input{font:inherit;color:inherit}
   .bar:has(.team:not(:empty)) .brand{display:none} /* in a game the team pill takes the brand's place */
   .linkbtn{font-size:12px;padding:7px 10px 4px}.ibtn{width:36px;height:36px}
 }
-.ropes{display:inline-flex;gap:3px;vertical-align:middle}
-.ropes i{width:14px;height:14px;border-radius:50%;border:2.5px solid var(--rope);display:inline-block}
-.ropes i.used{border-color:var(--line)}
+/* gear: each hook is a little carabiner; spent ones go grey until the next camp */
+.ropes{display:inline-flex;gap:4px;vertical-align:middle}
+.ropes i{width:10px;height:16px;border-radius:6px;border:2.5px solid #e0472b;border-right-color:#f2b233;display:inline-block;transform:rotate(-12deg)}
+.ropes i.used{border-color:var(--line);opacity:.6}
+/* the two halves of a pitch and the rope radio */
+.clue2{display:inline-block;font:400 20px/1.2 var(--toon);letter-spacing:.04em;color:var(--ink);background:var(--rope-soft);border:2.5px dashed #e0472b;border-radius:12px;padding:8px 14px 5px;margin:0 0 10px}
+.clue2 b{color:#e0472b;font-weight:400;font-size:1.3em}
+.hidden2{font-size:13px;color:var(--muted);font-style:italic;margin:-4px 0 12px}
+.radio{margin-top:14px;border:2.5px solid var(--toonInk);border-radius:14px;padding:10px 12px;background:var(--paper)}
+.rhead{display:flex;justify-content:space-between;font:400 15px/1 var(--toon);letter-spacing:.05em;text-transform:uppercase;padding-top:2px}
+.rhead span{font:500 12px/1 var(--body);letter-spacing:0;text-transform:none;color:var(--muted)}
+.rlog{display:grid;gap:5px;max-height:132px;overflow:auto;margin:8px 0}
+.msg{justify-self:start;max-width:88%;background:var(--panel);border:1.5px solid var(--line);border-radius:12px 12px 12px 3px;padding:4px 10px;font-size:14px;line-height:1.35}
+.msg.me{justify-self:end;background:var(--rope-soft);border-radius:12px 12px 3px 12px}
+.msg b{display:block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
 
 /* scene overlays: starburst title cards, captions, confetti and the sound toggle */
 .fx{position:fixed;z-index:2;left:0;top:0;width:100%;height:100%;pointer-events:none;overflow:hidden;container-type:size} /* sized each frame to the open part of the scene */
@@ -352,12 +364,14 @@ const MCQ = [
  {id:"speedlight",cat:"Physics",q:"About how long does sunlight take to reach Earth?",o:["8 minutes","8 seconds","80 minutes","8 hours"],c:0}
 ];
 
-/* Terrain definitions */
+/* Terrain definitions. Each pitch splits the puzzle between the two climbers, so neither can climb alone.
+   `talk` is that pitch's rope-radio allowance: [messages per climber, words per message]. Chimneys and
+   overhangs have no radio: one is telepathy, the other has its own one-word clue. */
 const TERRAIN = {
- slab:{name:"Slab",dur:35,rule:"Leader answers, belayer gives a backup. Rarer correct answers climb further. If the lead is wrong, a correct backup holds the fall."},
- chimney:{name:"Chimney",dur:35,rule:"Brace against each other. Both answer in secret. Same rare answer: Echo, a double pitch. Same obvious answer: you collide and slip."},
- crevasse:{name:"Crevasse",dur:30,rule:"Both estimate a number. Your average must land on the bridge. Guess high or low to balance your partner."},
- traverse:{name:"Traverse",dur:60,rule:"Split the list without talking. Every unique correct answer counts; answers you both give cancel out."},
+ slab:{name:"Slab",dur:50,talk:[2,4],rule:"Two clues, one answer. The leader knows the category, the belayer knows the first letter. Talk on the rope radio, then both lock in the same answer. Rarer answers climb further."},
+ chimney:{name:"Chimney",dur:35,rule:"No radio in a chimney. Both answer in secret: the same rare answer is an Echo, a double pitch. The same obvious answer and you collide and slip."},
+ crevasse:{name:"Crevasse",dur:50,talk:[3,5],rule:"You both see the question, but only the belayer sees roughly where the answer lies. Talk it through on the radio, then the leader jumps with one number."},
+ traverse:{name:"Traverse",dur:70,talk:[2,6],rule:"Split the list. Agree on the radio who takes what, then type as many as you can. Every unique answer counts; answers you both give cancel out."},
  overhang:{name:"Overhang",dur:50,rule:"The belayer sees the question and answer, and sends one word. The leader sees only the options."}
 };
 const SEG0 = ["slab","crevasse","chimney","traverse","overhang","slab"];
@@ -513,13 +527,16 @@ async function judge(t,ans){
   const r=t.round,ids=memberIds(t),leader=r.leader,bel=ids.find(i=>i!==leader);
   const q=qById(r.terrain,r.qid);const o={move:0,fall:false,lines:[],headline:"",tone:"good"};
   const A=id=>id?ans[id]:null;
-  if(r.terrain==="slab"){
-    const [L,B]=await judgeRare(q,[A(leader)?.text,bel?A(bel)?.text:""]);
-    o.lines.push({who:leader,text:L.label||L.text,tag:tagFor(L)});
-    if(bel)o.lines.push({who:bel,text:B.label||B.text,tag:tagFor(B),note:"backup"});
-    if(L.valid){o.move=L.tier>=4?2:1;o.headline=L.tier>=4?"Rare hold. Two pitches.":"Clean lead. One pitch.";o.best=[L,leader];}
-    else if(B.valid){o.move=0;o.headline="The belay held.";o.tone="warn";o.detail="The backup was good, so no fall, but no height either.";}
-    else{o.fall=true;o.headline="Leader fall!";o.tone="bad";}
+  if(r.terrain==="slab"){ // both halves must meet: a real answer, in the category, with the letter, and the same for both
+    const L=r.letter||"",res=await judgeRare(q,ids.map(id=>A(id)?.text||""));
+    const fits=x=>x.valid&&(!L||(x.canon||norm(x.text)).startsWith(L)),f=res.map(fits);
+    ids.forEach((id,i)=>o.lines.push({who:id,text:res[i].label||res[i].text,tag:res[i].valid&&!f[i]?`<span class="tag no">not ${L.toUpperCase()}…</span>`:tagFor(res[i])}));
+    const up=x=>{o.move=x.tier>=4?2:1;o.best=[x,ids[0]];};
+    if(ids.length===1){if(f[0]){up(res[0]);o.headline=res[0].tier>=4?"Rare hold. Two pitches.":"Clean lead. One pitch.";}else{o.fall=true;o.headline="Off the slab!";o.tone="bad";}}
+    else if(f[0]&&f[1]&&res[0].canon===res[1].canon){up(res[0]);o.headline=res[0].tier>=4?`In sync on a rare one: ${res[0].label}.`:`Together on ${res[0].label}. One pitch.`;}
+    else if(f[0]&&f[1]){o.headline="Both right, but not together.";o.tone="warn";o.detail="You each found a good hold, so nobody fell, but you only climb when you agree on one answer.";}
+    else if(f[0]||f[1]){o.headline="Only one of you found it.";o.tone="warn";o.detail="One good answer holds you in place. Agree on the same one to climb.";}
+    else{o.fall=true;o.headline="Off the slab!";o.tone="bad";}
   }
   else if(r.terrain==="chimney"){
     const texts=ids.map(id=>A(id)?.text||"");const res=await judgeRare(q,texts);
@@ -533,12 +550,13 @@ async function judge(t,ans){
     else if(valid.length===1){o.move=0;o.headline="One foot slipped. You hold position.";o.tone="warn";}
     else{o.fall=true;o.headline="Both feet gone.";o.tone="bad";}
   }
-  else if(r.terrain==="crevasse"){
-    const nums=ids.map(id=>A(id)?.num).filter(v=>typeof v==="number"&&isFinite(v));
-    ids.forEach(id=>{const v=A(id)?.num;o.lines.push({who:id,text:typeof v==="number"?fmt(v)+" "+q.u:"no guess",tag:""});});
-    if(!nums.length){o.fall=true;o.headline="Nobody jumped.";o.tone="bad";}
-    else{const avg=nums.reduce((a,b)=>a+b,0)/nums.length;const err=Math.abs(avg-q.a);
-      o.lines.push({who:null,text:`Average ${fmt(avg)} · answer ${fmt(q.a)} ${q.u}`,tag:`<span class="tag ${err<=q.t[1]?"ok":"no"}">off by ${fmt(err)}</span>`});
+  else if(r.terrain==="crevasse"){ // the belayer's window plus the leader's jump
+    const v=A(leader)?.num,jumped=typeof v==="number"&&isFinite(v);
+    if(typeof r.lo==="number")o.lines.push({who:bel||null,text:`Hint: between ${fmt(r.lo)} and ${fmt(r.hi)}`,tag:"",note:bel?"belayer":""});
+    o.lines.push({who:leader,text:jumped?fmt(v)+" "+q.u:"no jump",tag:"",note:bel?"leader":""});
+    if(!jumped){o.fall=true;o.headline="Nobody jumped.";o.tone="bad";}
+    else{const err=Math.abs(v-q.a);
+      o.lines.push({who:null,text:`Answer ${fmt(q.a)} ${q.u}`,tag:`<span class="tag ${err<=q.t[1]?"ok":"no"}">off by ${fmt(err)}</span>`});
       if(err<=q.t[0]){o.move=2;o.headline="Dead centre of the bridge.";}
       else if(err<=q.t[1]){o.move=1;o.headline="Made the jump.";}
       else{o.fall=true;o.headline="Into the crevasse.";o.tone="bad";}}
@@ -569,8 +587,8 @@ async function judge(t,ans){
 function applyOutcome(t,o){
   const exp=clone(t.exp);const before=exp.pitch;const beforeAlt=altOf(exp,before);let moveText="";
   if(o.fall){
-    if(exp.rope>0){exp.rope--;o.caught=true;moveText=`Rope caught you. ${exp.rope} rope${exp.rope===1?"":"s"} left.`;if(o.tone==="bad")o.tone="warn";}
-    else{exp.pitch=exp.anchor;moveText=exp.pitch<before?`No rope left. Fell ${Math.round(beforeAlt-altOf(exp,exp.pitch))} m to your anchor.`:"No rope left, but you were at your anchor.";}
+    if(exp.rope>0){exp.rope--;o.caught=true;moveText=`Your gear caught you. ${exp.rope} hook${exp.rope===1?"":"s"} left.`;if(o.tone==="bad")o.tone="warn";}
+    else{exp.pitch=exp.anchor;moveText=exp.pitch<before?`Out of gear. Fell ${Math.round(beforeAlt-altOf(exp,exp.pitch))} m to your anchor.`:"Out of gear, but you were at your anchor.";}
   }else if(o.move>0){
     exp.pitch=Math.min(exp.pitch+o.move,nextStop(exp));
     moveText=`Up ${Math.round(altOf(exp,exp.pitch)-beforeAlt)} m to ${fmt(altOf(exp,exp.pitch))} m.`;
@@ -589,7 +607,7 @@ function applyOutcome(t,o){
   const log=(t.log||[]).slice(-39);
   const tname=TERRAIN[t.round.terrain].name;
   log.push({at:Date.now(),text:`P${before+1} ${tname}: ${o.headline}`});
-  if(arrived)log.push({at:Date.now(),text:arrived==="summit"?"Summit! Expedition complete.":`Reached ${arrived}. Rope restocked, anchor set.`});
+  if(arrived)log.push({at:Date.now(),text:arrived==="summit"?"Summit! Expedition complete.":`Reached ${arrived}. Gear restocked, anchor set.`});
   const result={...o,moveText,arrived,from:before,to:exp.pitch};
   delete result.best;
   return {...t,exp,stats,log,round:{...t.round,phase:"reveal",result,resolvedAt:Date.now()}};
@@ -612,18 +630,30 @@ function startAnswerRound(t){
   const c=needsChoice(exp);
   if(exp.pitch>=total(exp)&&exp.choice[1])return {...t,round:{id,phase:"summit"}};
   if(c>=0)return {...t,round:{id,phase:"camp",fork:c,votes:{}}};
-  const terrain=route(exp)[exp.pitch];const qid=pickQ(terrain,exp.used);
+  const terrain=route(exp)[exp.pitch];const qid=pickQ(terrain,exp.used),q=qById(terrain,qid);
   exp.used=[...exp.used,qid].slice(-60);
-  return {...t,exp,round:{id,phase:"answer",terrain,qid,leader:ids[id%ids.length],startedAt:Date.now(),dur:TERRAIN[terrain].dur}};
+  const round={id,phase:"answer",terrain,qid,leader:ids[id%ids.length],startedAt:Date.now(),dur:TERRAIN[terrain].dur};
+  if(terrain==="slab")round.letter=pickLetter(q);         // the belayer's half of a Slab
+  if(terrain==="crevasse")Object.assign(round,hintRange(q)); // the belayer's half of a Crevasse
+  return {...t,exp,round};
 }
+// a first letter that several answers share, so the two clues together still leave real choices
+function pickLetter(q){const n={};for(const e of q.entries){const c=norm(e.canon)[0];if(c&&/[a-z]/.test(c))n[c]=(n[c]||0)+1;}
+  const ok=Object.entries(n).filter(([,k])=>k>=3),pool=ok.length?ok:Object.entries(n);let r=Math.random()*pool.reduce((s,[,k])=>s+k,0);
+  for(const [c,k] of pool){if((r-=k)<=0)return c;}return pool[0][0];}
+// a fair but fuzzy window around the answer: a few years either side for dates, otherwise roughly ±10–35%
+function hintRange(q){const a=q.a,R=Math.random;
+  if(!q.u&&a>1000&&a<2100)return {lo:a-Math.round(4+R()*16),hi:a+Math.round(4+R()*16)};
+  const nice=x=>{const p=Math.pow(10,Math.max(0,Math.floor(Math.log10(Math.abs(x)))-1));return Math.round(x/p)*p;};
+  let lo=nice(a*(1-.1-R()*.25)),hi=nice(a*(1+.1+R()*.25));if(lo>=a)lo=Math.floor(a*.9);if(hi<=a)hi=Math.ceil(a*1.1);return {lo,hi};}
 function advance(withAnchor){
   const rid=S.team.round.id;
   guarded(t=>{
     if(t.round.id!==rid)return null;
-    // an anchor locks in your height but costs one of this stage's ropes
+    // an anchor locks in your height but costs one of this stage's hooks
     if(withAnchor&&t.round.phase==="reveal"&&t.exp.anchor!==t.exp.pitch&&t.exp.rope>0){
       t.exp.anchor=t.exp.pitch;t.exp.rope--;
-      t.log=t.log.slice(-39);t.log.push({at:Date.now(),text:`Anchor placed at ${fmt(altOf(t.exp,t.exp.pitch))} m, using one rope.`});}
+      t.log=t.log.slice(-39);t.log.push({at:Date.now(),text:`Anchor placed at ${fmt(altOf(t.exp,t.exp.pitch))} m, using one hook.`});}
     return startAnswerRound(t);});
 }
 function setOff(choice){
@@ -787,7 +817,7 @@ function renderHud(t){
   $("#hud").innerHTML=`
    <div><div class="k">Altitude</div><div class="v">${fmt(alt)} m</div></div>
    <div><div class="k">Anchor</div><div class="v">${fmt(altOf(e,e.anchor))} m</div></div>
-   <div><div class="k">Rope</div><div class="v"><span class="ropes" aria-label="${e.rope} ropes left">${[0,1,2].map(i=>`<i class="${i<used?"used":""}"></i>`).join("")}</span></div></div>
+   <div><div class="k">Gear</div><div class="v"><span class="ropes" aria-label="${e.rope} hooks left">${[0,1,2].map(i=>`<i class="${i<used?"used":""}"></i>`).join("")}</span></div></div>
    <div><div class="k">To the top</div><div class="v">${alt>=ALT.top?"Summit!":fmt(ALT.top-alt)+" m"}</div></div>`;
 }
 function remaining(r){return Math.max(0,(r.startedAt+r.dur*1000-Date.now())/1000);}
@@ -811,8 +841,8 @@ function readyView(t){
   const ids=memberIds(t);
   return `<div class="eyebrow">Base camp · ${fmt(ALT.base)} m</div>
    <div class="terrain">Expedition ${t.exp.n}</div>
-   <p class="rule">${ids.length<2?`Send your partner the invite link from the top bar (or the code <strong>${esc(t.code)}</strong>). You can start alone, but the Chimney and Overhang play best with two.`:"Both climbers are on the rope. Leader and belayer swap every pitch."} The first pitch is a ${TERRAIN[SEG0[0]].name}.</p>
-   <p class="rule">Falls are caught by your rope while it lasts (three per stage). With no rope left you drop to your last anchor. Camps restock rope.</p>
+   <p class="rule">${ids.length<2?`Send your partner the invite link from the top bar (or the code <strong>${esc(t.code)}</strong>). You can start alone, but every pitch is built for two.`:"Both climbers are on the rope. Leader and belayer swap every pitch, and most pitches give you a few tugs on the rope radio to talk."} The first pitch is a ${TERRAIN[SEG0[0]].name}.</p>
+   <p class="rule">Your gear catches falls: three hooks per stage. Out of gear, a fall drops you to your last anchor. Every camp restocks your gear.</p>
    <button class="btn rope" id="goBtn">Start the climb</button>`;
 }
 function answerView(t,mine){
@@ -820,13 +850,17 @@ function answerView(t,mine){
   const ids=memberIds(t);const lead=r.leader===S.uid;const solo=ids.length<2;
   const head=`<div class="eyebrow">Pitch ${t.exp.pitch+1} · ${fmt(altOf(t.exp,t.exp.pitch))} m <span class="role ${lead?"lead":"belay"}">${lead?"You lead":"You belay"}</span></div>
    <div class="terrain">${T.name}</div><p class="rule">${esc(T.rule)}</p>`;
-  const foot=`<div class="timer"><i id="timerBar"></i></div><div class="meta"><span id="timerTxt"></span><span id="partnerTxt"></span></div>`;
-  if(mine&&!(r.terrain==="overhang"&&!lead))return head+`<div class="prompt">${esc(promptText(r,q,lead,solo))}</div><div class="wait">Locked in: <strong>${esc(answerSummary(r.terrain,mine,q))}</strong></div>`+foot;
+  const radio=T.talk&&!solo?radioHtml(T):"";
+  const foot=radio+`<div class="timer"><i id="timerBar"></i></div><div class="meta"><span id="timerTxt"></span><span id="partnerTxt"></span></div>`;
+  if(mine&&!(r.terrain==="overhang"&&!lead))return head+halves(r,q,lead,solo)+`<div class="wait">Locked in: <strong>${esc(answerSummary(r.terrain,mine,q))}</strong></div>`+foot;
   let body="";
-  if(r.terrain==="slab"||r.terrain==="chimney"){
-    body=`<div class="prompt">${esc(q.q)}</div><div class="row"><input type="text" id="ans" maxlength="60" autocomplete="off" placeholder="${r.terrain==="slab"&&!lead?"Your backup answer":"Your answer"}" aria-label="Your answer"><button class="btn rope" id="sendBtn">Lock in</button></div>`;
+  if(r.terrain==="slab"){
+    body=halves(r,q,lead,solo)+`<div class="row"><input type="text" id="ans" maxlength="60" autocomplete="off" placeholder="${solo?"Your answer":"The answer you both agree on"}" aria-label="Your answer"><button class="btn rope" id="sendBtn">Lock in</button></div>`;
+  }else if(r.terrain==="chimney"){
+    body=`<div class="prompt">${esc(q.q)}</div><div class="row"><input type="text" id="ans" maxlength="60" autocomplete="off" placeholder="Your answer" aria-label="Your answer"><button class="btn rope" id="sendBtn">Lock in</button></div>`;
   }else if(r.terrain==="crevasse"){
-    body=`<div class="prompt">${esc(q.q)}</div><div class="row"><input type="number" id="ans" inputmode="decimal" placeholder="Your estimate${q.u?" ("+q.u+")":""}" aria-label="Your estimate"><button class="btn rope" id="sendBtn">Jump</button></div>`;
+    body=halves(r,q,lead,solo)+(lead||solo?`<div class="row"><input type="number" id="ans" inputmode="decimal" placeholder="Your jump${q.u?" ("+q.u+")":""}" aria-label="Your estimate"><button class="btn rope" id="sendBtn">Jump</button></div>`
+      :`<p class="rule">Guide your leader onto the bridge over the radio. They make the jump.</p>`);
   }else if(r.terrain==="traverse"){
     body=`<div class="prompt">${esc(q.q)}</div><div class="row"><input type="text" id="ans" maxlength="40" autocomplete="off" placeholder="Type one, press Enter" aria-label="Add an answer"><button class="btn ghost" id="addBtn">Add</button></div>
      <div class="chips" id="chips"></div><div style="margin-top:12px"><button class="btn rope" id="sendBtn">Done, lock in my list</button></div>`;
@@ -839,7 +873,23 @@ function answerView(t,mine){
   }
   return head+body+`<div class="err" id="ansErr"></div>`+foot;
 }
-function promptText(r,q,lead,solo){return r.terrain==="overhang"&&lead&&!solo?"Category: "+q.cat:q.q;}
+// what each climber is allowed to see of the pitch: their own half, and a note that the partner holds the other
+function halves(r,q,lead,solo){
+  if(r.terrain==="slab"){const L=`<div class="clue2">Starts with <b>${esc((r.letter||"").toUpperCase())}</b></div>`;
+    return solo?`<div class="prompt">${esc(q.q)}</div>${L}`:lead?`<div class="prompt">${esc(q.q)}</div><div class="hidden2">Your belayer has the first letter.</div>`:`${L}<div class="hidden2">Your leader has the category.</div>`;}
+  if(r.terrain==="crevasse"){const H=typeof r.lo==="number"?`<div class="clue2">Between <b>${fmt(r.lo)}</b> and <b>${fmt(r.hi)}</b>${q.u?" "+esc(q.u):""}</div>`:"";
+    return `<div class="prompt">${esc(q.q)}</div>`+(solo||!lead?H:`<div class="hidden2">Your belayer can see roughly where the answer lies.</div>`);}
+  return `<div class="prompt">${esc(r.terrain==="overhang"&&lead&&!solo?"Category: "+q.cat:q.q)}</div>`;}
+/* the rope radio: a few short messages per pitch, stored beside the answers under answers/<team>/<round>/_talk */
+const talkOf=()=>Object.values(S.answers._talk||{}).filter(m=>m&&m.text).sort((a,b)=>a.at-b.at);
+function radioHtml(T){return `<div class="radio"><div class="rhead">Rope radio <span id="rleft"></span></div><div class="rlog" id="rlog"></div>
+  <div class="row"><input type="text" id="rmsg" maxlength="48" autocomplete="off" placeholder="Up to ${T.talk[1]} words" aria-label="Message your partner"><button class="btn ghost" id="rsend">Tug</button></div><div class="err" id="rerr"></div></div>`;}
+async function sendTalk(){const r=S.team.round,T=TERRAIN[r.terrain],inp=$("#rmsg"),err=$("#rerr");if(!T.talk||!inp)return;const [n,w]=T.talk;
+  const text=inp.value.trim().replace(/\s+/g," ");if(!text)return;
+  if(text.split(" ").length>w){err.textContent=`Keep it to ${w} words.`;return;}
+  const k=talkOf().filter(m=>m.uid===S.uid).length;if(k>=n){err.textContent="No tugs left on this pitch.";return;}
+  err.textContent="";inp.value="";
+  try{await fb.put(`answers/${S.code}/${r.id}/_talk/${S.uid}_${k}`,{uid:S.uid,text,at:Date.now()});}catch(e){toast("Couldn't send that over the radio.");}}
 function answerSummary(terrain,a,q){
   if(terrain==="crevasse")return fmt(a.num)+(q.u?" "+q.u:"");
   if(terrain==="traverse")return (a.list||[]).length+" answers";
@@ -854,15 +904,15 @@ function revealView(t){
    <div class="headline ${o.tone||"good"}">${esc(o.headline)}</div>
    ${o.detail?`<p class="rule">${esc(o.detail)}</p>`:""}
    <div class="lines">${(o.lines||[]).map(l=>`<div class="line"><span class="who">${l.who?esc(nameOf(l.who))+(l.note?" · "+l.note:""):"Team"}</span><span class="what">${esc(l.text)}</span>${l.tag||"<span></span>"}</div>`).join("")}</div>
-   <div class="moves"><div><b>${esc(o.moveText||"")}</b></div>${o.arrived&&o.arrived!=="summit"?`<div>Reached ${esc(o.arrived)}. Anchor set and rope restocked.</div>`:""}</div>
-   <div class="actions">${atTop?`<button class="btn rope" id="nextBtn">Stand on the summit</button>`:nextIsCamp?`<button class="btn rope" id="nextBtn">Rest at camp</button>`:`<button class="btn rope" id="nextBtn">Climb on</button>${canAnchor?`<button class="btn ghost" id="anchorBtn" title="Locks in this height so a fall can't drop you lower, but uses one of your ropes">Place anchor (uses 1 rope)</button>`:""}`}</div>`;
+   <div class="moves"><div><b>${esc(o.moveText||"")}</b></div>${o.arrived&&o.arrived!=="summit"?`<div>Reached ${esc(o.arrived)}. Anchor set and gear restocked.</div>`:""}</div>
+   <div class="actions">${atTop?`<button class="btn rope" id="nextBtn">Stand on the summit</button>`:nextIsCamp?`<button class="btn rope" id="nextBtn">Rest at camp</button>`:`<button class="btn rope" id="nextBtn">Climb on</button>${canAnchor?`<button class="btn ghost" id="anchorBtn" title="Locks in this height so a fall can't drop you lower, but uses one of your hooks">Place anchor (uses 1 hook)</button>`:""}`}</div>`;
 }
 function campView(t){
   const f=FORKS[t.round.fork];const votes=t.round.votes||{};const ids=memberIds(t);
   const lead=ids[t.round.id%ids.length]===S.uid||ids.length<2;const my=votes[S.uid];
   const card=k=>{const x=f[k];const n=x.p.length;
     return `<button class="route ${my===k?"sel":""}" data-k="${k}"><h4>${x.name}</h4><span>${esc(x.desc)}</span><span class="pp">${n} pitches · ${x.p.map(p=>TERRAIN[p].name).join(" · ")}</span><span class="votes">${ids.filter(i=>votes[i]===k).map(i=>esc(nameOf(i))).join(", ")||"&nbsp;"}</span></button>`;};
-  return `<div class="eyebrow">${f.camp} · ${fmt(altOf(t.exp,t.exp.pitch))} m · rope restocked</div>
+  return `<div class="eyebrow">${f.camp} · ${fmt(altOf(t.exp,t.exp.pitch))} m · gear restocked</div>
    <div class="terrain">Choose a route</div><p class="rule">Talk it over. Vote, then ${lead?"you":"your partner"} make${lead?"":"s"} the final call.</p>
    <div class="routes">${card("A")}${card("B")}</div>
    ${lead?`<button class="btn rope" id="setOffBtn" ${my?"":"disabled"}>${my?`Set off on ${f[my].name}`:"Vote to set off"}</button>`:`<p class="note">Waiting for your partner to set off.</p>`}`;
@@ -888,6 +938,8 @@ function wirePanel(t){
   P.querySelectorAll(".route").forEach(b=>b.addEventListener("click",()=>vote(b.dataset.k)));
   P.querySelector("#setOffBtn")?.addEventListener("click",()=>{const v=(t.round.votes||{})[S.uid];if(v)setOff(v);});
   if(r.phase!=="answer")return;
+  P.querySelector("#rsend")?.addEventListener("click",sendTalk);
+  P.querySelector("#rmsg")?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();sendTalk();}});
   const inp=P.querySelector("#ans"),send=P.querySelector("#sendBtn"),err=P.querySelector("#ansErr");
   if(r.terrain==="traverse"&&inp){
     const add=()=>{const v=inp.value.trim();if(!v)return;if(!S.local.items.some(x=>norm(x)===norm(v)))S.local.items.push(v);inp.value="";drawChips();};
@@ -911,7 +963,7 @@ function wirePanel(t){
 }
 function drawChips(){const c=$("#chips");if(!c)return;c.innerHTML=S.local.items.map(x=>`<span>${esc(x)}</span>`).join("");}
 
-function requiredIds(t){const r=t.round;const ids=memberIds(t);return r.terrain==="overhang"?[r.leader]:ids;}
+function requiredIds(t){const r=t.round;const ids=memberIds(t);return r.terrain==="overhang"||r.terrain==="crevasse"?[r.leader]:ids;}
 function updateDynamic(t){
   const r=t.round;if(r.phase!=="answer")return;
   const rem=remaining(r);const bar=$("#timerBar"),txt=$("#timerTxt"),ptx=$("#partnerTxt");
@@ -920,6 +972,12 @@ function updateDynamic(t){
   const pid=partnerId(t);
   if(ptx)ptx.textContent=pid?(S.answers[pid]?`${nameOf(pid)} is locked in`:`${nameOf(pid)} is thinking…`):"";
   const cb=$("#clueBox");if(cb){const c=pid&&S.answers[pid]?.clue;cb.innerHTML=c?`Clue from ${esc(nameOf(pid))}: <span class="clue">${esc(c)}</span>`:"Waiting for your belayer's clue…";}
+  const rl=$("#rlog");if(rl){const msgs=talkOf();
+    if(rl.dataset.n!==String(msgs.length)){const fresh=msgs.length>(+rl.dataset.n||0);rl.dataset.n=msgs.length;
+      rl.innerHTML=msgs.map(m=>`<div class="msg ${m.uid===S.uid?"me":""}"><b>${esc(nameOf(m.uid))}</b>${esc(m.text)}</div>`).join("")||`<div class="note">Nothing on the radio yet.</div>`;
+      rl.scrollTop=rl.scrollHeight;if(fresh&&msgs[msgs.length-1].uid!==S.uid)sfx("tug");}
+    const left=TERRAIN[r.terrain].talk[0]-msgs.filter(m=>m.uid===S.uid).length;$("#rleft").textContent=`${left} tug${left===1?"":"s"} left`;
+    const ri=$("#rmsg"),rb=$("#rsend");if(ri){ri.disabled=rb.disabled=left<=0;}}
 }
 
 /* ============================== TICK ============================== */
@@ -931,7 +989,7 @@ setInterval(()=>{
   if(rem<=0&&!S.answers[S.uid]&&S._autoSent!==r.id){S._autoSent=r.id;
     const inp=$("#ans");const lead=r.leader===S.uid;
     if(r.terrain==="traverse")submit({list:S.local.items.concat(inp&&inp.value.trim()?[inp.value.trim()]:[])});
-    else if(r.terrain==="crevasse"){const n=parseFloat(String(inp?.value||"").replace(",","."));submit(isFinite(n)?{num:n}:{num:null});}
+    else if(r.terrain==="crevasse"){if(lead||memberIds(t).length<2){const n=parseFloat(String(inp?.value||"").replace(",","."));submit(isFinite(n)?{num:n}:{num:null});}}
     else if(r.terrain==="overhang"){if(lead)submit({choice:-1});}
     else submit({text:inp?.value.trim()||""});}
   const all=requiredIds(t).every(id=>S.answers[id]);
@@ -957,7 +1015,7 @@ const RM=matchMedia("(prefers-reduced-motion: reduce)");
 const INK="#1d130f",CREAM="#fff3d6",TOON='"Luckiest Guy","Arial Black",sans-serif';
 const FX={cv:null,g:null,W:1,H:1,dpr:1,rs:1.5,raf:0,last:0,time:0,dt:0,ts:1,boil:0,ch:{main:0},tw:[],A:null,exp:null,mode:"",state:null,
   cam:null,viewH:400,area:{x:0,y:0,w:1,h:1},focus:"me",shake:0,kick:0,parts:[],pops:[],chunks:new Map(),lit:{c1:1,c2:1},litAt:{},rope:null,pins:[],visible:true,
-  birds:[],nextBird:2,wisps:[],nextWisp:1,motes:[],spr:null,label:null,sun:[0,0]};
+  birds:[],nextBird:2,wisps:[],nextWisp:1,motes:[],spr:null,label:null,sun:[0,0],q:1,avg:16,qAt:0,fc:0};
 const DEMO={choice:["A","A"]};
 
 /* ---------- small maths ---------- */
@@ -999,6 +1057,8 @@ function sfx(kind){const c=SND.ctx;if(!c||!SND.on||c.state!=="running")return;co
   else if(kind==="thud"){osc("sine",130,60,.22,.005,.18);hiss(500,1,.1,.08);}
   else if(kind==="crackle")hiss(2200+Math.random()*1800,4,.04+Math.random()*.05,.03);
   else if(kind==="pop")osc("sine",520,940,.06,.005,.1);
+  else if(kind==="tug"){osc("triangle",260,170,.13,.004,.14);hiss(1300,2,.07,.06);} // a message arrives on the rope radio
+  else if(kind==="restock"){[660,880,1100].forEach((f,i)=>osc("triangle",f,0,.08,.005,.12,i*.07));hiss(4200,3,.06,.12,.05);}
   else if(kind==="fanfare"||kind==="summit"){const n=kind==="summit"?[523,659,784,1047,880,1047,1319]:[392,494,587,784];
     n.forEach((f,i)=>{osc("square",f,0,.045,.01,.15,i*.11);osc("triangle",f/2,0,.09,.01,.2,i*.11);});osc("triangle",n[n.length-1]/4,0,.12,.02,.6,n.length*.11);}}
 
@@ -1028,7 +1088,8 @@ const holdXY=(ch,i)=>[laneX(ch,-i*HS)+(i%2?13:-13)+(hash(i,3)-.5)*8,-i*HS+(hash(
 const boltXY=(ch,i)=>[laneX(ch,-i*HS)+(hash(i,11)-.5)*6,-i*HS+12];
 const idxOf=(exp,p)=>Math.round(-WY(altOf(exp,p))/HS);
 function restSpot(i,m){if(i<=0){const x=m?382:420;return {x,y:groundY(x)};}
-  if(i===IDX_C1||i===IDX_C2)return {x:m?452:420,y:-i*HS};if(i>=IDX_TOP)return {x:m?SX+30:SX,y:TOPY};return null;}
+  if(i===IDX_C1||i===IDX_C2)return {x:m?452:420,y:-i*HS-6}; // on the camp shelf's top surface
+  if(i>=IDX_TOP)return {x:m?SX+30:SX,y:TOPY};return null;}
 function mateIdx(li){if(li<=0||li===IDX_C1||li===IDX_C2||li>=IDX_TOP)return li;return Math.max(li>IDX_C2?IDX_C2:li>IDX_C1?IDX_C1:0,li-5);}
 
 /* ---------- ink helpers ---------- */
@@ -1239,6 +1300,9 @@ class Rig{
       g.beginPath();g.moveTo(-7*s,-19.5*s);g.quadraticCurveTo(-8.2*s,-15.5*s,-7*s,-11.5*s);g.moveTo(7*s,-19.5*s);g.quadraticCurveTo(5.8*s,-15.5*s,7*s,-11.5*s);inkPath(g,1.3*s);
       g.restore();}
     else{g.beginPath();g.moveTo(P.x-9*s,P.y-2*s);g.quadraticCurveTo(P.x,P.y+2*s,P.x+9*s,P.y-2*s);inkPath(g,2*s);}
+    // the gear rack on the harness: one carabiner per hook left, swinging as they move
+    if(this.gear&&!front)for(let i=0;i<this.gear;i++){g.save();g.translate(P.x+(-9+i*9)*s,P.y+3*s);g.rotate(Math.sin(t*3+i*1.7)*.25+this.lean*.5);
+      g.beginPath();g.ellipse(0,3.4*s,2.3*s,3.8*s,0,0,7);g.strokeStyle=INK;g.lineWidth=2.8*s;g.stroke();g.strokeStyle=i%2?"#f2b233":"#e0472b";g.lineWidth=1.4*s;g.stroke();g.restore();}
     // scarf trailing in the wind, drawn as one smooth ribbon
     const sc=this.sc;g.beginPath();g.moveTo(sc[0].x,sc[0].y);for(let i=1;i<sc.length-1;i++)g.quadraticCurveTo(sc[i].x,sc[i].y,(sc[i].x+sc[i+1].x)/2,(sc[i].y+sc[i+1].y)/2);
     g.lineTo(sc[sc.length-1].x,sc[sc.length-1].y);g.lineCap=g.lineJoin="round";g.strokeStyle=INK;g.lineWidth=6.8*s;g.stroke();g.strokeStyle=L.sc;g.lineWidth=4.2*s;g.stroke();
@@ -1397,18 +1461,43 @@ function plaque(g,x,y,text,size=11){g.font=`${size}px ${TOON}`;const w=g.measure
   g.fillStyle=INK;g.beginPath();g.arc(-w/2+4.5,0,1.3,0,7);g.arc(w/2-4.5,0,1.3,0,7);g.fill();g.textAlign="center";g.textBaseline="middle";g.fillStyle=INK;g.fillText(text,0,1);g.restore();}
 function label(g,x,y,text,size=11,fill=CREAM){g.font=`${size}px ${TOON}`;g.textAlign="center";g.textBaseline="alphabetic";g.lineJoin="round";g.strokeStyle=INK;g.lineWidth=3.6;g.strokeText(text,x,y);g.fillStyle=fill;g.fillText(text,x,y);}
 const fireAmt=k=>!FX.lit[k]?0:FX.litAt[k]?clamp((FX.time-FX.litAt[k])/1.2,0,1):1;
-function drawCamp(g,cx,cy,t,k){const C=C0,x0=Math.max(cx-120,edgeL(cy)+2),x1=cx+130;
-  let gr=g.createLinearGradient(0,cy,0,cy+90);gr.addColorStop(0,"rgba(60,30,40,.42)");gr.addColorStop(1,"rgba(60,30,40,0)");g.fillStyle=gr;
-  g.beginPath();g.moveTo(x0+10,cy+8);g.quadraticCurveTo((x0+x1)/2,cy+110,x1-10,cy+8);g.closePath();g.fill();
-  // the shelf: a smooth rounded lip under a sunlit top
-  g.beginPath();g.moveTo(x0-6,cy);g.bezierCurveTo(x0-12,cy+18,x0+34,cy+28,(x0+x1)/2,cy+25);g.bezierCurveTo(x1-34,cy+28,x1+14,cy+18,x1+8,cy);g.closePath();
-  gr=g.createLinearGradient(0,cy,0,cy+28);gr.addColorStop(0,rgb(mixC(C.rock,C.lit,.25)));gr.addColorStop(1,rgb(mixC(C.rock,C.shade,.6)));blob(g,gr,2.6);
-  g.beginPath();g.moveTo(x0-8,cy+1);g.quadraticCurveTo((x0+x1)/2,cy-10,x1+10,cy+1);g.quadraticCurveTo((x0+x1)/2,cy+7,x0-8,cy+1);g.closePath();
-  gr=g.createLinearGradient(0,cy-9,0,cy+5);gr.addColorStop(0,rgb(mixC(C.lit,[255,246,226],.45)));gr.addColorStop(1,rgb(mixC(C.rock,C.lit,.55)));blob(g,gr,2.2);
-  for(let x=x0+4;x<x1;x+=8){const h=3+hash(x|0,9)*6,yy=cy-Math.sin((x-x0)/(x1-x0)*Math.PI)*5,l=(hash(x|0,3)-.5)*5;g.beginPath();g.moveTo(x,yy);g.quadraticCurveTo(x+l*.3,yy-h*.6,x+l,yy-h);
-    inkPath(g,2.4);g.strokeStyle=hash(x|0,2)<.5?"#6d8f3c":"#a6c35e";g.lineWidth=1.1;g.stroke();}
-  tent(g,cx-64,cy-1,1);fire(g,cx+66,cy-1,t,fireAmt(k));
-  plaque(g,cx-64,cy-58,`${k==="c1"?"CAMP I":"CAMP II"} · ${fmt(k==="c1"?ALT.c1:ALT.c2)} M`);}
+/* A camp is a broad shelf running the full width of the face, from round the pillar's sunlit edge to beyond
+   the right of the screen, with a big tent, bunting, a crate of fresh gear and a fire. Everything but the fire
+   is painted once per camp and cached; the fire stays live. */
+function gearCrate(g,x,y){rr(g,x-19,y-24,38,24,3);blob(g,"#b97a42",2.2);
+  g.beginPath();g.moveTo(x-19,y-12);g.lineTo(x+19,y-12);g.moveTo(x-8,y-24);g.lineTo(x-8,y);g.moveTo(x+8,y-24);g.lineTo(x+8,y);inkPath(g,1.4,.6);
+  g.beginPath();g.ellipse(x-6,y-28,9,5,0,0,7);g.strokeStyle=INK;g.lineWidth=5;g.stroke();g.strokeStyle="#e0472b";g.lineWidth=2.8;g.stroke(); // a fresh coil of rope
+  for(let i=0;i<3;i++){g.save();g.translate(x+7+i*5,y-27);g.rotate(.2-i*.15);g.beginPath();g.ellipse(0,0,2.4,4,0,0,7);g.strokeStyle=INK;g.lineWidth=2.6;g.stroke();
+    g.strokeStyle=i%2?"#f2b233":"#d6dae0";g.lineWidth=1.3;g.stroke();g.restore();}}
+function campLayer(k,cx,cy){const rs=FX.rs;FX.camps=FX.camps||{};const hit=FX.camps[k];if(hit&&hit.rs===rs)return hit;
+  const C=C0,xa=edgeL(cy)-sideW(cy)-10,x0=xa-20,x1=X0+XW+20,y0=cy-130,y1=cy+160,c=document.createElement("canvas");
+  c.width=Math.ceil((x1-x0)*rs);c.height=Math.ceil((y1-y0)*rs);const g=c.getContext("2d");g.scale(rs,rs);g.translate(-x0,-y0);
+  // soft shadow on the wall beneath the shelf
+  let gr=g.createLinearGradient(0,cy+20,0,cy+150);gr.addColorStop(0,"rgba(60,30,40,.45)");gr.addColorStop(1,"rgba(60,30,40,0)");g.fillStyle=gr;g.fillRect(xa+30,cy+20,x1-xa,130);
+  // the shelf's front face: a rounded end round the pillar edge, a gently wavy underside
+  g.beginPath();g.moveTo(xa,cy);for(let x=xa+40;x<=x1+30;x+=40)g.lineTo(x,cy);
+  const bot=x=>cy+30+Math.sin(x*.021)*4+(hash(x|0,cy|0)-.5)*6;let px=x1+30,py=bot(px);g.lineTo(px,py);
+  for(let x=x1-10;x>=xa+30;x-=40){const ny=bot(x);g.quadraticCurveTo(px,py,(px+x)/2,(py+ny)/2);px=x;py=ny;}
+  g.bezierCurveTo(xa+10,py+4,xa-10,cy+18,xa,cy);g.closePath();
+  gr=g.createLinearGradient(0,cy,0,cy+36);gr.addColorStop(0,rgb(mixC(C.rock,C.lit,.2)));gr.addColorStop(1,rgb(mixC(C.rock,C.shade,.65)));blob(g,gr,3);
+  // the sunlit top with grass along the lip
+  g.beginPath();g.moveTo(xa-4,cy+2);g.quadraticCurveTo(xa+20,cy-9,xa+60,cy-8);g.lineTo(x1+30,cy-8);g.lineTo(x1+30,cy+3);g.lineTo(xa-4,cy+3);g.closePath();
+  gr=g.createLinearGradient(0,cy-9,0,cy+4);gr.addColorStop(0,rgb(mixC(C.lit,[255,246,226],.45)));gr.addColorStop(1,rgb(mixC(C.rock,C.lit,.55)));blob(g,gr,2.4);
+  const ink=new Path2D(),greens=[new Path2D(),new Path2D()];
+  for(let x=xa+6;x<x1;x+=9){const h=3+hash(x|0,9)*6,l=(hash(x|0,3)-.5)*5,p=new Path2D();p.moveTo(x,cy-7);p.quadraticCurveTo(x+l*.3,cy-7-h*.6,x+l,cy-7-h);ink.addPath(p);greens[hash(x|0,2)<.5?0:1].addPath(p);}
+  g.lineCap="round";g.strokeStyle=INK;g.lineWidth=2.4;g.stroke(ink);g.lineWidth=1.1;g.strokeStyle="#6d8f3c";g.stroke(greens[0]);g.strokeStyle="#a6c35e";g.stroke(greens[1]);
+  // bunting from the tent to a flag pole, then the big tent, the gear crate and the sign
+  const tx=cx-118,px2=cx+175;g.beginPath();g.moveTo(px2,cy-8);g.lineTo(px2,cy-86);g.strokeStyle=INK;g.lineWidth=4;g.stroke();g.strokeStyle="#8a5a34";g.lineWidth=2;g.stroke();
+  g.beginPath();g.moveTo(px2,cy-86);g.lineTo(px2+24,cy-80);g.lineTo(px2,cy-72);g.closePath();blob(g,"#e0472b",1.8);
+  g.beginPath();g.moveTo(tx,cy-78);g.quadraticCurveTo((tx+px2)/2,cy-48,px2,cy-80);g.strokeStyle=INK;g.lineWidth=1.4;g.stroke();
+  for(let i=1;i<10;i++){const k2=i/10,bx=lerp(tx,px2,k2),by=lerp(cy-78,cy-80,k2)+Math.sin(k2*Math.PI)*15;
+    g.beginPath();g.moveTo(bx-6,by);g.lineTo(bx+6,by);g.lineTo(bx,by+11);g.closePath();blob(g,["#e0472b","#f2b233","#2f8f8a","#fff3d6"][i%4],1.3);}
+  tent(g,tx,cy-6,2.1);gearCrate(g,cx+118,cy-6);
+  plaque(g,tx,cy-112,`${k==="c1"?"CAMP I":"CAMP II"} · ${fmt(k==="c1"?ALT.c1:ALT.c2)} M`,12);
+  // the same warm altitude grade as the rock around it
+  g.globalCompositeOperation="source-atop";g.fillStyle=rgb(palette(uOf(cy)).tint,.16);g.fillRect(x0,y0,x1-x0,y1-y0);
+  return FX.camps[k]={c,rs,x0,y0,w:x1-x0,h:y1-y0};}
+function drawCamp(g,cx,cy,t,k){const L=campLayer(k,cx,cy);g.drawImage(L.c,L.x0,L.y0,L.w,L.h);fire(g,cx+60,cy-7,t,fireAmt(k));}
 function drawSummit(g,t){const y=TOPY,x0=edgeL(y)-sideW(y),x1=edgeR(y);
   g.beginPath();g.moveTo(x0-6,y+3);g.quadraticCurveTo((x0+x1)/2,y-10,x1+8,y+3);g.lineTo(x1+6,y+9);g.lineTo(x0-4,y+9);g.closePath();blob(g,"#8fae4f",2.4);
   for(let x=x0;x<x1;x+=6){const h=3+hash(x|0,4)*5,yy=y+3-Math.sin((x-x0)/(x1-x0)*Math.PI)*8;g.beginPath();g.moveTo(x,yy);g.lineTo(x+1.5,yy-h);g.strokeStyle="#6d8f3c";g.lineWidth=1.3;g.stroke();}
@@ -1450,10 +1539,11 @@ function ensureScene(){
   if(!FX.spr)FX.spr=makeSprites();FX.sky=FX.film=null;
   FX.motes=Array.from({length:30},()=>({x:Math.random(),y:Math.random(),s:.6+Math.random()*1.4,p:Math.random()*6}));
   // cap the pixels painted per frame: a large high-DPI screen would otherwise cost 4-8x more for little visible gain
-  const fit=()=>{const r=cv.getBoundingClientRect(),W=Math.max(1,r.width),H=Math.max(1,r.height),dpr=Math.min(2,devicePixelRatio||1,Math.sqrt(1.5e6/(W*H)));
+  // FX.q drops the resolution further on slow machines (see frame); the cached rock keeps its own scale so it is not repainted
+  const fit=()=>{const r=cv.getBoundingClientRect(),W=Math.max(1,r.width),H=Math.max(1,r.height),base=Math.min(2,devicePixelRatio||1,Math.sqrt(1.2e6/(W*H))),dpr=Math.max(.5,base*FX.q);
     if(W===FX.W&&H===FX.H&&dpr===FX.dpr)return;FX.W=W;FX.H=H;FX.dpr=dpr;cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);FX.sky=FX.film=null;FX.areaAt=0;
-    const rs=clamp(dpr*W/620,1,2.2);if(Math.abs(rs-FX.rs)>.2){FX.rs=rs;FX.chunks.clear();}};
-  fit();try{new ResizeObserver(fit).observe(cv);}catch(e){addEventListener("resize",fit);}
+    const rs=clamp(base*W/620,1,1.6);if(Math.abs(rs-FX.rs)>.2){FX.rs=rs;FX.chunks.clear();}};
+  FX.fit=fit;fit();try{new ResizeObserver(fit).observe(cv);}catch(e){addEventListener("resize",fit);}
   FX.visible=true; // skip painting while scrolled out of view; a removed canvas's observer must not switch the new one off
   try{const io=new IntersectionObserver(es=>{if(es[0].target!==FX.cv){io.disconnect();return;}FX.visible=es[0].isIntersecting;});io.observe(cv);}catch(e){}
   const btn=$("#sndBtn");if(btn){const sync=()=>btn.setAttribute("aria-pressed",SND.on?"true":"false");sync();
@@ -1462,6 +1552,7 @@ function ensureScene(){
   me.onCatch=v=>{FX.shake=Math.max(FX.shake,clamp(v/240,.35,1.3));FX.ts=.3;FX.kick=-.08;mate.v.y-=Math.min(160,v*.5);mate.sq=-.2;sfx("boing");pop(me,"WHOA!");};
   FX.A={me,mate};FX.fxEl=$("#fx");
   if(!FX.raf)FX.raf=requestAnimationFrame(frame);
+  if(!FX.pre){FX.pre=1;prefetch();}
   return true;
 }
 function stepAmbient(dt){
@@ -1506,9 +1597,17 @@ function frame(now){
     if(A.me.mode!=="stand"||A.mate.mode!=="stand")for(let i=A.mate.hi+1;i<A.me.hi;i++)if(i%4===2)path.push(boltXY(ch,i));
     path.push([pl.x,pl.y]);FX.pins=path;FX.rope.update(path,dt);}
   stepParts(dt);stepAmbient(dt);updateCam(raw);
-  if(FX.visible&&!document.hidden)paint(t);
+  if(FX.visible&&!document.hidden){paint(t);adapt(now-FX.prev);}FX.prev=now;
   FX.raf=requestAnimationFrame(frame);
 }
+// watch the real frame interval: if the machine can't keep up, paint fewer pixels; give them back once it is comfortably fast
+function adapt(ms){if(!(ms>0&&ms<100))return;FX.avg+=(ms-FX.avg)*.05;const now=FX.prev;if(now-FX.qAt<1500)return;
+  let q=FX.q;if(FX.avg>22&&q>.5)q=Math.max(.5,q-.15);else if(FX.avg<17.5&&q<1)q=Math.min(1,q+.1);
+  if(q!==FX.q){FX.q=q;FX.qAt=now;FX.avg=16.7;FX.fit&&FX.fit();}}
+// paint rock chunks near the camera when the browser is idle, so climbing never stalls on them
+function prefetch(){const go=window.requestIdleCallback||(f=>setTimeout(f,120));
+  go(()=>{const c=FX.cam;if(c&&FX.cv){const ch=c.w*FX.H/FX.W,[n1,n2]=chunkRange(c.y-ch/2-CHK,c.y+ch/2+CHK);for(let ci=n1;ci<=n2;ci++)if(!FX.chunks.has(ci)){chunk(ci);break;}}
+    setTimeout(prefetch,150);});}
 function paint(t){
   const g=FX.g,W=FX.W,H=FX.H,dpr=FX.dpr,c0=FX.cam;if(!c0||!FX.exp)return;
   const sw=RM.matches?0:1,b=FX.boil,weave=sw*.5,jx=(Math.random()-.5)*FX.shake*10+(hash(b,1)-.5)*weave,jy=(Math.random()-.5)*FX.shake*10+(hash(b,2)-.5)*weave;
@@ -1520,7 +1619,8 @@ function paint(t){
   // repainted only when the camera has moved or on the 12 fps animation tick (sun, clouds, rays)
   const sk=FX.sky||(FX.sky={c:document.createElement("canvas"),u:-1,x:0,b:-1}),u0=uOf(c0.y);
   if(!sk.g){sk.c.width=Math.ceil(W*dpr*.5);sk.c.height=Math.ceil(H*dpr*.5);sk.g=sk.c.getContext("2d");}
-  if(Math.abs(sk.u-u0)*H>.4||Math.abs(sk.x-c0.x)*sc>.4||sk.b!==b){sk.u=u0;sk.x=c0.x;sk.b=b;const sg=sk.g;
+  const moved=Math.abs(sk.u-u0)*H>.4||Math.abs(sk.x-c0.x)*sc>.4;FX.fc++;
+  if(sk.b!==b||moved&&FX.fc%2){sk.u=u0;sk.x=c0.x;sk.b=b;const sg=sk.g;
     sg.setTransform(dpr*.5,0,0,dpr*.5,0,0);sg.globalCompositeOperation="source-over";const sp=palette(u0);drawSky(sg,W,H,sp,u0,t,c0.x);skyRays(sg,W,H,t,sp);
     sg.globalCompositeOperation="multiply";sg.fillStyle=rgb(sp.tint,.32);sg.fillRect(0,0,W,H);sg.globalCompositeOperation="source-over";}
   g.drawImage(sk.c,0,0,W,H);
@@ -1539,14 +1639,14 @@ function paint(t){
     g.font=`11px ${TOON}`;const lw=g.measureText(FX.label.text).width;plaque(g,x+26+lw/2,y-16,FX.label.text,11);}
   FX.rope.draw(g);quickdraws(g);A.mate.draw(g,t);A.me.draw(g,t);
   if(vy1>-260)fireGlow(g,488,groundY(488),t,1);
-  for(const [k,ix] of [["c1",IDX_C1],["c2",IDX_C2]]){const y=-ix*HS;if(y>vy0-140&&y<vy1+140)fireGlow(g,486,y-1,t,fireAmt(k));}
+  for(const [k,ix] of [["c1",IDX_C1],["c2",IDX_C2]]){const y=-ix*HS;if(y>vy0-140&&y<vy1+140)fireGlow(g,480,y-7,t,fireAmt(k));}
   drawParts(g);
   for(const w of FX.wisps){g.globalAlpha=w.a;g.drawImage(FX.spr.puff,w.x-w.r,w.y-w.r*.45,w.r*2,w.r*.9);}g.globalAlpha=1;
   // grade and the old-film finish: one tinted multiply pass (with the projector flicker folded in), then a
   // pre-baked vignette-and-grain overlay nudged a few pixels each tick so the grain dances
   screen();const [sx,sy]=FX.sun;
   g.globalCompositeOperation="lighter";
-  for(const m of FX.motes){const x=m.x*W,y=m.y*H,a=(.5+.5*Math.sin(t*1.5+m.p))*.3*clamp(1-Math.hypot(x-sx,y-sy)/(W*.9),0,1);g.fillStyle=rgb(pal.sun,a);g.beginPath();g.arc(x,y,m.s,0,7);g.fill();}
+  if(FX.q>=.75)for(const m of FX.motes){const x=m.x*W,y=m.y*H,a=(.5+.5*Math.sin(t*1.5+m.p))*.3*clamp(1-Math.hypot(x-sx,y-sy)/(W*.9),0,1);g.fillStyle=rgb(pal.sun,a);g.beginPath();g.arc(x,y,m.s,0,7);g.fill();}
   g.globalCompositeOperation="source-over";
   const film=FX.film||(FX.film=makeFilm(W,H,dpr));g.globalAlpha=sw?.8+hash(b,3)*.2:.9; // the projector flicker rides on the vignette's strength
   g.drawImage(film.c,-hash(b,4)*film.pad,-hash(b,5)*film.pad,W+film.pad,H+film.pad);g.globalAlpha=1;
@@ -1554,8 +1654,6 @@ function paint(t){
     for(let i=0;i<4;i++){const x=hash(b,10+i)*W,y=hash(b,20+i)*H;if(hash(b,30+i)<.6){g.beginPath();g.arc(x,y,.6+hash(b,40+i)*1.4,0,7);g.fill();}
       else{g.beginPath();g.moveTo(x,y);g.quadraticCurveTo(x+6,y+3,x+4+hash(b,50+i)*8,y+9);g.stroke();}}
     if(hash(Math.floor(b/3),7)<.35){const x=hash(Math.floor(b/3),8)*W;g.fillStyle="rgba(29,19,15,.25)";g.fillRect(x,0,1,H);}}
-  // paint one chunk ahead of the camera while it is idle, so climbing never waits on it
-  const [n1,n2]=chunkRange(vy0-CHK,vy1+CHK);for(let ci=n1;ci<=n2;ci++)if(!FX.chunks.has(ci)){chunk(ci);break;}
 }
 
 /* ---------- overlays: cartoon title cards, captions and confetti ---------- */
@@ -1638,11 +1736,11 @@ async function runDemo(){ // lobby: a rope team climbs the whole pillar on a loo
       if(A.me.rest(to)){A.mate.cheer=1.6;if(!(await wait(2600)))return;}else if(!(await wait(600)))return;}
     if(!(await wait(2500)))return;}}
 function snap(exp,t){FX.ch.main++;const A=FX.A;placeTeam(exp,idxOf(exp,exp.pitch));
-  if(t.round.phase==="summit"){A.me.cheer=2;A.mate.cheer=2;}FX.cam=null;}
+  A.me.gear=exp.rope;if(t.round.phase==="summit"){A.me.cheer=2;A.mate.cheer=2;}FX.cam=null;}
 
 function drawTopo(t){
   if(!ensureScene())return;
-  if(!t){FX.focus="me";FX.viewH=620;FX.label=null;FX.lit={c1:1,c2:1};FX.litAt={};
+  if(!t){FX.focus="me";FX.viewH=620;FX.label=null;FX.lit={c1:1,c2:1};FX.litAt={};FX.A.me.gear=3;
     if(FX.mode!=="lobby"){FX.mode="lobby";FX.exp=DEMO;FX.cam=null;runDemo();}return;}
   const exp=t.exp,r=t.round;FX.exp=exp;
   const reached=Math.max(idxOf(exp,exp.pitch),idxOf(exp,exp.anchor));
@@ -1650,9 +1748,12 @@ function drawTopo(t){
   FX.focus=r.phase==="summit"?"summit":"me";FX.viewH=r.phase==="camp"?640:r.phase==="summit"?680:520;
   const tot=total(exp),ter=route(exp)[exp.pitch];
   FX.label=r.phase!=="summit"&&exp.pitch<tot&&needsChoice(exp)<0&&ter?{i:idxOf(exp,exp.pitch+1),text:`P${exp.pitch+1} · ${TERRAIN[ter].name.toUpperCase()}`}:null;
-  const st={n:exp.n,pitch:exp.pitch,res:r.phase==="reveal"?r.resolvedAt:null,phase:r.phase};
+  const st={n:exp.n,pitch:exp.pitch,res:r.phase==="reveal"?r.resolvedAt:null,phase:r.phase,gear:exp.rope};
   const prev=FX.state;FX.state=st;
   if(FX.mode!=="game"||!prev||prev.n!==st.n){FX.mode="game";FX.litAt={};snap(exp,t);return;}
+  // spent hooks leave the rack at once; a restock waits until the leader has pulled onto the camp ledge
+  if(st.gear<prev.gear)FX.A.me.gear=st.gear;
+  else if(st.gear>prev.gear)setTimeout(()=>{if(FX.mode!=="game"||!FX.state||FX.state.n!==st.n||FX.state.gear!==st.gear)return;const me=FX.A.me;me.gear=st.gear;pop(me,"GEAR RESTOCKED!");sfx("restock");},2600);
   if(st.res&&st.res!==prev.res&&r.result)runEvent(exp,r.result);
   else if(st.pitch!==prev.pitch){const id=++FX.ch.main,to=idxOf(exp,st.pitch);climbRig(FX.A.me,to,300,id).then(k=>k&&climbRig(FX.A.mate,mateIdx(to),300,id));}
   if(st.phase==="summit"&&prev.phase!=="summit")runSummit(t);
