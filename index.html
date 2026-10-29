@@ -1089,6 +1089,8 @@ function paintChunk(ci){
   gr=g.createLinearGradient(260,0,X0+XW,0);gr.addColorStop(0,"rgba(255,236,200,.18)");gr.addColorStop(.45,"rgba(255,236,200,0)");gr.addColorStop(1,rgb(C.shade,.22));
   g.fillStyle=gr;g.fillRect(X0,yTop,XW,CHK+2);
   for(let k=0;k<6;k++)plant(g,X0+60+R()*(XW-120),yTop+R()*CHK,R(),R);
+  // bake this altitude's warm grade into the stone once, rather than multiplying the whole screen every frame
+  g.globalCompositeOperation="multiply";g.fillStyle=rgb(palette(uOf((yTop+yBot)/2)).tint,.32);g.fillRect(X0,yTop,XW,CHK+2);g.globalCompositeOperation="source-over";
   g.restore();
   // a confident, smooth ink silhouette
   const edge=f=>{g.beginPath();let p=[f(ys[0]),ys[0]];g.moveTo(p[0],p[1]);for(let i=1;i<ys.length;i++){const q=[f(ys[i]),ys[i]];g.quadraticCurveTo(p[0],p[1],(p[0]+q[0])/2,(p[1]+q[1])/2);p=q;}g.lineTo(p[0],p[1]);};
@@ -1105,11 +1107,17 @@ const chunkRange=(vy0,vy1)=>[Math.max(-1,Math.floor(-vy1/CHK)),Math.min(Math.flo
 /* ---------- sprites ---------- */
 function makeSprites(){
   const puff=document.createElement("canvas");puff.width=puff.height=128;let g=puff.getContext("2d");
-  let gr=g.createRadialGradient(64,64,0,64,64,64);gr.addColorStop(0,"rgba(255,255,255,1)");gr.addColorStop(.5,"rgba(255,255,255,.5)");gr.addColorStop(1,"rgba(255,255,255,0)");g.fillStyle=gr;g.fillRect(0,0,128,128);
-  const grain=document.createElement("canvas");grain.width=grain.height=192;g=grain.getContext("2d");const d=g.createImageData(192,192);
-  for(let i=0;i<d.data.length;i+=4){const v=Math.random()*255;d.data[i]=d.data[i+1]=d.data[i+2]=v;d.data[i+3]=255;}g.putImageData(d,0,0);
-  return {puff,grain};
+  const gr=g.createRadialGradient(64,64,0,64,64,64);gr.addColorStop(0,"rgba(255,255,255,1)");gr.addColorStop(.5,"rgba(255,255,255,.5)");gr.addColorStop(1,"rgba(255,255,255,0)");g.fillStyle=gr;g.fillRect(0,0,128,128);
+  return {puff};
 }
+// the old-film finish, baked once per window size: vignette plus sparse light and dark grain, with a little
+// padding so it can be nudged each tick to make the grain dance
+function makeFilm(W,H,dpr){const pad=14,c=document.createElement("canvas"),w=W+pad,h=H+pad;c.width=Math.ceil(w*dpr);c.height=Math.ceil(h*dpr);
+  const g=c.getContext("2d");g.scale(dpr,dpr);
+  const vg=g.createRadialGradient(w/2,h*.48,H*.32,w/2,h*.5,H*.95);vg.addColorStop(0,"rgba(40,20,10,0)");vg.addColorStop(1,"rgba(40,20,10,.46)");g.fillStyle=vg;g.fillRect(0,0,w,h);
+  for(let i=0,n=Math.round(w*h/70);i<n;i++){const a=(.05+Math.random()*.09).toFixed(3);g.fillStyle=Math.random()<.5?`rgba(40,20,10,${a})`:`rgba(255,246,226,${a})`;
+    g.fillRect(Math.random()*w,Math.random()*h,.8+Math.random(),.8+Math.random());}
+  return {c,pad};}
 
 /* ---------- climbers: rubber-hose rigs, seen from behind until they turn round to cheer ---------- */
 const BASE={boot:"#7a4322",bootl:"#b8763f",bootd:"#4a2512",pk:"#a4733f",pkl:"#d9a262",pkd:"#6f4722",roll:"#3f8c82",rolll:"#86cdbf",rope:"#e0472b",
@@ -1210,7 +1218,7 @@ class Rig{
     for(let j=0;j<2;j++){const f=this.ft[j],hx=P.x+(j?6:-6)*s,[kx,ky,fx,fy]=ik(hx,P.y,f.x,f.y,18*s,18*s,j?-1:1);
       hose(g,hx,P.y,kx,ky,fx,fy,7.4*s,L.pt,id+j*7);
       const bx=fx+(j?2:-2)*s,by=fy+1*s,d=j?1:-1;g.beginPath();g.moveTo(bx-6.4*d*s,by+2.8*s);g.bezierCurveTo(bx-7.6*d*s,by-4.4*s,bx+3.6*d*s,by-6*s,bx+7*d*s,by-.4*s);
-      g.bezierCurveTo(bx+8.4*d*s,by+2.6*s,bx+5*d*s,by+4.2*s,bx-6.4*d*s,by+2.8*s);g.closePath();blob(g,shade(bx,by,8*s,L.bootl,L.boot,L.bootd),1.8*s);}
+      g.bezierCurveTo(bx+8.4*d*s,by+2.6*s,bx+5*d*s,by+4.2*s,bx-6.4*d*s,by+2.8*s);g.closePath();blob(g,L.boot,1.8*s);g.fillStyle=L.bootl;g.beginPath();g.ellipse(bx-1.5*d*s,by-2.2*s,2.6*s,1.2*s,0,0,7);g.fill();}
     const jx=boilJ(id+20,.6*s),jy=boilJ(id+21,.6*s);g.save();g.translate(jx,jy);
     // egg-shaped body
     const mx=(N.x+P.x)/2,my=lerp(N.y,P.y,.5);
@@ -1224,7 +1232,7 @@ class Rig{
       g.beginPath();g.moveTo(-10*s,-11*s);g.bezierCurveTo(-15.5*s,-2*s,-15*s,12*s,-6*s,13.5*s);g.quadraticCurveTo(0,15.5*s,6*s,13.5*s);g.bezierCurveTo(15*s,12*s,15.5*s,-2*s,10*s,-11*s);
       g.quadraticCurveTo(0,-14*s,-10*s,-11*s);g.closePath();blob(g,shade(0,0,15*s,L.pkl,L.pk,L.pkd),2*s);
       g.beginPath();g.moveTo(-10.5*s,-10*s);g.quadraticCurveTo(0,-13.5*s,10.5*s,-10*s);g.quadraticCurveTo(11*s,-1*s,0,2*s);g.quadraticCurveTo(-11*s,-1*s,-10.5*s,-10*s);g.closePath();
-      blob(g,shade(0,-7*s,11*s,L.pk,L.pkd,L.pkd),1.6*s);g.beginPath();g.arc(0,-.5*s,2.1*s,0,7);blob(g,shade(0,-.5*s,2.4*s,"#fff1b0","#f2b233","#b47d12"),1.2*s);
+      blob(g,shade(0,-7*s,11*s,L.pk,L.pkd,L.pkd),1.6*s);g.beginPath();g.arc(0,-.5*s,2.1*s,0,7);blob(g,"#f2b233",1.2*s);
       const bw=14*s;g.beginPath();g.moveTo(-bw,-19.5*s);g.lineTo(bw,-19.5*s);g.arc(bw,-15.5*s,4*s,-Math.PI/2,Math.PI/2);g.lineTo(-bw,-11.5*s);g.arc(-bw,-15.5*s,4*s,Math.PI/2,Math.PI*1.5);g.closePath();
       const rg=g.createLinearGradient(0,-19.5*s,0,-11.5*s);rg.addColorStop(0,L.rolll);rg.addColorStop(.6,L.roll);rg.addColorStop(1,L.roll);blob(g,rg,1.8*s);
       g.beginPath();g.ellipse(bw+.6*s,-15.5*s,2.2*s,4*s,0,0,7);blob(g,L.rolll,1.2*s);
@@ -1236,14 +1244,14 @@ class Rig{
     g.lineTo(sc[sc.length-1].x,sc[sc.length-1].y);g.lineCap=g.lineJoin="round";g.strokeStyle=INK;g.lineWidth=6.8*s;g.stroke();g.strokeStyle=L.sc;g.lineWidth=4.2*s;g.stroke();
     // big round head: the back of the head while climbing, a pie-eyed face when they turn round
     const hx=N.x,hy=N.y-13*s,R=11*s;
-    for(const d of [-1,1]){g.beginPath();g.ellipse(hx+d*R,hy+1*s,2.5*s,3.3*s,0,0,7);blob(g,shade(hx+d*R,hy,3*s,L.skinl,L.skin,L.skind),1.6*s);}
+    for(const d of [-1,1]){g.beginPath();g.ellipse(hx+d*R,hy+1*s,2.5*s,3.3*s,0,0,7);blob(g,L.skin,1.6*s);}
     g.beginPath();g.arc(hx,hy,R,0,7);blob(g,front?shade(hx,hy,R,L.skinl,L.skin,L.skind):shade(hx,hy,R,L.hairl,L.hair,L.haird),2.2*s);
     if(front){const ey=hy+1.6*s,big=this.mode==="fall"?1.3:1;
       if(this.dizzy>0){for(const d of [-1,1]){g.beginPath();g.moveTo(hx+d*4*s-2*s,ey-2*s);g.lineTo(hx+d*4*s+2*s,ey+2*s);g.moveTo(hx+d*4*s+2*s,ey-2*s);g.lineTo(hx+d*4*s-2*s,ey+2*s);inkPath(g,1.6*s);}}
       else for(const d of [-1,1]){g.beginPath();g.ellipse(hx+d*3.8*s,ey,2.2*s*big,3.6*s*big,0,0,7);g.fillStyle=INK;g.fill();
         g.fillStyle="#fff";g.beginPath();g.moveTo(hx+d*3.8*s+.4*s,ey-2.6*s*big);g.lineTo(hx+d*3.8*s+1.9*s*big,ey-1.3*s*big);g.lineTo(hx+d*3.8*s+.5*s,ey-.6*s);g.closePath();g.fill();}
       g.fillStyle="rgba(240,110,100,.45)";g.beginPath();g.arc(hx-7*s,hy+5*s,2.4*s,0,7);g.arc(hx+7*s,hy+5*s,2.4*s,0,7);g.fill();
-      g.beginPath();g.ellipse(hx,hy+4*s,2.5*s,2.1*s,0,0,7);blob(g,shade(hx,hy+4*s,2.6*s,"#ffc2a8","#ef7f63","#c55a42"),1.2*s);
+      g.beginPath();g.ellipse(hx,hy+4*s,2.5*s,2.1*s,0,0,7);blob(g,"#ef7f63",1.2*s);
       if(this.mode==="fall"||this.dizzy>0){g.beginPath();g.ellipse(hx,hy+8*s,2.2*s,2.8*s,0,0,7);g.fillStyle=INK;g.fill();}
       else{g.beginPath();g.moveTo(hx-5*s,hy+6.5*s);g.quadraticCurveTo(hx,hy+12.5*s,hx+5*s,hy+6.5*s);g.closePath();blob(g,"#8c2a1d",1.4*s);
         g.fillStyle="#ef7f63";g.beginPath();g.ellipse(hx,hy+9.6*s,2.2*s,1.1*s,0,0,7);g.fill();}}
@@ -1255,14 +1263,14 @@ class Rig{
     g.beginPath();g.moveTo(hx-R-1.6*s,hb-2.2*s);g.quadraticCurveTo(hx,hb+.6*s,hx+R+1.6*s,hb-2.2*s);g.lineTo(hx+R+1.8*s,hb+2.4*s);g.quadraticCurveTo(hx,hb+5.4*s,hx-R-1.8*s,hb+2.4*s);g.closePath();
     blob(g,L.hatd,1.8*s);for(let k=-4;k<=4;k++){const bx=hx+k*2.4*s,o=Math.abs(k)*.25*s;g.beginPath();g.moveTo(bx,hb-.6*s+o*-.6);g.lineTo(bx,hb+3.4*s-o);inkPath(g,.8*s,.35);}
     g.beginPath();g.moveTo(hx,hy-R-5.5*s);g.lineTo(this.pp.x,this.pp.y);inkPath(g,1.4*s);
-    g.beginPath();g.arc(this.pp.x,this.pp.y,4*s,0,7);blob(g,shade(this.pp.x,this.pp.y,4.4*s,"#ffffff",L.pom,"#d9c9a8"),1.8*s);
+    g.beginPath();g.arc(this.pp.x,this.pp.y,4*s,0,7);blob(g,L.pom,1.8*s);g.fillStyle="#fff";g.beginPath();g.arc(this.pp.x-1.2*s,this.pp.y-1.3*s,1.4*s,0,7);g.fill();
     if(this.dizzy>0)for(let i=0;i<3;i++){const a=t*6+i*2.09;star(g,hx+Math.cos(a)*14*s,hy-R-6*s+Math.sin(a)*4*s,4*s);blob(g,"#f2b233",1.3*s);}
     g.restore();
     // arms and puffy white gloves
     for(let j=0;j<2;j++){const h=this.h[j],[ex,ey,wx,wy]=ik(S[j].x,S[j].y,h.x,h.y,16*s,16*s,j?1:-1);hose(g,S[j].x,S[j].y,ex,ey,wx,wy,6.2*s,L.jk,id+30+j*3);
       const k=h.sq,ang=Math.atan2(wy-ey,wx-ex);g.save();g.translate(wx,wy);g.rotate(ang);g.scale(1+k*.3,1-k*.25);
       g.beginPath();g.ellipse(-3.8*s,0,2.3*s,3.8*s,0,0,7);blob(g,"#f4efe6",1.4*s);
-      g.beginPath();g.arc(1.2*s,0,4.6*s,0,7);blob(g,shade(1.2*s,0,4.6*s,"#ffffff","#f6f2ea","#cfc6b8"),1.6*s);
+      g.beginPath();g.arc(1.2*s,0,4.6*s,0,7);blob(g,"#f8f4ec",1.6*s);
       g.beginPath();g.moveTo(1.8*s,-2.1*s);g.quadraticCurveTo(3.4*s,-1.6*s,4.1*s,-.8*s);g.moveTo(1.8*s,2*s);g.quadraticCurveTo(3.4*s,1.6*s,4.1*s,.7*s);inkPath(g,.9*s,.75);g.restore();}
   }
 }
@@ -1349,6 +1357,11 @@ function drawSky(g,W,H,pal,u,t,cx){
   for(const b of FX.birds)for(let i=0;i<b.n;i++){const x=(b.x-i*.013)*W,y=(b.y+(i%2?1:-1)*i*.0045)*H+Math.sin(b.t*1.3+i)*2,f=Math.sin(b.t*9+i*1.7)*3.5,s=5;
     g.beginPath();g.moveTo(x-s,y-f);g.quadraticCurveTo(x-s*.4,y-f*.2,x,y);g.quadraticCurveTo(x+s*.4,y-f*.2,x+s,y-f);inkPath(g,1.8,.8);}
 }
+// soft shafts of light fanning from the sun, painted into the cached sky
+function skyRays(g,W,H,t,pal){const [sx,sy]=FX.sun;g.globalCompositeOperation="lighter";
+  for(let k=0;k<5;k++){const a=.3+k*.14+Math.sin(t*.07+k*1.3)*.03,sp=.022+hash(k,3)*.02,L=W*1.4,gr=g.createLinearGradient(sx,sy,sx+Math.cos(a)*L,sy+Math.sin(a)*L);
+    gr.addColorStop(0,rgb(pal.sun,.08));gr.addColorStop(1,rgb(pal.sun,0));g.fillStyle=gr;g.beginPath();g.moveTo(sx,sy);g.lineTo(sx+Math.cos(a-sp)*L,sy+Math.sin(a-sp)*L);g.lineTo(sx+Math.cos(a+sp)*L,sy+Math.sin(a+sp)*L);g.closePath();g.fill();}
+  g.globalCompositeOperation="source-over";}
 /* ---------- props in the world ---------- */
 function hold(g,x,y,chalk){g.fillStyle="rgba(50,26,30,.28)";g.beginPath();g.ellipse(x+1.8,y+3,5.8,3.3,0,0,7);g.fill();
   const gr=g.createRadialGradient(x-1.8,y-1.6,.5,x,y,6.2);gr.addColorStop(0,"#fff2d8");gr.addColorStop(.55,"#efbe88");gr.addColorStop(1,"#b77e55");
@@ -1412,24 +1425,33 @@ function tree(g,x,y,s,t,i,round){g.save();g.translate(x,y);g.rotate(Math.sin(t*.
   else for(let k=0;k<3;k++){const ty=-10-k*13,w=19-k*4.5,h=24-k*3;g.beginPath();g.moveTo(-w,ty);g.quadraticCurveTo(-w*.4,ty-h*.4,0,ty-h);g.quadraticCurveTo(w*.4,ty-h*.4,w,ty);g.closePath();blob(g,"#4f7a45",2);
     g.fillStyle="rgba(180,214,120,.6)";g.beginPath();g.moveTo(-w+3,ty-1);g.quadraticCurveTo(-w*.4,ty-h*.4,0,ty-h+3);g.lineTo(-w*.2,ty-h*.4);g.closePath();g.fill();}
   g.restore();}
-function drawGround(g,t,vx0,vx1){const a=Math.floor((vx0-60)/30)*30,b=vx1+60;
-  g.beginPath();g.moveTo(a,400);for(let x=a;x<=b;x+=30)g.lineTo(x,groundY(x));g.lineTo(b,400);g.closePath();
+// the base-camp meadow never changes, so it is painted once (like the rock) and only the camp itself is live
+function meadow(){const rs=FX.rs;if(FX.meadow&&FX.meadow.rs===rs)return FX.meadow;
+  const x0=-700,x1=1800,y0=-110,y1=320,a=x0,b=x1,c=document.createElement("canvas");c.width=Math.ceil((x1-x0)*rs);c.height=Math.ceil((y1-y0)*rs);
+  const g=c.getContext("2d");g.scale(rs,rs);g.translate(-x0,-y0);
+  g.beginPath();g.moveTo(a,y1);for(let x=a;x<=b;x+=30)g.lineTo(x,groundY(x));g.lineTo(b,y1);g.closePath();
   let gr=g.createLinearGradient(0,-10,0,200);gr.addColorStop(0,"#b6cf6e");gr.addColorStop(.4,"#8fae4f");gr.addColorStop(1,"#5f8a3c");g.fillStyle=gr;g.fill();
   g.beginPath();for(let x=a;x<=b;x+=30)x===a?g.moveTo(x,groundY(x)):g.lineTo(x,groundY(x));inkPath(g,2.6);
-  for(let x=Math.floor(a/11)*11;x<b;x+=11){const h=5+hash(x,1)*7,y=groundY(x)+1,l=hash(x,2)-.5;g.beginPath();g.moveTo(x,y);g.quadraticCurveTo(x+l*3,y-h*.6,x+l*6,y-h);inkPath(g,2.2);
-    g.strokeStyle=hash(x,3)<.5?"#6d8f3c":"#c3da7c";g.lineWidth=1;g.stroke();}
-  TREES.forEach(([x,y,s,rd],i)=>{if(x>vx0-60&&x<vx1+60)tree(g,x,groundY(x)+y,s,t,i,rd);});
-  tent(g,330,groundY(330)+1,1.1);fire(g,488,groundY(488),t,1);plaque(g,330,groundY(330)-58,`BASE CAMP · ${fmt(ALT.base)} M`);
-  gr=g.createLinearGradient(0,-70,0,30);gr.addColorStop(0,"rgba(246,236,210,0)");gr.addColorStop(1,"rgba(246,236,210,.3)");g.fillStyle=gr;g.fillRect(a,-70,b-a,100);}
+  // every blade in three batched strokes (ink, then the two greens)
+  const blades=[new Path2D(),new Path2D()],ink=new Path2D();
+  for(let x=Math.floor(a/11)*11;x<b;x+=11){const h=5+hash(x,1)*7,y=groundY(x)+1,l=hash(x,2)-.5,p=new Path2D();p.moveTo(x,y);p.quadraticCurveTo(x+l*3,y-h*.6,x+l*6,y-h);
+    ink.addPath(p);blades[hash(x,3)<.5?0:1].addPath(p);}
+  g.lineCap="round";g.strokeStyle=INK;g.lineWidth=2.2;g.stroke(ink);g.lineWidth=1;g.strokeStyle="#6d8f3c";g.stroke(blades[0]);g.strokeStyle="#c3da7c";g.stroke(blades[1]);
+  TREES.forEach(([x,y,s,rd],i)=>tree(g,x,groundY(x)+y,s,0,i,rd));
+  gr=g.createLinearGradient(0,-70,0,30);gr.addColorStop(0,"rgba(246,236,210,0)");gr.addColorStop(1,"rgba(246,236,210,.3)");g.fillStyle=gr;g.fillRect(a,-70,b-a,100);
+  return FX.meadow={c,rs,x0,y0,w:x1-x0,h:y1-y0};}
+function drawGround(g,t){const M=meadow();g.drawImage(M.c,M.x0,M.y0,M.w,M.h);
+  tent(g,330,groundY(330)+1,1.1);fire(g,488,groundY(488),t,1);plaque(g,330,groundY(330)-58,`BASE CAMP · ${fmt(ALT.base)} M`);}
 
 /* ---------- setup, loop and frame ---------- */
 function ensureScene(){
   const cv=$("#topo");if(!cv)return false;if(FX.cv===cv)return true;
   FX.cv=cv;FX.g=cv.getContext("2d");FX.mode="";FX.state=null;FX.tw=[];FX.ch.main++;FX.cam=null;FX.parts=[];FX.pops=[];FX.wisps=[];FX.rope=new Rope(30);FX.label=null;FX.pins=[];
-  if(!FX.spr)FX.spr=makeSprites();FX.grainPat=null;
+  if(!FX.spr)FX.spr=makeSprites();FX.sky=FX.film=null;
   FX.motes=Array.from({length:30},()=>({x:Math.random(),y:Math.random(),s:.6+Math.random()*1.4,p:Math.random()*6}));
-  const fit=()=>{const r=cv.getBoundingClientRect(),W=Math.max(1,r.width),H=Math.max(1,r.height),dpr=Math.min(2,devicePixelRatio||1);
-    if(W===FX.W&&H===FX.H&&dpr===FX.dpr)return;FX.W=W;FX.H=H;FX.dpr=dpr;cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);FX.grainPat=null;
+  // cap the pixels painted per frame: a large high-DPI screen would otherwise cost 4-8x more for little visible gain
+  const fit=()=>{const r=cv.getBoundingClientRect(),W=Math.max(1,r.width),H=Math.max(1,r.height),dpr=Math.min(2,devicePixelRatio||1,Math.sqrt(1.5e6/(W*H)));
+    if(W===FX.W&&H===FX.H&&dpr===FX.dpr)return;FX.W=W;FX.H=H;FX.dpr=dpr;cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);FX.sky=FX.film=null;FX.areaAt=0;
     const rs=clamp(dpr*W/620,1,2.2);if(Math.abs(rs-FX.rs)>.2){FX.rs=rs;FX.chunks.clear();}};
   fit();try{new ResizeObserver(fit).observe(cv);}catch(e){addEventListener("resize",fit);}
   FX.visible=true; // skip painting while scrolled out of view; a removed canvas's observer must not switch the new one off
@@ -1457,7 +1479,9 @@ function stepAmbient(dt){
 function sceneArea(){const W=FX.W,H=FX.H,wide=W>=900,top=wide?64:104,m=$("#main");let a={x:0,y:top,w:W,h:H-top};
   const r=m&&m.getBoundingClientRect();if(r&&r.width>0){if(wide)a.w=Math.max(240,r.left-8);else a.h=Math.max(150,r.top-top);}
   return a;}
-function updateCam(dt){const me=FX.A.me,mt=FX.A.mate,A=FX.area=sceneArea();let fx,fy;
+function updateCam(dt){const me=FX.A.me,mt=FX.A.mate,now=performance.now();let fx,fy;
+  if(now-(FX.areaAt||0)>250){FX.area=sceneArea();FX.areaAt=now;} // reading layout every frame is wasteful; the cards rarely move
+  const A=FX.area;
   // the focus (leader a little above, partner below; or the summit) sits right of the open area's middle so the valley shows on the left
   if(FX.focus==="summit"){fx=SX-30;fy=TOPY-60;}else{fx=me.N.x;fy=lerp(me.N.y,mt.N.y,.32)-6;}
   let sc=Math.max(A.h/(FX.viewH*(1+FX.kick)),A.w/620);if(A.w/sc<440)sc=A.w/440; // keep climbers a good size, and always show some valley beside them
@@ -1492,10 +1516,17 @@ function paint(t){
   const u=uOf(c.y),pal=palette(u),sc=W/c.w,ch=c.w*H/W,vy0=c.y-ch/2,vy1=c.y+ch/2,vx0=c.x-c.w/2,vx1=c.x+c.w/2;
   const screen=()=>g.setTransform(dpr,0,0,dpr,0,0),world=()=>g.setTransform(dpr*sc,0,0,dpr*sc,dpr*(W/2-c.x*sc),dpr*(H/2-c.y*sc));
   screen();g.globalCompositeOperation="source-over";g.globalAlpha=1;
-  drawSky(g,W,H,pal,u,t,c.x);
+  // the sky and the distant valley are soft and slow, so they are painted at half resolution into a cache and
+  // repainted only when the camera has moved or on the 12 fps animation tick (sun, clouds, rays)
+  const sk=FX.sky||(FX.sky={c:document.createElement("canvas"),u:-1,x:0,b:-1}),u0=uOf(c0.y);
+  if(!sk.g){sk.c.width=Math.ceil(W*dpr*.5);sk.c.height=Math.ceil(H*dpr*.5);sk.g=sk.c.getContext("2d");}
+  if(Math.abs(sk.u-u0)*H>.4||Math.abs(sk.x-c0.x)*sc>.4||sk.b!==b){sk.u=u0;sk.x=c0.x;sk.b=b;const sg=sk.g;
+    sg.setTransform(dpr*.5,0,0,dpr*.5,0,0);sg.globalCompositeOperation="source-over";const sp=palette(u0);drawSky(sg,W,H,sp,u0,t,c0.x);skyRays(sg,W,H,t,sp);
+    sg.globalCompositeOperation="multiply";sg.fillStyle=rgb(sp.tint,.32);sg.fillRect(0,0,W,H);sg.globalCompositeOperation="source-over";}
+  g.drawImage(sk.c,0,0,W,H);
   world();
   const [c1,c2]=chunkRange(vy0,vy1);for(let ci=c1;ci<=c2;ci++)g.drawImage(chunk(ci),X0,-(ci+1)*CHK,XW,CHK+2);
-  if(vy1>-260)drawGround(g,t,vx0,vx1);
+  if(vy1>-260)drawGround(g,t);
   drawRoute(g,vy0,vy1);
   for(const [k,ix] of [["c1",IDX_C1],["c2",IDX_C2]]){const y=-ix*HS;if(y>vy0-140&&y<vy1+140)drawCamp(g,420,y,t,k);}
   if(vy0<TOPY+160)drawSummit(g,t);
@@ -1511,24 +1542,18 @@ function paint(t){
   for(const [k,ix] of [["c1",IDX_C1],["c2",IDX_C2]]){const y=-ix*HS;if(y>vy0-140&&y<vy1+140)fireGlow(g,486,y-1,t,fireAmt(k));}
   drawParts(g);
   for(const w of FX.wisps){g.globalAlpha=w.a;g.drawImage(FX.spr.puff,w.x-w.r,w.y-w.r*.45,w.r*2,w.r*.9);}g.globalAlpha=1;
-  // light, grade and the old-film finish
+  // grade and the old-film finish: one tinted multiply pass (with the projector flicker folded in), then a
+  // pre-baked vignette-and-grain overlay nudged a few pixels each tick so the grain dances
   screen();const [sx,sy]=FX.sun;
   g.globalCompositeOperation="lighter";
-  for(let k=0;k<5;k++){const a=.3+k*.14+Math.sin(t*.07+k*1.3)*.03,sp=.022+hash(k,3)*.02,L=W*1.4,gr=g.createLinearGradient(sx,sy,sx+Math.cos(a)*L,sy+Math.sin(a)*L);
-    gr.addColorStop(0,rgb(pal.sun,.06));gr.addColorStop(1,rgb(pal.sun,0));g.fillStyle=gr;g.beginPath();g.moveTo(sx,sy);g.lineTo(sx+Math.cos(a-sp)*L,sy+Math.sin(a-sp)*L);g.lineTo(sx+Math.cos(a+sp)*L,sy+Math.sin(a+sp)*L);g.closePath();g.fill();}
   for(const m of FX.motes){const x=m.x*W,y=m.y*H,a=(.5+.5*Math.sin(t*1.5+m.p))*.3*clamp(1-Math.hypot(x-sx,y-sy)/(W*.9),0,1);g.fillStyle=rgb(pal.sun,a);g.beginPath();g.arc(x,y,m.s,0,7);g.fill();}
-  g.globalCompositeOperation="multiply";g.fillStyle=rgb(pal.tint,.3);g.fillRect(0,0,W,H);
-  g.globalCompositeOperation="soft-light";g.fillStyle="rgba(255,236,200,.35)";g.fillRect(0,0,W,H); // warm, punchy print colour rather than a muddy wash
   g.globalCompositeOperation="source-over";
-  const vg=g.createRadialGradient(W/2,H*.48,H*.32,W/2,H*.5,H*.95);vg.addColorStop(0,"rgba(40,20,10,0)");vg.addColorStop(1,"rgba(40,20,10,.46)");g.fillStyle=vg;g.fillRect(0,0,W,H);
-  if(sw){g.fillStyle=`rgba(30,15,5,${hash(b,3)*.05})`;g.fillRect(0,0,W,H); // projector flicker
-    g.fillStyle="rgba(29,19,15,.55)";g.strokeStyle="rgba(29,19,15,.45)";g.lineWidth=1;
+  const film=FX.film||(FX.film=makeFilm(W,H,dpr));g.globalAlpha=sw?.8+hash(b,3)*.2:.9; // the projector flicker rides on the vignette's strength
+  g.drawImage(film.c,-hash(b,4)*film.pad,-hash(b,5)*film.pad,W+film.pad,H+film.pad);g.globalAlpha=1;
+  if(sw){g.fillStyle="rgba(29,19,15,.55)";g.strokeStyle="rgba(29,19,15,.45)";g.lineWidth=1;
     for(let i=0;i<4;i++){const x=hash(b,10+i)*W,y=hash(b,20+i)*H;if(hash(b,30+i)<.6){g.beginPath();g.arc(x,y,.6+hash(b,40+i)*1.4,0,7);g.fill();}
       else{g.beginPath();g.moveTo(x,y);g.quadraticCurveTo(x+6,y+3,x+4+hash(b,50+i)*8,y+9);g.stroke();}}
     if(hash(Math.floor(b/3),7)<.35){const x=hash(Math.floor(b/3),8)*W;g.fillStyle="rgba(29,19,15,.25)";g.fillRect(x,0,1,H);}}
-  if(!FX.grainPat)FX.grainPat=g.createPattern(FX.spr.grain,"repeat");
-  g.save();g.translate(-hash(b,4)*192,-hash(b,5)*192);g.globalAlpha=.09;g.globalCompositeOperation="overlay";g.fillStyle=FX.grainPat;g.fillRect(0,0,W+192,H+192);g.restore();
-  g.globalAlpha=1;g.globalCompositeOperation="source-over";
   // paint one chunk ahead of the camera while it is idle, so climbing never waits on it
   const [n1,n2]=chunkRange(vy0-CHK,vy1+CHK);for(let ci=n1;ci<=n2;ci++)if(!FX.chunks.has(ci)){chunk(ci);break;}
 }
