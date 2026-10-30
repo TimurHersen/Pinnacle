@@ -202,7 +202,180 @@ input:focus{border-color:var(--ink);outline:none}
 .log li{color:var(--muted)} .log li b{color:var(--ink);font-weight:500}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--paper);padding:8px 14px;border-radius:5px;font-size:14px;z-index:20}
 @media (prefers-reduced-motion:reduce){.timer i{transition:none}}
-/* pixel-art skin: square corners everywhere, to match the pixel scene */*,*::before,*::after{border-radius:0!important}
+/* ================= PIXEL THEME =================
+   16-bit mountain adventure: deep navy panels with thin cream borders and a hard pixel drop shadow, a bitmap
+   display face for labels, a plain readable face for questions, gold and orange for actions. Everything below
+   overrides the tokens and components above, so the look lives in one place. */
+:root,:root[data-theme="dark"],:root[data-theme="light"]{
+  --paper:#0b1020;--panel:#151b2e;--panel2:#1d2540;--ink:#efe3c4;--muted:#a8a28f;--line:#3a4460;
+  --cream:#efe3c4;--gold:#f2b233;--orange:#e8792b;--red:#d23c2a;--navy:#0a0d17;--sky:#3c78b4;--forest:#3c7a3c;--ice:#9fd0f0;
+  --rope:#e8792b;--rope-soft:#2a2238;--good:#7ccf5a;--warn:#f2b233;--bad:#ff6a5a;
+  --toon:"Silkscreen",monospace;--toonInk:#efe3c4;color-scheme:dark}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--paper:#0b1020;--panel:#151b2e;--ink:#efe3c4;--muted:#a8a28f;--line:#3a4460;--rope:#e8792b;--rope-soft:#2a2238;--good:#7ccf5a;--warn:#f2b233;--bad:#ff6a5a}}
+*,*::before,*::after{border-radius:0!important}
+body{background:var(--navy);color:var(--ink)}
+.scene{background:#1e3c78}
+.px{display:inline-block;width:1em;height:1em;vertical-align:-.15em;image-rendering:pixelated}
+/* the frame every panel shares: cream line, navy keyline, hard shadow */
+.panel,.card,.hud>div,.bar .team,.brand,.linkbtn,.ibtn,.toast{background:var(--panel);color:var(--ink);border:2px solid var(--cream);box-shadow:0 0 0 2px var(--navy),4px 4px 0 2px var(--navy)}
+.panel,.card{padding:16px}
+.brand{font:700 20px/1 var(--toon);letter-spacing:.08em;padding:8px 12px;color:var(--cream)}
+.brand b{color:var(--gold)}
+.linkbtn{font:400 12px/1 var(--toon);padding:9px 12px;color:var(--cream)}
+.ibtn{color:var(--cream)}
+.linkbtn:hover,.ibtn:hover{background:var(--panel2)}
+.linkbtn:active,.ibtn:active{transform:translate(2px,2px);box-shadow:0 0 0 2px var(--navy),2px 2px 0 2px var(--navy)}
+.teamname{font:700 14px/1 var(--toon);padding-top:0;color:var(--gold)}
+.chip{font:400 11px/1 var(--toon);background:var(--navy);border:1px solid var(--line);padding:5px 8px}
+.climbers{color:var(--muted);font-size:12px}
+.dot{width:8px;height:8px;background:var(--line)}.dot.on{background:var(--good)}
+/* headings in the bitmap face; questions and explanations stay in the readable face */
+.eyebrow{font:400 11px/1.3 var(--toon);letter-spacing:.06em;color:var(--muted)}
+.terrain,.card h3,.headline,.hero h2,.route h4,.terrains b,.rhead,.clue2,.log h5{font-family:var(--toon);font-weight:700}
+.terrain{font-size:30px;letter-spacing:.06em;color:var(--cream);text-shadow:3px 3px 0 var(--navy)}
+.card h3{font-size:15px;letter-spacing:.06em;color:var(--gold)}
+.rule,.note,.hero p{color:var(--muted)}
+.note strong{color:var(--cream)}
+.prompt{font-family:var(--body);font-size:21px;font-weight:600;color:var(--cream)}
+input[type=text],input[type=number]{background:var(--navy);color:var(--cream);border:2px solid var(--line);padding:10px 12px}
+input::placeholder{color:#6f7690}
+input:focus{border-color:var(--gold)}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+/* buttons: dark with a cream line; the main action is a gold slab */
+.btn{font:700 13px/1 var(--toon);letter-spacing:.06em;text-transform:uppercase;background:var(--navy);color:var(--cream);border:2px solid var(--cream);padding:11px 16px;box-shadow:3px 3px 0 var(--navy)}
+.btn:hover{background:var(--panel2);filter:none}
+.btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--navy)}
+.btn.rope{background:var(--gold);color:#1b1408;border-color:#fff1c2;box-shadow:0 -3px 0 #b5741c inset,3px 3px 0 var(--navy)}
+.btn.rope:hover{background:#ffc94d}
+.btn.ghost{background:transparent;color:var(--cream);border:2px solid var(--line)}
+.btn.ghost:hover{border-color:var(--cream)}
+.err{color:var(--bad)}
+/* roles never rely on colour alone: they carry a word and a mark */
+.role{font:700 10px/1 var(--toon);letter-spacing:.08em;padding:4px 6px}
+.role.lead{background:var(--red);color:#fff;border:1px solid var(--cream)}
+.role.lead::before{content:"▲ "}
+.role.belay{background:var(--navy);color:var(--gold);border:1px solid var(--gold)}
+.role.belay::before{content:"⚓ "}
+/* timer as a row of pixel blocks */
+.timer{height:10px;background:var(--navy);border:2px solid var(--line);margin:14px 0 6px;padding:1px}
+.timer i{background:repeating-linear-gradient(90deg,var(--gold) 0 8px,transparent 8px 10px)}
+.meta{color:var(--muted);font:400 11px/1.4 var(--toon)}
+.wait{border:2px dashed var(--line);color:var(--muted);background:var(--navy)}
+.wait strong{color:var(--cream)}
+.chips span{background:var(--panel2);border:1px solid var(--line);color:var(--cream)}
+.opt{background:var(--navy);border:2px solid var(--line);color:var(--cream)}
+.opt:hover:not(:disabled){border-color:var(--cream)}
+.opt.sel{border-color:var(--gold);background:#2a2412}
+.opt.correct{border-color:var(--good);color:var(--good)}
+.clue{font-family:var(--toon);color:var(--gold)}
+/* the two halves of a pitch */
+.clue2{background:var(--navy);color:var(--cream);border:2px dashed var(--gold);font-size:16px;padding:10px 14px}
+.clue2 b{color:var(--gold)}
+.hidden2{color:var(--muted)}
+/* rope radio: a little transceiver */
+.radio{background:var(--navy);border:2px solid var(--line);box-shadow:inset 0 0 0 2px #10162a}
+.rhead{font-size:12px;color:var(--gold)}
+.rhead span{font:400 11px/1 var(--toon);color:var(--muted)}
+.msg{background:var(--panel2);border:1px solid var(--line);color:var(--cream);font-size:14px}
+.msg.me{background:#2a2412;border-color:#6b5420}
+.msg b{font-family:var(--toon);color:var(--gold)}
+/* reveal */
+.headline{font-size:24px;text-shadow:2px 2px 0 var(--navy)}
+.headline.good{color:var(--good)}.headline.bad{color:var(--bad)}.headline.warn{color:var(--warn)}
+.line{border-bottom:1px solid var(--line)}
+.line .who{font:400 10px/1.3 var(--toon);color:var(--muted)}
+.line .what{color:var(--cream)}
+.rar{color:var(--gold)}
+.outcome{display:flex;align-items:center;gap:10px;background:var(--navy);border:2px solid var(--line);padding:10px 12px;margin:0 0 14px;font:400 12px/1.4 var(--toon);color:var(--cream)}
+.outcome .px{width:28px;height:28px;flex:none}
+.outcome.good{border-color:var(--good)}.outcome.bad{border-color:var(--bad)}.outcome.warn{border-color:var(--gold)}
+.echo{display:inline-block;font:700 18px/1 var(--toon);color:#1b1408;background:var(--gold);border:2px solid #fff1c2;padding:6px 10px;margin:2px 0 10px;box-shadow:3px 3px 0 var(--navy);letter-spacing:.08em}
+.echo.bad{background:var(--red);color:#fff}
+/* each pitch type gets its own pixel vignette and accent line */
+.tart{display:block;width:100%;height:auto;aspect-ratio:96/28;image-rendering:pixelated;border:2px solid var(--line);margin:0 0 12px;background:#1e3c78}
+.panel[data-t="slab"]{border-color:#c8c0b0}.panel[data-t="chimney"]{border-color:#c08a5a}.panel[data-t="crevasse"]{border-color:var(--ice)}
+.panel[data-t="traverse"]{border-color:#8fcf6a}.panel[data-t="overhang"]{border-color:#ff8a5a}
+/* camp routes */
+.route{background:var(--navy);border:2px solid var(--line);color:var(--cream)}
+.route:hover{border-color:var(--cream)}
+.route.sel{border-color:var(--gold);background:#2a2412}
+.route h4{font-size:16px;color:var(--gold)}
+.route .pp,.votes{color:var(--muted)}
+/* lobby: title screen and menu */
+#main.lobby{gap:14px}
+.title{text-align:center;justify-items:center;gap:6px;background:linear-gradient(#10162a,#151b2e)}
+.title .emblem{width:84px;height:44px}
+.wordmark{margin:0;font:700 44px/1 var(--toon);letter-spacing:.06em;color:var(--cream);text-shadow:0 4px 0 #b5741c,0 4px 0 #b5741c,4px 8px 0 var(--navy)}
+.slogan{font:400 11px/1.4 var(--toon);letter-spacing:.08em;color:var(--gold)}
+.menu{display:grid;gap:8px;width:100%;max-width:280px;margin-top:10px}
+.mbtn{font:700 13px/1 var(--toon);letter-spacing:.08em;text-transform:uppercase;background:var(--navy);color:var(--cream);border:2px solid var(--cream);padding:11px 12px;cursor:pointer;box-shadow:3px 3px 0 #05070d}
+.mbtn:hover,.mbtn:focus-visible,.mbtn.on{background:var(--gold);color:#1b1408;outline:none}
+.mbtn:hover::before,.mbtn:focus-visible::before,.mbtn.on::before{content:"▶ "}
+.card.flash{animation:flash .9s steps(3) 1}
+@keyframes flash{50%{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold),4px 4px 0 2px var(--navy)}}
+.teamrow{background:var(--navy);border:2px solid var(--line);color:var(--cream)}
+.teamrow:hover{border-color:var(--gold)}
+.teamrow span{font:400 11px/1 var(--toon);color:var(--gold)}
+.terrains div{border-top:2px solid var(--line)}
+.terrains b{font-size:13px;color:var(--gold)}
+.terrains img{display:block;width:100%;image-rendering:pixelated;margin:4px 0 6px;border:1px solid var(--line)}
+.setrow{display:flex;justify-content:space-between;align-items:center;gap:10px;font:400 12px/1.3 var(--toon)}
+/* HUD: climber portraits, roles, altitude, hooks and anchor */
+.hud{gap:10px;align-items:stretch}
+.hud>div{padding:6px 10px}
+.hud .k{font:400 9px/1.2 var(--toon);letter-spacing:.08em;color:var(--muted)}
+.hud .v{font:700 15px/1.2 var(--toon);color:var(--cream)}
+.hud .who{display:flex;align-items:center;gap:8px}
+.port{width:40px;height:40px;image-rendering:pixelated;border:2px solid var(--cream);background:#3c78b4;flex:none}
+.hud .who .nm{font:700 12px/1.1 var(--toon);color:var(--cream);max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hud .who .role{display:inline-block;margin-top:4px}
+.hooks{display:inline-flex;gap:3px;vertical-align:middle}
+.hooks .px{width:18px;height:18px}
+.hooks .used{opacity:.35;filter:grayscale(1)}
+/* route map */
+.mapcard{gap:6px}
+.map{display:grid;gap:4px}
+.mrow{display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:center}
+.mrow .px{width:20px;height:20px}
+.mstop{font:700 11px/1.2 var(--toon);color:var(--cream)}
+.mstop small{font-weight:400;color:var(--muted);margin-left:6px}
+.mstop.here{color:var(--gold)}
+.mstage{display:grid;gap:4px;padding:6px 8px;margin-left:10px;border-left:2px dotted var(--line)}
+.mstage.s0{background:linear-gradient(90deg,rgba(60,122,60,.18),transparent)}
+.mstage.s1{background:linear-gradient(90deg,rgba(150,120,90,.18),transparent)}
+.mstage.s2{background:linear-gradient(90deg,rgba(159,208,240,.16),transparent)}
+.mopt{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+.mopt.off{opacity:.42}
+.mopt>b{font:400 10px/1.3 var(--toon);color:var(--muted);margin-right:4px;min-width:7.5em}
+.pit{position:relative;display:inline-grid;place-items:center;width:20px;height:20px;font:700 10px/1 var(--toon);border:2px solid var(--line);background:var(--navy);color:var(--muted)}
+.pit.done{background:#2f5a2a;border-color:var(--good);color:var(--cream)}
+.pit.now{background:var(--gold);border-color:#fff1c2;color:#1b1408;animation:blink 1s steps(2) infinite}
+.pit .px{position:absolute;right:-8px;top:-8px;width:14px;height:14px}
+@keyframes blink{50%{background:#b5741c}}
+@media (prefers-reduced-motion:reduce){.pit.now{animation:none}}
+.mlegend{font:400 9px/1.4 var(--toon);color:var(--muted);display:flex;flex-wrap:wrap;gap:10px;margin-top:4px}
+/* scene overlays in the pixel style */
+.tcard .burst{display:none}
+.tcard b{font:700 46px/1 var(--toon);color:var(--gold);-webkit-text-stroke:0;text-shadow:0 4px 0 #b5741c,4px 8px 0 var(--navy)}
+.tcard.bad b{color:#ff8a6a;text-shadow:0 4px 0 #8c2a1d,4px 8px 0 var(--navy)}
+.tcard.good b{color:#9be36d;text-shadow:0 4px 0 #2f6a2a,4px 8px 0 var(--navy)}
+.tcard b span{animation-timing-function:steps(4)}
+.tcard small{font:700 14px/1 var(--toon);color:var(--cream);background:var(--panel);border:2px solid var(--cream);transform:none;box-shadow:4px 4px 0 var(--navy)}
+.cap{font:700 clamp(13px,2.2cqw,18px)/1 var(--toon);color:var(--cream);-webkit-text-stroke:0;text-shadow:2px 2px 0 var(--navy);background:var(--panel);border:2px solid var(--cream);padding:8px 12px;transform:translateX(-50%)}
+.conf{border:0;width:8px;height:8px}
+.toast{font:400 12px/1.3 var(--toon)}
+.log{border-top:2px solid var(--line)}
+.log h5{font-size:10px;color:var(--gold)}
+.log li{color:var(--muted)}
+@media (max-width:899px){
+  #main{background:var(--panel);border-top:2px solid var(--cream);box-shadow:0 -2px 0 2px var(--navy)}
+  #main>.panel,#main>.card{border:0;box-shadow:none}
+  #main.lobby>.card+.card{border-top:2px dashed var(--line)}
+  .hud>div{padding:3px 6px}.hud .v{font-size:11px}.port{width:28px;height:28px}.hud .who .nm{font-size:10px;max-width:6em}.hooks .px{width:13px;height:13px}
+  .wordmark{font-size:34px}.terrain{font-size:24px}
+  .hud{flex-wrap:wrap;gap:6px}.hud>div{flex:1 1 auto}.hud .who .nm{display:none}.hud .role{font-size:8px;padding:2px 3px;margin-top:0}
+  .tart{aspect-ratio:96/18;object-fit:cover}
+}
 </style>
 </head>
 <body>
@@ -214,7 +387,7 @@ input:focus{border-color:var(--ink);outline:none}
   <h1 class="brand">Pinn<b>a</b>cle</h1>
   <div class="team" id="teambar"></div>
   <div class="spacer"></div>
-  <button class="linkbtn" id="homeBtn" hidden>All teams</button>
+  <button class="linkbtn" id="homeBtn" hidden>Main menu</button>
   <button class="ibtn" id="sndBtn" type="button" title="Sound" aria-label="Sound"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path class="on" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path class="off" d="M16.5 9.5l5 5m0-5l-5 5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
   <button class="ibtn" id="fsBtn" type="button" title="Fullscreen" aria-label="Fullscreen" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path class="off" d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/><path class="on" d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg></button>
 </header>
@@ -701,32 +874,51 @@ const inviteLink=code=>location.origin+location.pathname+"#t-"+code;
 function renderLobby(invite){
   $("#teambar").innerHTML="";$("#homeBtn").hidden=true;$("#hud").hidden=true;
   const main=$("#main");main.className="lobby";main.scrollTop=0;
+  // a title screen: the wordmark and a retro menu that jumps to each section below (all real forms, not mock-ups)
   main.innerHTML=`
-    <div class="card hero"><div class="eyebrow">A quiz climb for two</div>
-      <h2>Rope up, answer together, reach the summit.</h2>
-      <p>You and your partner climb one mountain, pitch by pitch. Each pitch is a different kind of question. Your rope team, your altitude and your record are saved, so you can stop at camp and carry on another night.</p></div>
+    <div class="card title">${ICON.peak.replace('class="px"','class="px emblem"')}<h2 class="wordmark">PINNACLE</h2>
+      <div class="slogan">TWO MINDS. ONE ROPE. HIGHER TOGETHER.</div>
+      <nav class="menu" aria-label="Main menu">
+        ${S.myTeams.length?`<button class="mbtn" data-go="secCont">Continue expedition</button>`:""}
+        <button class="mbtn" data-go="secNew" data-f="tname">New expedition</button>
+        <button class="mbtn" data-go="secJoin" data-f="jcode">Join team</button>
+        <button class="mbtn" data-go="secHow">How to play</button>
+        <button class="mbtn" data-go="secSet">Settings</button>
+      </nav></div>
     ${invite?`<div class="card"><h3>You're invited</h3><p class="note">Join <strong>${esc(invite.name)}</strong>: add your name below, then press Join.</p></div>`:""}
     <div class="card"><h3>Your name</h3>
       <input type="text" id="myname" maxlength="24" placeholder="What your partner sees" value="${esc(S.myName)}" autocomplete="nickname">
     </div>
-    <div class="card"><h3>Join your partner</h3>
+    ${S.myTeams.length?`<div class="card" id="secCont"><h3>Continue expedition</h3><div class="teams">${S.myTeams.map(x=>`<button class="teamrow" data-code="${esc(x.code)}"><b>${esc(x.name)}</b><span>${esc(x.code)}</span></button>`).join("")}</div></div>`:""}
+    <div class="card" id="secJoin"><h3>Join team</h3>
       <div class="row"><input type="text" id="jcode" maxlength="6" placeholder="Team code" autocomplete="off" style="text-transform:uppercase" value="${invite?esc(invite.code):""}"><button class="btn ${invite?"rope":""}" id="joinBtn">Join</button></div>
       <div class="err" id="joinErr"></div><div id="seats"></div>
     </div>
-    <div class="card"><h3>Start a rope team</h3>
-      <label class="note" for="tname">Team name</label>
+    <div class="card" id="secNew"><h3>New expedition</h3>
+      <label class="note" for="tname">Rope team name</label>
       <input type="text" id="tname" maxlength="32" placeholder="e.g. Kebnekaise Kids">
       <button class="btn ${invite?"":"rope"}" id="createBtn">Create rope team</button>
       <div class="err" id="createErr"></div>
     </div>
-    ${S.myTeams.length?`<div class="card"><h3>Your rope teams</h3><div class="teams">${S.myTeams.map(x=>`<button class="teamrow" data-code="${esc(x.code)}"><b>${esc(x.name)}</b><span>${esc(x.code)}</span></button>`).join("")}</div></div>`:""}
-    <div class="card"><h3>The pitches</h3><div class="terrains">${Object.values(TERRAIN).map(x=>`<div><b>${x.name}</b>${esc(x.rule)}</div>`).join("")}</div></div>`;
+    <div class="card" id="secHow"><h3>How to play</h3>
+      <p class="note">You and your partner climb one mountain, pitch by pitch: base camp ${fmt(ALT.base)} m, Camp I ${fmt(ALT.c1)} m, Camp II ${fmt(ALT.c2)} m, summit ${fmt(ALT.top)} m. Leader and belayer swap every pitch. Three hooks per stage catch your falls; out of hooks, you drop to your last anchor. Camps restock your gear and let you choose the next route. Progress is saved.</p>
+      <div class="terrains">${Object.entries(TERRAIN).map(([k,x])=>`<div><b>${x.name}</b><img src="${terrainArt(k)}" alt="">${esc(x.rule)}</div>`).join("")}</div></div>
+    <div class="card" id="secSet"><h3>Settings</h3>
+      <div class="setrow">Sound <button class="btn ghost" id="setSnd"></button></div>
+      ${document.documentElement.requestFullscreen?`<div class="setrow">Fullscreen <button class="btn ghost" id="setFs"></button></div>`:""}
+    </div>`;
   drawTopo(null);
   $("#myname").onchange=readName;
   $("#createBtn").onclick=createTeam;
   $("#joinBtn").onclick=()=>joinTeam();
   $("#jcode").onkeydown=e=>{if(e.key==="Enter")joinTeam();};
   main.querySelectorAll(".teamrow").forEach(b=>b.onclick=()=>openTeam(b.dataset.code));
+  main.querySelectorAll(".mbtn").forEach(b=>b.onclick=()=>{const sec=$("#"+b.dataset.go);if(!sec)return;sfx("pop");
+    sec.scrollIntoView({behavior:RM.matches?"auto":"smooth",block:"start"});sec.classList.remove("flash");void sec.offsetWidth;sec.classList.add("flash");
+    if(b.dataset.f)setTimeout(()=>$("#"+b.dataset.f)?.focus({preventScroll:true}),350);});
+  // settings mirror the bar's sound and fullscreen switches
+  const setS=$("#setSnd"),setF=$("#setFs"),sync=()=>{setS.textContent=SND.on?"On":"Off";if(setF)setF.textContent=document.fullscreenElement?"On":"Off";};
+  setS.onclick=()=>{$("#sndBtn").click();sync();};if(setF){setF.onclick=()=>$("#fsBtn").click();document.addEventListener("fullscreenchange",sync);}sync();
 }
 async function createTeam(){
   const err=$("#createErr");const me=readName();if(!me){err.textContent="Add your name first.";$("#myname").focus();return;}
@@ -797,6 +989,65 @@ function subAnswers(rid){
   S.unsubAns=fb.listen(`answers/${S.code}/${rid}`,a=>{S.answers=a||{};if(S.team)render();});
 }
 
+/* ============================== PIXEL UI ART ==============================
+   Small pixel icons drawn from character grids (one letter per pixel), a pixel vignette for each pitch type,
+   and climber portraits cropped from the same sprites the scene uses. */
+const PXPAL={k:"#0a0d17",c:"#efe3c4",y:"#f2b233",Y:"#b5741c",o:"#e8792b",r:"#d23c2a",R:"#8c2a1d",g:"#7a8396",G:"#c7ccd4",
+  b:"#8a5a34",B:"#5a3a22",w:"#ffffff",n:"#3c7a3c",N:"#7ccf5a",s:"#9fd0f0",S:"#3c78b4"};
+function pix(rows){const h=rows.length,w=rows[0].length;let r="";
+  rows.forEach((row,y)=>[...row].forEach((ch,x)=>{if(PXPAL[ch])r+=`<rect x="${x}" y="${y}" width="1.05" height="1.05" fill="${PXPAL[ch]}"/>`;}));
+  return `<svg class="px" viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges" aria-hidden="true">${r}</svg>`;}
+const ICON={
+  hook:pix(["...kkkk...","..kyyyyk..",".kyk..kyk.",".kyk..kyk.",".kyk..kGk.",".kyk...k..",".kyk..kGk.",".kyk..kyk.","..kyyyyk..","...kkkk..."]),
+  hookUsed:pix(["...kkkk...","..kggggk..",".kgk..kgk.",".kgk..kgk.",".kgk..kgk.",".kgk...k..",".kgk..kgk.",".kgk..kgk.","..kggggk..","...kkkk..."]),
+  anchor:pix(["...kkkk...","..kGGGGk..","..kGkkGk..","..kGGGGk..","...kGGk...","..kkGGkk..",".kGk..kGk.",".kGk..kGk.","..kGGGGk..","...kkkk..."]),
+  rope:pix(["..kkkkk...",".kooooook.","kokkkkkok.","kok...kok.","kokkkkkok.",".kooooook.","..kkkkokk.","......ok..","......kok.",".......k.."]),
+  tent:pix([".....k....","....kok...","...kooRk..","..koooRRk.",".kooook.Rk","kooook.kRk","kooook.kRk","kkkkkkkkkk"]),
+  flag:pix(["k.........","krrrrr....","krrrrrrr..","krrrrr....","kR........","k.........","k.........","kkk......."]),
+  up:pix(["....kk....","...kNNk...","..kNNNNk..",".kNNNNNNk.","kkkNNNNkkk","...kNNk...","...kNNk...","...kkkk..."]),
+  hold:pix(["kkkkkkkkk","kyyyyyyyk","kkkkkkkkk","....k....","....k....","..kkkkk..","..kGGGk..","..kkkkk.."]),
+  peak:pix(["..........kk..........","........kkcck.........",".......kccccck........","......kcccccck.kk.....",".....kcckkcccckcck....","....kcck..kgcccccck...","...kgck....kgggcccck..","..kggk.......kgggggk..",".kggk..........kgggk..","kggk.............kggk."])
+};
+// a 96x28 pixel vignette for each pitch type, drawn once
+const TART={};
+function terrainArt(k){if(TART[k])return TART[k];
+  const c=document.createElement("canvas");c.width=96;c.height=28;const g=c.getContext("2d"),R=rng(k.length*977+3),p=(x,y,w,h,col)=>{g.fillStyle=col;g.fillRect(x,y,w,h);};
+  p(0,0,96,28,"#3c78b4");p(0,0,96,9,"#2c5a96");p(0,18,96,10,"#5a96d2");
+  for(let x=0;x<96;x++){const h=7+Math.abs(((x*5)%26)-13)*.55;p(x,26-h,1,h+2,"#5a7aa8");if(h>12)p(x,26-h,1,2,"#efe3c4");}
+  const rock=(x,y,w,h)=>{p(x,y,w,h,"#8a7462");for(let i=0;i<w*h/22;i++)p(x+Math.floor(R()*w),y+Math.floor(R()*h),2,1,R()<.5?"#6a5646":"#a89078");};
+  const climber=(x,y)=>{p(x,y,2,2,"#f2b233");p(x,y+2,2,3,"#d23c2a");p(x,y+5,2,2,"#2a3450");};
+  if(k==="slab"){for(let y=0;y<28;y++){const x0=Math.round(14+y*2.6);p(x0,y,96-x0,1,y%6?"#a89c8c":"#8c8070");p(x0,y,2,1,"#d8ccbc");}climber(58,9);}
+  else if(k==="chimney"){rock(0,0,42,28);rock(56,0,40,28);p(42,0,14,28,"#2a1e18");p(42,0,1,28,"#0a0d17");p(55,0,1,28,"#0a0d17");p(44,0,2,28,"#3a2a22");climber(47,12);}
+  else if(k==="crevasse"){p(0,12,96,16,"#e8f4ff");for(let x=0;x<96;x+=7)p(x,12,4,1,"#ffffff");
+    for(let y=12;y<28;y++){const w=Math.max(1,14-(y-12)*.7);p(48-w/2|0,y,w|0,1,y<16?"#9fd0f0":"#1e3c78");}p(36,15,24,2,"#ffffff");p(36,17,24,1,"#9fd0f0");climber(40,8);}
+  else if(k==="traverse"){rock(0,0,96,28);p(0,16,96,3,"#c8b498");p(0,19,96,2,"#3a2a22");for(let x=2;x<96;x+=6)p(x,11+(x%12?0:1),3,1,"#e8792b");climber(40,9);}
+  else if(k==="overhang"){rock(52,0,44,28);for(let y=0;y<13;y++){const x0=Math.round(4+y*3.6+(R()*3|0));rock(x0,y,96-x0,1);}p(0,13,56,1,"#0a0d17");climber(30,14);p(31,13,1,1,"#efe3c4");}
+  return TART[k]=c.toDataURL();}
+// a head-and-shoulders portrait cut from the climber's standing sprite
+const PORT=new Map();
+function portrait(L){if(PORT.has(L))return PORT.get(L);
+  const s=pixelSprite(L,"stand",{}),c=document.createElement("canvas");c.width=c.height=20;const g=c.getContext("2d");
+  g.fillStyle="#3c78b4";g.fillRect(0,0,20,20);g.fillStyle="#5a96d2";g.fillRect(0,13,20,7);g.drawImage(s,SPR.hx-6,SPR.hy-33,20,20,0,0,20,20);
+  const u=c.toDataURL();PORT.set(L,u);return u;}
+// the expedition as a map: base camp to summit, both route options at each camp, every pitch's state
+function mapHtml(t){
+  const e=t.exp,L=lens(e),tot=total(e),at=e.pitch,dim=["s0","s1","s2"];
+  const pit=(gi,k,live)=>`<span class="pit ${live?(gi<at?"done":gi===at?"now":""):""}" title="${live?`Pitch ${gi+1}: `:""}${TERRAIN[k].name}">${TERRAIN[k].name[0]}${live&&e.anchor===gi+1&&!campStops(e).includes(e.anchor)?ICON.anchor:""}</span>`;
+  const stop=(icon,name,alt,i)=>`<div class="mrow">${icon}<div class="mstop ${i===at?"here":""}">${name}<small>${fmt(alt)} m${i===at?" · you are here":""}${e.anchor===i&&i>0?" · anchor":""}</small></div></div>`;
+  const stage=(s,start)=>{let h="";
+    if(s===0)h=`<div class="mopt"><b>Approach</b>${SEG0.map((k,i)=>pit(start+i,k,1)).join("")}</div>`;
+    else{const F=FORKS[s-1],ch=e.choice[s-1];
+      for(const key of ["A","B"]){const opt=F[key],chosen=ch===key;
+        h+=`<div class="mopt ${ch&&!chosen?"off":""}"><b>${opt.name}${!ch?` · ${opt.p.length}`:""}</b>${opt.p.map((k,i)=>pit(start+i,k,chosen)).join("")}</div>`;}}
+    return `<div class="mstage ${dim[s]}">${h}</div>`;};
+  const c1=L[0],c2=L[0]+(L[1]||0);
+  return `<h3>Route map</h3><div class="map">
+    ${stop(ICON.flag,"Summit",ALT.top,e.choice[1]?tot:-1)}${stage(2,c2)}
+    ${stop(ICON.tent,"Camp II",ALT.c2,e.choice[0]?c2:-1)}${stage(1,c1)}
+    ${stop(ICON.tent,"Camp I",ALT.c1,c1)}${stage(0,0)}
+    ${stop(ICON.tent,"Base camp",ALT.base,0)}</div>
+    <div class="mlegend"><span><span class="pit done" style="width:12px;height:12px"></span> climbed</span><span><span class="pit now" style="width:12px;height:12px;animation:none"></span> this pitch</span><span>${ICON.anchor} anchor</span></div>`;}
+
 /* ============================== RENDER ============================== */
 function renderBar(){
   const t=S.team;if(!t){$("#teambar").innerHTML="";return;}
@@ -810,16 +1061,23 @@ function renderBar(){
 function render(){
   const t=S.team;if(!t)return;renderBar();
   const main=$("#main");
-  if(!main.classList.contains("game")){main.className="game";main.innerHTML=`<div class="panel" id="panel"></div>`;}
+  if(!main.classList.contains("game")){main.className="game";main.innerHTML=`<div class="panel" id="panel"></div><div class="card mapcard" id="mapcard"></div>`;S.mapKey=S.hudHtml=null;}
   $("#hud").hidden=false;drawTopo(t);renderHud(t);renderPanel(t);
+  const mk=JSON.stringify([t.exp.pitch,t.exp.anchor,t.exp.choice,t.exp.n]);if(S.mapKey!==mk){S.mapKey=mk;$("#mapcard").innerHTML=mapHtml(t);}
 }
+// who leads this pitch (or the next one, between pitches)
+function leaderOf(t){const r=t.round,ids=memberIds(t);return r.phase==="answer"||r.phase==="reveal"?r.leader:ids[(r.id+1)%ids.length];}
+// player 1 (who made the team) climbs in red, player 2 in yellow
+const lookOf=(t,id)=>memberIds(t).indexOf(id)>0?LOOK.mate:LOOK.me;
 function renderHud(t){
-  const e=t.exp;const used=3-e.rope,alt=altOf(e,e.pitch);
-  $("#hud").innerHTML=`
-   <div><div class="k">Altitude</div><div class="v">${fmt(alt)} m</div></div>
-   <div><div class="k">Anchor</div><div class="v">${fmt(altOf(e,e.anchor))} m</div></div>
-   <div><div class="k">Gear</div><div class="v"><span class="ropes" aria-label="${e.rope} hooks left">${[0,1,2].map(i=>`<i class="${i<used?"used":""}"></i>`).join("")}</span></div></div>
-   <div><div class="k">To the top</div><div class="v">${alt>=ALT.top?"Summit!":fmt(ALT.top-alt)+" m"}</div></div>`;
+  const e=t.exp,alt=altOf(e,e.pitch),ids=memberIds(t),lead=leaderOf(t),tot=total(e);
+  const who=ids.map((id,i)=>`<div class="who"><img class="port" src="${portrait(lookOf(t,id))}" alt=""><div><div class="nm">P${i+1} · ${esc(S.names[id]||nameOf(id))}${id===S.uid?" (you)":""}</div>
+    <span class="role ${id===lead?"lead":"belay"}">${id===lead?"Leader":"Belayer"}</span></div></div>`).join("");
+  const html=`${who}
+   <div><div class="k">Altitude</div><div class="v">${fmt(alt)} m</div><div class="k">${alt>=ALT.top?"Summit!":`Pitch ${Math.min(e.pitch+1,tot)} of ${tot}${e.choice[1]?"":"+"}`}</div></div>
+   <div><div class="k">Hooks</div><div class="v"><span class="hooks" aria-label="${e.rope} of 3 hooks left">${[0,1,2].map(i=>i<e.rope?ICON.hook:ICON.hookUsed.replace('class="px"','class="px used"')).join("")}</span></div></div>
+   <div><div class="k">Anchor</div><div class="v">${ICON.anchor} ${fmt(altOf(e,e.anchor))} m</div></div>`;
+  if(S.hudHtml!==html){S.hudHtml=html;$("#hud").innerHTML=html;}
 }
 function remaining(r){return Math.max(0,(r.startedAt+r.dur*1000-Date.now())/1000);}
 function logHtml(t){const st=t.stats||{};
@@ -829,7 +1087,7 @@ function renderPanel(t){
   const r=t.round;const panel=$("#panel");const mine=S.answers[S.uid];
   const key=[r.id,r.phase,!!mine,memberIds(t).length,r.phase==="camp"?JSON.stringify(r.votes||{}):"",r.phase==="reveal"?r.resolvedAt:"",Object.values(S.names).join(",")].join("|");
   if(key===S.panelKey){updateDynamic(t);return;}
-  S.panelKey=key;S.local={items:[],choice:null};
+  S.panelKey=key;S.local={items:[],choice:null};panel.dataset.t=r.phase==="answer"||r.phase==="reveal"?r.terrain:"";
   if(r.phase==="ready")panel.innerHTML=readyView(t);
   else if(r.phase==="answer")panel.innerHTML=answerView(t,mine);
   else if(r.phase==="reveal")panel.innerHTML=revealView(t);
@@ -849,7 +1107,8 @@ function readyView(t){
 function answerView(t,mine){
   const r=t.round,q=qById(r.terrain,r.qid),T=TERRAIN[r.terrain];
   const ids=memberIds(t);const lead=r.leader===S.uid;const solo=ids.length<2;
-  const head=`<div class="eyebrow">Pitch ${t.exp.pitch+1} · ${fmt(altOf(t.exp,t.exp.pitch))} m <span class="role ${lead?"lead":"belay"}">${lead?"You lead":"You belay"}</span></div>
+  const head=`<img class="tart" src="${terrainArt(r.terrain)}" alt="">
+   <div class="eyebrow">Pitch ${t.exp.pitch+1} · ${fmt(altOf(t.exp,t.exp.pitch))} m <span class="role ${lead?"lead":"belay"}">${lead?"You lead":"You belay"}</span>${T.talk&&!solo?"":`<span>· no radio</span>`}</div>
    <div class="terrain">${T.name}</div><p class="rule">${esc(T.rule)}</p>`;
   const radio=T.talk&&!solo?radioHtml(T):"";
   const foot=radio+`<div class="timer"><i id="timerBar"></i></div><div class="meta"><span id="timerTxt"></span><span id="partnerTxt"></span></div>`;
@@ -901,8 +1160,15 @@ function revealView(t){
   const o=t.round.result||{};const q=qById(t.round.terrain,t.round.qid);
   const nextIsCamp=needsChoice(t.exp)>=0;const atTop=t.exp.pitch>=total(t.exp)&&t.exp.choice[1];
   const canAnchor=!nextIsCamp&&!atTop&&t.exp.anchor!==t.exp.pitch&&t.exp.rope>0;
-  return `<div class="eyebrow">${TERRAIN[t.round.terrain].name} · ${esc(q.q&&t.round.terrain!=="overhang"?q.q:q.cat||"")}</div>
-   <div class="headline ${o.tone||"good"}">${esc(o.headline)}</div>
+  // what happened on the rope, as one pixel-iconed strip: climbed, held, caught by a hook, or dropped to the anchor
+  const oc=o.arrived?["good",o.arrived==="summit"?ICON.flag:ICON.tent,o.arrived==="summit"?"Summit reached!":`${o.arrived}: anchor set, 3 hooks restocked`]
+    :o.fall&&o.caught?["warn",ICON.hook,"A hook caught the fall"]:o.fall?["bad",ICON.anchor,"Out of hooks: back to the anchor"]
+    :o.move>0?["good",ICON.up,`Climbed ${o.move} pitch${o.move>1?"es":""}`]:["warn",ICON.hold,"Holding position"];
+  const badge=o.echo?`<div class="echo">ECHO! x2</div>`:/^Collision/.test(o.headline||"")?`<div class="echo bad">COLLISION</div>`:"";
+  return `<img class="tart" src="${terrainArt(t.round.terrain)}" alt="">
+   <div class="eyebrow">${TERRAIN[t.round.terrain].name} · ${esc(q.q&&t.round.terrain!=="overhang"?q.q:q.cat||"")}</div>
+   ${badge}<div class="headline ${o.tone||"good"}">${esc(o.headline)}</div>
+   <div class="outcome ${oc[0]}">${oc[1]}<span>${oc[2]}</span></div>
    ${o.detail?`<p class="rule">${esc(o.detail)}</p>`:""}
    <div class="lines">${(o.lines||[]).map(l=>`<div class="line"><span class="who">${l.who?esc(nameOf(l.who))+(l.note?" · "+l.note:""):"Team"}</span><span class="what">${esc(l.text)}</span>${l.tag||"<span></span>"}</div>`).join("")}</div>
    <div class="moves"><div><b>${esc(o.moveText||"")}</b></div>${o.arrived&&o.arrived!=="summit"?`<div>Reached ${esc(o.arrived)}. Anchor set and gear restocked.</div>`:""}</div>
@@ -1110,57 +1376,69 @@ function plant(g,x,y,typ,R){
 // a closed shape through points, rounded with quadratic curves between midpoints
 function smoothPath(pts){const p2=new Path2D(),n=pts.length,mid=(p,q)=>[(p[0]+q[0])/2,(p[1]+q[1])/2];let m=mid(pts[n-1],pts[0]);p2.moveTo(m[0],m[1]);
   for(let k=0;k<n;k++){const p=pts[k];m=mid(p,pts[(k+1)%n]);p2.quadraticCurveTo(p[0],p[1],m[0],m[1]);}p2.closePath();return p2;}
+/* ---------- pixel-art scenery ----------
+   Colours sit on the retro palette's steps (multiples of 30) so the dither pass leaves flat areas clean. */
+const rgbS=a=>`rgb(${a[0]},${a[1]},${a[2]})`;
+// rock as irregular columns with dark cracks, lit edges, moss low down and snow up high (column bounds in art pixels)
+const COLS=(()=>{const b=[];let x=Math.floor(X0/2)-40;while(x<(X0+XW)/2+40){b.push(x);x+=10+Math.floor(hash(x,2)*16);}b.push(x);return b;})();
+function colOf(ax){let lo=0,hi=COLS.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(COLS[m]<=ax)lo=m;else hi=m;}return [COLS[lo],COLS[hi]];}
 function paintChunk(ci){
   const c=document.createElement("canvas"),rs=FX.rs,yTop=-(ci+1)*CHK,yBot=-ci*CHK+2;
   c.width=Math.ceil(XW*rs);c.height=Math.ceil((CHK+2)*rs);
   if(yBot<TOPY)return c;
-  const g=c.getContext("2d"),C=C0,R=rng(ci*977+13),ys=[];
-  g.scale(rs,rs);g.translate(-X0,-yTop);
-  for(let y=Math.max(yTop-8,TOPY);y<yBot+12;y+=8)ys.push(y);
-  const rx=y=>Math.min(edgeR(y),X0+XW+20);
-  const poly=(l,r)=>{const p=new Path2D();p.moveTo(l(ys[0]),ys[0]);for(const y of ys)p.lineTo(l(y),y);for(let i=ys.length-1;i>=0;i--)p.lineTo(r(ys[i]),ys[i]);p.closePath();return p;};
-  // the sunlit side of the pillar: one smooth warm gradient
-  const side=poly(y=>edgeL(y)-sideW(y),edgeL);
-  let gr=g.createLinearGradient(200,0,340,0);gr.addColorStop(0,rgb(mixC(C.lit,[255,246,226],.5)));gr.addColorStop(.7,rgb(C.lit));gr.addColorStop(1,rgb(mixC(C.lit,C.rock,.4)));
-  g.fillStyle=gr;g.fill(side);
-  if(ys.some(y=>edgeR(y)<X0+XW)){const rsd=poly(rx,y=>rx(y)+sideW(y)*.8);gr=g.createLinearGradient(700,0,1250,0);
-    gr.addColorStop(0,rgb(mixC(C.rock,C.shade,.45)));gr.addColorStop(1,rgb(mixC(C.rock,C.shade,.75)));g.fillStyle=gr;g.fill(rsd);}
-  // the face: big rounded rock masses on a world-aligned grid, painted bottom to top so each bulge
-  // tucks its inked rim over the one below, like stacked river stones
-  const face=poly(edgeL,rx);g.fillStyle=rgb(mixC(C.rock,C.shade,.3));g.fill(face);g.save();g.clip(face);
-  const BW=118,BH=88;
-  for(let r=Math.floor(-yBot/BH)-2;r<=Math.ceil(-yTop/BH)+2;r++)for(let col=-1;col<=10;col++){
-    const h1=hash(r*31+col,1),h2=hash(r*17+col,2),h3=hash(r*13+col,3),h4=hash(r*7+col,4),h5=hash(r*5+col,5);
-    if(h5<.16)continue; // leave the odd gap so the stones never read as a tiled pattern
-    const big=h5>.9?1.7:1,cx=X0+col*BW+(r&1)*BW*.5+(h1-.5)*BW*.75,cy=-r*BH+(h2-.5)*BH*.7,ax=BW*(.42+h3*.5)*big,ay=BH*(.46+h4*.42)*big;
-    if(cy-ay*1.15>yBot+4||cy+ay*1.15<yTop-4)continue;
-    const pts=[];for(let k=0;k<10;k++){const a=k/10*Math.PI*2,j=1+(hash(r*97+col*13+k,9)-.5)*.24;pts.push([cx+Math.cos(a)*ax*j,cy+Math.sin(a)*ay*j*(Math.sin(a)>0?1:.9)]);}
-    const tone=(h1-.5)*.34,base=tone<0?mixC(C.rock,C.shade,-tone):mixC(C.rock,C.lit,tone);
-    gr=g.createRadialGradient(cx-ax*.35,cy-ay*.45,2,cx,cy,Math.max(ax,ay)*1.25);
-    gr.addColorStop(0,rgb(mixC(base,C.lit,.8)));gr.addColorStop(.5,rgb(base));gr.addColorStop(1,rgb(mixC(base,C.shade,.62)));
-    const shape=smoothPath(pts);g.fillStyle=gr;g.fill(shape);
-    g.save();g.beginPath();g.rect(cx-ax*1.5,cy+ay*.08,ax*3,ay*1.6);g.clip();g.lineWidth=3.4;g.strokeStyle="rgba(29,19,15,.82)";g.stroke(shape);g.restore();
-    g.save();g.clip(shape);g.beginPath();g.rect(cx-ax*1.5,cy-ay*1.5,ax*1.55,ay*1.15);g.clip();g.lineWidth=5;g.strokeStyle="rgba(255,244,222,.5)";g.stroke(shape);g.restore();
-    if(h3<.35){g.beginPath();g.ellipse(cx+ax*.12,cy+ay*.28,ax*.48,ay*.32,0,Math.PI*.15,Math.PI*.8);g.lineCap="round";g.strokeStyle="rgba(29,19,15,.3)";g.lineWidth=1.8;g.stroke();}}
-  // a few smooth cracks and shadowy pockets
-  for(let k=0;k<3;k++){const x=X0+150+R()*800,y=yTop+R()*CHK,a=(R()-.5)*20,b=(R()-.5)*20,e=(R()-.5)*12;g.beginPath();g.moveTo(x,y);g.bezierCurveTo(x+a,y+20,x+b,y+40,x+e,y+56);
-    g.lineCap="round";g.strokeStyle="rgba(29,19,15,.6)";g.lineWidth=2.3;g.stroke();g.translate(-1.4,-.6);g.strokeStyle="rgba(255,244,222,.32)";g.lineWidth=1.2;g.stroke();g.translate(1.4,.6);}
-  for(let k=0;k<5;k++){const x=X0+80+R()*(XW-160),y=yTop+R()*CHK,r=3+R()*5;gr=g.createRadialGradient(x+r*.3,y+r*.3,0,x,y,r*1.4);
-    gr.addColorStop(0,"rgba(40,22,26,.55)");gr.addColorStop(1,"rgba(40,22,26,0)");g.fillStyle=gr;g.beginPath();g.ellipse(x,y,r*1.4,r,0,0,7);g.fill();}
-  for(let k=0;k<240;k++){g.fillStyle=R()<.5?"rgba(255,240,210,.12)":"rgba(29,19,15,.06)";g.beginPath();g.arc(X0+R()*XW,yTop+R()*CHK,.5+R()*1.2,0,7);g.fill();}
-  gr=g.createLinearGradient(260,0,X0+XW,0);gr.addColorStop(0,"rgba(255,236,200,.18)");gr.addColorStop(.45,"rgba(255,236,200,0)");gr.addColorStop(1,rgb(C.shade,.22));
-  g.fillStyle=gr;g.fillRect(X0,yTop,XW,CHK+2);
-  for(let k=0;k<6;k++)plant(g,X0+60+R()*(XW-120),yTop+R()*CHK,R(),R);
-  // bake this altitude's warm grade into the stone once, rather than multiplying the whole screen every frame
-  g.globalCompositeOperation="multiply";g.fillStyle=rgb(palette(uOf((yTop+yBot)/2)).tint,.32);g.fillRect(X0,yTop,XW,CHK+2);g.globalCompositeOperation="source-over";
-  g.restore();
-  // a confident, smooth ink silhouette
-  const edge=f=>{g.beginPath();let p=[f(ys[0]),ys[0]];g.moveTo(p[0],p[1]);for(let i=1;i<ys.length;i++){const q=[f(ys[i]),ys[i]];g.quadraticCurveTo(p[0],p[1],(p[0]+q[0])/2,(p[1]+q[1])/2);p=q;}g.lineTo(p[0],p[1]);};
-  edge(y=>edgeL(y)+1);g.strokeStyle="rgba(255,240,214,.6)";g.lineWidth=5;g.stroke();edge(y=>edgeL(y)+2.4);inkPath(g,2.2,.75);
-  edge(y=>edgeL(y)-sideW(y));inkPath(g,4.6);
-  if(ys.some(y=>edgeR(y)<X0+XW)){edge(rx);inkPath(g,3.8);}
-  for(let k=0;k<2;k++){const y=yTop+R()*CHK;plant(g,edgeL(y)-sideW(y)+2,y,.8+R()*.2,R);}
-  return c;
+  const g=c.getContext("2d"),w=c.width,h=c.height,id=g.createImageData(w,h),d=id.data,R0=1/rs;
+  const warm=[[150,120,90],[150,120,90],[120,90,60],[180,150,120]],cold=[[150,150,150],[150,150,150],[120,120,120],[180,180,180]];
+  for(let py=0;py<h;py++){const wy=yTop+(py+.5)*R0;if(wy<TOPY)continue;
+    const L=edgeL(wy),S=sideW(wy),Rr=Math.min(edgeR(wy),X0+XW+20),u=uOf(wy),pal=u>.62?cold:warm,ay=Math.floor(wy/APX),snow=u>.74;
+    for(let px=0;px<w;px++){const wx=X0+(px+.5)*R0,i=(py*w+px)*4;let col=null;
+      if(wx>=L-S&&wx<L){ // the sunlit flank of the pillar
+        col=wx<L-S+R0?[30,30,30]:wx>=L-R0?[60,60,60]:(Math.floor(wx/APX)%4===0?[180,150,120]:[210,180,150]);if(snow&&ay%9<2)col=[240,240,240];}
+      else if(wx>=L&&wx<Rr){
+        // columnar rock: irregular vertical columns, each broken into blocks at its own heights
+        const ax=Math.floor(wx/APX),cx=colOf(ax),cw=cx[1]-cx[0],fx=ax-cx[0],sh=16+Math.floor(hash(cx[0],4)*22),off=Math.floor(hash(cx[0],6)*sh),
+          seg=Math.floor((ay+off)/sh),fy=((ay+off)%sh+sh)%sh,cid=cx[0]*977+seg;
+        col=pal[Math.floor(hash(cid,3)*4)].slice();
+        if(fx===cw-1||fy===sh-1&&hash(cid,9)<.8)col=u>.62?[60,60,60]:[60,30,30];
+        else if(fx===0)col=col.map(v=>Math.min(240,v+30));
+        else if(fx>=cw-3)col=col.map(v=>Math.max(30,v-30));
+        else if(hash(ax*7+ay*13,11)<.04)col=col.map(v=>Math.max(30,v-30));
+        if(wx>L+(Rr-L)*.72&&fx!==cw-1)col=col.map(v=>Math.max(30,v-30)); // the shadowed side of the face
+        if(!snow&&fy<=1&&fx<cw-1&&hash(cid,5)<.16)col=fy===0?[90,150,60]:[60,120,60];
+        if(snow&&fy<=1&&fx<cw-1)col=[240,240,240];
+        if(snow&&fy===2&&hash(cid+fx,8)<.5&&fx<cw-1)col=[210,240,240];}
+      else if(wx>=Rr&&Rr<X0+XW&&wx<Rr+S*.8)col=wx<Rr+R0?[30,30,30]:[90,60,60];
+      if(col){d[i]=col[0];d[i+1]=col[1];d[i+2]=col[2];d[i+3]=255;}}}
+  g.putImageData(id,0,0);return c;
+}
+// the sky and the valley, drawn straight in canvas pixels: stepped blue bands, a sun, drifting clouds, two
+// mountain ranges with snow caps and lit and shaded faces, and a band of pine forest
+function pixelSky(g,cw,ch,u,t,camx){
+  g.setTransform(1,0,0,1,0,0);
+  const bands=[[30,30,90],[30,60,120],[30,90,150],[60,120,180],[90,150,210],[120,180,240],[150,210,240]],shift=Math.round(u*2);
+  const H0=Math.round(ch*(.6+u*.55)); // the horizon sinks as you climb
+  for(let i=0;i<7;i++){const y0=Math.round(i*H0/7)-1;g.fillStyle=rgbS(bands[Math.max(0,i-shift)]);g.fillRect(0,y0,cw,ch);}
+  // sun: a stepped disc with a two-tone halo
+  const sx=Math.round(cw*.18-camx*.004),sy=Math.round(ch*.16+u*ch*.2);
+  for(const [r,col] of [[11,[180,210,240]],[8,[240,240,180]],[6,[240,210,90]]]){g.fillStyle=rgbS(col);for(let y=-r;y<=r;y++){const hw=Math.round(Math.sqrt(r*r-y*y));g.fillRect(sx-hw,sy+y,hw*2+1,1);}}
+  // clouds drift a pixel at a time
+  const tick=Math.floor(t*2);
+  for(let k=0;k<6;k++){const cwid=18+Math.floor(hash(k,2)*22),x=Math.round(((hash(k,1)*cw*1.6+tick*(.5+hash(k,3)))%(cw*1.6))-cw*.3-camx*.01),y=Math.round(ch*(.08+hash(k,4)*.32)+u*ch*.3);
+    if(y>H0)continue;g.fillStyle=rgbS([240,240,240]);
+    for(let j=0;j<4;j++){const ox=Math.round(hash(k*9+j,5)*cwid*.7),r=4+Math.floor(hash(k*9+j,6)*5);for(let yy=-r;yy<=0;yy++){const hw=Math.round(Math.sqrt(r*r-yy*yy));g.fillRect(x+ox-hw,y+yy,hw*2+1,1);}}
+    g.fillRect(x,y,cwid,2);g.fillStyle=rgbS([180,210,240]);g.fillRect(x,y+2,cwid,1);}
+  const tri=v=>{const f=v-Math.floor(v);return 1-Math.abs(2*f-1);};
+  const range=(base,amp,par,seed,body,lit,shade,snowAt)=>{
+    for(let x=0;x<cw;x++){const X=x+camx*par;
+      const hgt=amp*(.55*tri(X/97+seed)+.3*tri(X/41+seed*1.7)+.15*tri(X/17+seed*2.3)),top=Math.round(base-hgt),nxt=amp*(.55*tri((X+1)/97+seed)+.3*tri((X+1)/41+seed*1.7)+.15*tri((X+1)/17+seed*2.3));
+      g.fillStyle=rgbS(nxt>=hgt?lit:shade);g.fillRect(x,top,1,ch-top);
+      if(hgt>amp*snowAt){g.fillStyle=rgbS(nxt>=hgt?[240,240,240]:[180,210,240]);g.fillRect(x,top,1,Math.round((hgt-amp*snowAt)*.9)+1);}}};
+  range(H0-ch*.1,ch*.42,.02,.13,null,[120,150,210],[90,120,180],.62);
+  range(H0+ch*.02,ch*.34,.05,.61,null,[90,120,150],[60,90,120],.7);
+  // pine forest: a sawtooth of little trees with a lit left half
+  const fb=H0+Math.round(ch*.1);
+  for(let x=0;x<cw;x++){const X=Math.floor(x+camx*.1),k=Math.floor(X/7),p=((X%7)+7)%7,th=8+Math.floor(hash(k,9)*8),top=fb-Math.round(th*(1-Math.abs(p-3)/3.5));
+    g.fillStyle=rgbS(p<3?[60,90,60]:[30,60,30]);g.fillRect(x,top,1,ch-top);}
+  g.fillStyle=rgbS([30,60,30]);g.fillRect(0,fb,cw,ch-fb);g.fillStyle=rgbS([60,90,60]);g.fillRect(0,fb+4,cw,1);
 }
 function chunk(ci){let c=FX.chunks.get(ci);if(c){FX.chunks.delete(ci);FX.chunks.set(ci,c);return c;}
   c=paintChunk(ci);FX.chunks.set(ci,c);if(FX.chunks.size>12)FX.chunks.delete(FX.chunks.keys().next().value);return c;}
@@ -1184,11 +1462,12 @@ function makeFilm(W,H,dpr){const pad=14,c=document.createElement("canvas"),w=W+p
 /* ---------- climbers: rubber-hose rigs, seen from behind until they turn round to cheer ---------- */
 const BASE={boot:"#7a4322",bootl:"#b8763f",bootd:"#4a2512",pk:"#a4733f",pkl:"#d9a262",pkd:"#6f4722",roll:"#3f8c82",rolll:"#86cdbf",rope:"#e0472b",
   skin:"#ffd2a6",skinl:"#ffeed6",skind:"#e7a57a",hair:"#5a3523",hairl:"#8f5f40",haird:"#33190e",pom:CREAM,hn:"#3d5fa8",cb:"#9b5fc0"};
-// two different people: a wiry, freckled leader in a bobble beanie, and a big, moustached belayer in a trapper hat
-const LOOK={me:{...BASE,jk:"#e0472b",jkl:"#ff9466",jkd:"#9e2914",pt:"#2f4a6b",ptl:"#5776a0",ptd:"#1d3049",hat:"#f2b233",hatl:"#ffe596",hatd:"#c4851a",sc:"#fff3d6",
-    wb:.92,hr:11,hk:1.42,hatk:"beanie",freck:1,patch:0,hn:"#f08a24",cb:"#3f8c82"},
-  mate:{...BASE,jk:"#2f8f8a",jkl:"#79cfc3",jkd:"#1b5f5b",pt:"#6b4a2e",ptl:"#9a7350",ptd:"#43301c",hat:"#e0472b",hatl:"#ff9a78",hatd:"#9e2914",sc:"#f2b233",
-    hair:"#2b1d14",hairl:"#5e4231",haird:"#120a06",skin:"#f4b98a",skinl:"#ffdcb8",skind:"#d48c60",wb:1.16,hr:11.8,hk:1.42,hatk:"trapper",stache:1,patch:1}};
+// player 1: a bearded lumberjack mountaineer (red beanie, red-and-black plaid, dark trousers, green pack);
+// player 2: yellow beanie with a bobble, orange jacket, long auburn hair, a tan pack
+const LOOK={me:{...BASE,jk:"#c8281e",jkl:"#ff6a4a",jkd:"#7a1410",plaid:"#24121a",pt:"#2a3450",ptl:"#4a5a7a",ptd:"#161c30",hat:"#d23c2a",hatl:"#ff7a5a",hatd:"#8c2a1d",
+    pk:"#4f7a32",pkd:"#33521e",roll:"#8a6a3a",rope:"#e8792b",hair:"#5a3523",beard:1,noscarf:1,pom:null,wb:1,hatk:"beanie",patch:0,hn:"#e8792b",cb:"#d8ccbc"},
+  mate:{...BASE,jk:"#e8792b",jkl:"#ffb070",jkd:"#a04a14",pt:"#3c4a6a",ptl:"#5a6a8a",ptd:"#222a40",hat:"#f2b233",hatl:"#ffe596",hatd:"#b5741c",stripe:"#d23c2a",
+    pk:"#b0682a",pkd:"#7a4418",roll:"#3c7a3c",rope:"#d23c2a",hair:"#9a3a1a",long:1,sc:"#3c78b4",freck:1,skin:"#ffd2a6",wb:.96,hatk:"beanie",patch:1,hn:"#3c78b4",cb:"#9fd0f0"}};
 function ik(rx,ry,tx,ty,a,b,bend){let dx=tx-rx,dy=ty-ry,d=Math.hypot(dx,dy)||1e-4;const m=a+b-.01;if(d>m){tx=rx+dx/d*m;ty=ry+dy/d*m;d=m;}
   const ang=Math.atan2(ty-ry,tx-rx),j=ang+bend*Math.acos(clamp((a*a+d*d-b*b)/(2*a*d),-1,1));return [rx+Math.cos(j)*a,ry+Math.sin(j)*a,tx,ty];}
 // rubber hose: one smooth curve through the IK joint instead of a hinge
@@ -1225,6 +1504,8 @@ const POSES={
   fall2: {hn:[-3,-29],hf:[12,-15],fn:[5,16],ff:[-8,10],oh:1}};
 function hexRGB(h){const n=parseInt(h.slice(1,7),16);return [n>>16&255,n>>8&255,n&255];}
 function tone(h,k){const c=hexRGB(h),t=k<0?[20,12,10]:[255,250,232],a=Math.abs(k);return "#"+c.map((v,i)=>Math.round(v+(t[i]-v)*a).toString(16).padStart(2,"0")).join("");}
+// red-and-black plaid: dark stripes every third pixel, black where they cross
+function plaid(d,L){for(let y=0;y<SPR.H;y++)for(let x=0;x<SPR.W;x++)if(d.get(x,y)===L.jk){const a=x%3===0,b=y%3===0;if(a&&b)d.set(x,y,L.plaid);else if(a||b)d.set(x,y,L.jkd);}}
 function pixelSprite(L,pose,o){
   const P=POSES[pose]||POSES.stand,{W,H}=SPR,wb=L.wb||1,out=new Array(W*H).fill(null);
   // each layer is painted flat, then shaded (light from the upper left) and given its own 1px ink outline,
@@ -1252,15 +1533,17 @@ function pixelSprite(L,pose,o){
     for(let a=0;a<12;a++)d.set(hx-11+Math.cos(a/12*6.28)*2.4,hy-7+Math.sin(a/12*6.28)*2.6,L.rope);});
   // body: puffer jacket, harness, chalk bag, gear, near leg, scarf, head and hat
   layer(d=>{d.disc(hx,hy-8,4.6*wb,L.jk);d.disc(hx+1,hy-4,4.6*wb,L.jk);d.box(hx-3,hy-11,hx+3,hy-1,L.jk);
-    for(const y of [hy-8,hy-4])for(let x=hx-6;x<=hx+7;x++)if(d.get(x,y)===L.jk)d.set(x,y,L.jkd);
+    if(L.plaid)plaid(d,L);else for(const y of [hy-8,hy-4])for(let x=hx-6;x<=hx+7;x++)if(d.get(x,y)===L.jk)d.set(x,y,L.jkd);
     for(let x=hx-6;x<=hx+7;x++)for(const y of [hy-1,hy])if(d.get(x,y))d.set(x,y,L.hn);d.set(hx+4,hy-1,"#c7ccd4");
     d.box(hx-6,hy,hx-4,hy+3,L.cb);for(let i=0;i<(o.gear|0);i++){const x=hx+1+i*2,c=i%2?"#f2b233":"#e0472b";d.set(x,hy+1,c);d.set(x,hy+2,c);}
     leg(d,P.fn,L.pt,L.boot,L.patch);
-    const fl=o.flap?1:0;d.box(hx-2,hy-13,hx+3,hy-12,L.sc);for(let i=1;i<=5;i++){const y=hy-12+(i>2?1:0)+(i%2?fl:0);d.set(hx-2-i,y,i%2?L.sc:L.jk);d.set(hx-2-i,y+1,L.sc);}
+    const fl=o.flap?1:0;if(!L.noscarf){d.box(hx-2,hy-13,hx+3,hy-12,L.sc);for(let i=1;i<=5;i++){const y=hy-12+(i>2?1:0)+(i%2?fl:0);d.set(hx-2-i,y,i%2?L.sc:L.jk);d.set(hx-2-i,y+1,L.sc);}}
   });
   // the near arm goes over the body but under the head, so a raised arm never hides the face
-  layer(d=>arm(d,P.hn,L.jk));
-  layer(d=>{const cx=hx+2,cy=hy-19,R=7;d.disc(cx,cy,R,L.skin);
+  layer(d=>{arm(d,P.hn,L.jk);if(L.plaid)plaid(d,L);});
+  layer(d=>{const cx=hx+2,cy=hy-19,R=7;
+    if(L.long)d.box(hx-5,cy-2,hx-1,hy-9,L.hair); // long hair falls behind the shoulders
+    d.disc(cx,cy,R,L.skin);
     for(let y=cy-R;y<=cy+R;y++)for(let x=cx-R;x<=hx;x++)if(d.get(x,y)===L.skin)d.set(x,y,L.hair);
     d.disc(hx+1,hy-18,1.3,L.skind);
     const ex=hx+6,ey=cy-(P.up?1:0);
@@ -1270,18 +1553,18 @@ function pixelSprite(L,pose,o){
     d.set(ex-1,ey-3+(P.eff?1:0),L.hair);d.set(ex,ey-3,L.hair);d.set(ex+1,ey-3,L.hair);
     d.disc(hx+9.5,hy-17,1.4,tone(L.skin,-.1));d.set(hx+5,hy-16,"#f08a7a");
     if(L.freck){d.set(hx+4,hy-17,L.skind);d.set(hx+6,hy-15,L.skind);}
+    // a full beard: jaw and chin in the hair colour, with the mouth showing through
+    if(L.beard){for(let y=hy-16;y<=hy-12;y++)for(let x=hx+1;x<=hx+10;x++)if(d.get(x,y)&&(x-hx-4)**2/40+(y-hy+16)**2/30<=1.2)d.set(x,y,L.hair+"ff");
+      d.box(hx+2,hy-13,hx+8,hy-12,L.hair+"ff");}
     if(P.oh)d.box(hx+7,hy-15,hx+8,hy-14,INK+"ff");
     else if(P.joy){d.box(hx+6,hy-15,hx+9,hy-14,"#8c2a1d");d.box(hx+7,hy-15,hx+8,hy-15,"#ffffffff");}
     else if(P.eff){d.set(hx+7,hy-14,INK);d.set(hx+8,hy-14,INK);}
     else{d.set(hx+7,hy-14,"#8c2a1d");d.set(hx+8,hy-15,"#8c2a1d");}
-    if(L.stache){d.box(hx+5,hy-15,hx+10,hy-15,L.hair+"ff");d.set(hx+5,hy-14,L.hair+"ff");d.set(hx+10,hy-14,L.hair+"ff");}
-    if(L.hatk==="trapper"){
-      // the dome, then a fur band, an ear flap hanging at the back and a button on top
-      for(let y=cy-12;y<=cy-3;y++)for(let x=cx-8;x<=cx+8;x++)if((x-cx)**2+((y-cy+3)*1.05)**2<=60)d.set(x,y,L.hat);
-      d.box(cx-8,cy-3,cx+7,cy-1,"#f6ead2");d.box(hx-6,hy-19,hx-3,hy-13,L.hat);d.box(hx-6,hy-13,hx-3,hy-13,"#f6ead2");d.set(hx-4,hy-12,INK);d.set(hx-4,hy-11,"#f6ead2");d.set(cx,cy-12,L.hatd);}
-    else{for(let y=cy-11;y<=cy-3;y++)for(let x=cx-8;x<=cx+8;x++)if((x-cx)**2+((y-cy+3)*1.1)**2<=58)d.set(x,y,L.hat);
-      d.box(cx-8,cy-3,cx+7,cy-2,L.hatd);for(let x=cx-8;x<=cx+8;x++)if(d.get(x,cy-7)===L.hat)d.set(x,cy-7,L.jk);
-      d.disc(hx-2,cy-13,2.3,L.pom);}});
+    // beanie: a dome, a folded band, an optional stripe and bobble
+    for(let y=cy-11;y<=cy-3;y++)for(let x=cx-8;x<=cx+8;x++)if((x-cx)**2+((y-cy+3)*1.1)**2<=58)d.set(x,y,L.hat);
+    d.box(cx-8,cy-3,cx+7,cy-1,L.hatd);for(let x=cx-7;x<=cx+7;x+=2)d.set(x,cy-2,tone(L.hatd,-.2));
+    if(L.stripe)for(let x=cx-8;x<=cx+8;x++)if(d.get(x,cy-7)===L.hat)d.set(x,cy-7,L.stripe);
+    if(L.pom)d.disc(hx-2,cy-13,2.3,L.pom);});
   const c=document.createElement("canvas");c.width=W;c.height=H;const g=c.getContext("2d");
   for(let i=0;i<W*H;i++)if(out[i]){g.fillStyle=out[i];g.fillRect(i%W,(i/W)|0,1,1);}
   return c;}
@@ -1630,9 +1913,9 @@ function paint(t){
   // the sky and distant valley: repainted on the 12 fps tick or when the camera moves
   const sk=FX.sky||(FX.sky={c:document.createElement("canvas"),u:-1,x:0,b:-1});
   if(!sk.g){sk.c.width=cw;sk.c.height=chh;sk.g=sk.c.getContext("2d");}
-  if(sk.b!==b||sk.u!==u||sk.x!==c.x){sk.u=u;sk.x=c.x;sk.b=b;const sg=sk.g,sp=palette(u);
-    sg.setTransform(dpr,0,0,dpr,0,0);sg.globalCompositeOperation="source-over";drawSky(sg,W,H,sp,u,t,c.x);skyRays(sg,W,H,t,sp);
-    sg.globalCompositeOperation="multiply";sg.fillStyle=rgb(sp.tint,.32);sg.fillRect(0,0,W,H);sg.globalCompositeOperation="source-over";}
+  if(sk.b!==b||sk.u!==u||sk.x!==c.x){sk.u=u;sk.x=c.x;sk.b=b;const sg=sk.g;
+    sg.globalCompositeOperation="source-over";pixelSky(sg,cw,chh,u,t,c.x*k);
+  }
   g.drawImage(sk.c,0,0,W,H);
   world();
   const [c1,c2]=chunkRange(vy0,vy1);for(let ci=c1;ci<=c2;ci++)g.drawImage(chunk(ci),X0,-(ci+1)*CHK,XW,CHK+2);
