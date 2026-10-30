@@ -1084,7 +1084,7 @@ function laneX(ch,y){const a=ALT.base-y/WK;
   if(a<=ALT.c1)return LANE.s0(clamp((a-ALT.base)/(ALT.c1-ALT.base),0,1));
   if(a<=ALT.c2)return LANE[(ch[0]||"A")+"0"]((a-ALT.c1)/(ALT.c2-ALT.c1));
   return LANE[(ch[1]||"A")+"1"](clamp((a-ALT.c2)/(ALT.top-ALT.c2),0,1));}
-const holdXY=(ch,i)=>[laneX(ch,-i*HS)+(i%2?13:-13)+(hash(i,3)-.5)*8,-i*HS+(hash(i,5)-.5)*7];
+const holdXY=(ch,i)=>[laneX(ch,-i*HS)+(i%2?24:-24)+(hash(i,3)-.5)*8,-i*HS+(hash(i,5)-.5)*7];
 const boltXY=(ch,i)=>[laneX(ch,-i*HS)+(hash(i,11)-.5)*6,-i*HS+12];
 const idxOf=(exp,p)=>Math.round(-WY(altOf(exp,p))/HS);
 function restSpot(i,m){if(i<=0){const x=m?370:418;return {x,y:groundY(x)};}
@@ -1196,90 +1196,95 @@ function hose(g,ax,ay,jx,jy,ex,ey,w,col,k){const cx=2*jx-(ax+ex)/2+boilJ(k,1.2),
   g.beginPath();g.moveTo(ax,ay);g.quadraticCurveTo(cx,cy,ex,ey);g.lineCap="round";g.strokeStyle=INK;g.lineWidth=w+2.8;g.stroke();g.strokeStyle=col;g.lineWidth=w;g.stroke();
   g.save();g.translate(-w*.16,-w*.16);g.strokeStyle="rgba(255,255,255,.24)";g.lineWidth=w*.3;g.stroke();g.restore();}
 function rr(g,x,y,w,h,r){g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath();}
-function fly(o,dt){const F=o.f;F.t+=dt;const k=Math.min(1,F.t/F.d),e=F.back?backOut(k):ease(k);o.x=lerp(F.x0,F.x1,e);o.y=lerp(F.y0,F.y1,e)-(F.oy||0)*Math.sin(Math.PI*k);
-  if(k>=1){o.f=null;return true;}return false;}
+// Old-school sprite animation: every action is a short strip of fixed poses (like a handful of drawn "model
+// versions") that cut from one to the next on a stepped clock. The body just slides from spot to spot; nothing
+// springs, sways or follows through. Spots are relative to the neck, in rig units; h = hands, f = feet.
+// dy drops the body (and hands) in that pose; feet stay planted unless the pose is airborne.
+const POSES={
+  hang:  {h:[[-21,-28],[21,-3]], f:[[-12,47],[13,44]]},                 // upper hand on the left hold
+  chalk: {h:[[-21,-28],[14,22]], f:[[-12,47],[13,44]]},
+  shake1:{h:[[-21,-28],[27,16]], f:[[-12,47],[13,44]]},
+  shake2:{h:[[-21,-28],[22,27]], f:[[-12,47],[13,44]]},
+  reachL:{h:[[-19,-40],[22,-8]], f:[[-13,40],[11,52]],eff:1},
+  reachR:{h:[[-22,-8],[19,-40]], f:[[-11,52],[13,40]],eff:1},
+  pull:  {h:[[-21,-20],[21,-20]],f:[[-15,33],[15,33]],eff:1,dy:-2},
+  crouch:{h:[[-21,-22],[21,-22]],f:[[-16,30],[16,30]],eff:1,dy:4},
+  jump:  {h:[[-17,-41],[17,-41]],f:[[-6,54],[7,56]],eff:1,air:1},
+  mantle:{h:[[-21,-12],[21,-12]],f:[[-12,46],[14,30]],eff:1},
+  stand: {h:[[-19,30],[19,30]],  f:[[-7,55],[7,55]]},
+  stand2:{h:[[-19,31],[19,31]],  f:[[-7,55],[7,55]],dy:1},
+  hop:   {h:[[-21,-2],[21,-2]],  f:[[-10,55],[10,55]],dy:4},
+  look:  {h:[[-19,30],[25,-30]], f:[[-7,55],[7,55]],up:1},             // points up the route
+  cheer1:{h:[[-21,-31],[21,-31]],f:[[-10,54],[10,54]],front:1,dy:-8,air:1},
+  cheer2:{h:[[-23,-12],[23,-12]],f:[[-9,55],[9,55]],front:1},
+  fall1: {h:[[-22,-26],[18,-31]],f:[[-16,46],[10,52]],front:1},
+  fall2: {h:[[-18,-31],[22,-25]],f:[[-10,52],[16,46]],front:1}};
+const MIRROR=new Set(["hang","chalk","shake1","shake2"]); // flipped when the upper hold is on the right
 let RIG_ID=0;
 class Rig{
   constructor(L,hold,rest,s=1){this.L=L;this.hold=hold;this.rest=rest;this.s=s;this.id=++RIG_ID;this.mode="stand";this.N={x:0,y:0};this.v={x:0,y:0};this.lean=0;
-    this.h=[{x:0,y:0,f:null,i:0,sq:0},{x:0,y:0,f:null,i:0,sq:0}];this.ft=[{x:0,y:0,f:null},{x:0,y:0,f:null}];this.hi=0;this.gx=0;this.gy=0;
-    this.cheer=0;this.dizzy=0;this.fall=null;this.fid=null;this.lastMove=0;this.sq=0;this.sqv=0;this.pp={x:0,y:0,vx:0,vy:0};this.cnt=0;
-    this.sc=Array.from({length:7},()=>({x:0,y:0,px:0,py:0}));this.ph=Math.random()*6;}
-  front(){return this.cheer>0||this.dizzy>0||this.mode==="fall";}
+    this.h=[{x:0,y:0,sq:0},{x:0,y:0,sq:0}];this.ft=[{x:0,y:0},{x:0,y:0}];this.hi=0;this.gx=0;this.gy=0;this.cheer=0;this.dizzy=0;this.fall=null;this.cnt=0;
+    this.mv=null;this.clip=null;this.pose="stand";this.dir=1;this.turn=.72;this.up=0;this.bodyDy=0;this.idleAt=0;this.ph=Math.random()*6;
+    this.sc=Array.from({length:7},()=>({x:0,y:0}));this.pp={x:0,y:0};}
+  front(){return !!(POSES[this.pose]||{}).front||this.dizzy>0||this.mode==="fall";}
   shoulders(){const s=this.s,w=10.5*s*(this.L.wb||1);return [{x:this.N.x-w,y:this.N.y+3*s},{x:this.N.x+w,y:this.N.y+3*s}];}
   pelvis(){return {x:this.N.x+Math.sin(this.lean)*22*this.s,y:this.N.y+Math.cos(this.lean)*22*this.s};}
-  moved(){if(this.fid&&this.mode==="climb"){const h=this.h[this.fid.j],[x,y]=this.hold(h.i);this.flyHand(h,x,y,.18,1);}this.lastMove=FX.time;this.fid=null;}
-  standAt(x,y){const s=this.s;this.moved();this.mode="stand";this.fall=null;this.gx=x;this.gy=y;this.N.x=x;this.N.y=y-55*s;this.v.x=this.v.y=0;this.lean=0;const S=this.shoulders();
-    this.h.forEach((h,j)=>{h.f=null;h.x=S[j].x+(j?4:-4)*s;h.y=S[j].y+28*s;});this.ft.forEach((f,j)=>{f.f=null;f.x=x+(j?7:-7)*s;f.y=y;});this.settleTrail();}
-  grab(i){const s=this.s;this.moved();this.mode="climb";this.fall=null;this.hi=i;const a=this.hold(i),b=this.hold(i-1),hh=this.h[i&1],hl=this.h[(i+1)&1];
-    hh.x=a[0];hh.y=a[1];hh.i=i;hl.x=b[0];hl.y=b[1];hl.i=i-1;hh.f=hl.f=null;this.N.x=(a[0]+b[0])/2;this.N.y=(a[1]+b[1])/2+15*s;this.v.x=this.v.y=0;this.lean=0;
-    const P=this.pelvis();this.ft.forEach((f,j)=>{f.f=null;f.x=P.x+(j?13:-13)*s;f.y=P.y+29*s;});this.settleTrail();}
-  flyHand(h,x,y,d,back){h.f={x0:h.x,y0:h.y,x1:x,y1:y,t:0,d,oy:7*this.s,back};}
-  stepUp(d){this.moved();const n=this.hi+1,h=this.h[n&1];h.i=n;this.hi=n;const [x,y]=this.hold(n);this.flyHand(h,x,y,d,1);this.v.y+=40*this.s;} // a little dip before each reach
-  dyno(d){this.moved();const a=this.hi+1,b=this.hi+2;this.hi=b;[a,b].forEach(k=>{const h=this.h[k&1];h.i=k;const [x,y]=this.hold(k);this.flyHand(h,x,y,d,1);h.f.oy=20*this.s;});
-    this.v.y-=240*this.s;this.sq=.2;this.sqv=0;}
-  stepDown(d){this.moved();const n=this.hi-2;if(n<0)return;const h=this.h[this.hi&1];h.i=n;this.hi--;const [x,y]=this.hold(n);this.flyHand(h,x,y,d);h.f.oy=-3;}
-  reachFrom(i,d){this.moved();this.mode="climb";this.fall=null;this.hi=i;[i,i-1].forEach(k=>{const h=this.h[k&1];h.i=k;const [x,y]=this.hold(k);this.flyHand(h,x,y,d,1);});}
-  startFall(ax,ay,len){this.moved();this.mode="fall";this.fall={ax,ay,len,caught:0};this.v.y=-70;this.v.x=(Math.random()-.5)*40;this.h.forEach(h=>h.f=null);}
-  settleTrail(){this.sc.forEach((p,i)=>{p.x=p.px=this.N.x+2*this.s+i*4;p.y=p.py=this.N.y+this.s;});Object.assign(this.pp,{x:this.N.x,y:this.N.y-28*this.s,vx:0,vy:0});}
+  hangAt(i){const a=this.hold(i),b=this.hold(i-1);return {x:(a[0]+b[0])/2,y:(a[1]+b[1])/2+15*this.s};}
+  // a strip of [pose, ms] frames; after the last frame it loops back to index `loop`, or holds the last frame
+  play(frames,loop=-1){this.clip={frames:frames.map(([p,ms])=>[p,Math.max(40,ms)]),loop,i:0,t:0};this.pose=frames[0][0];}
+  standLoop(){this.play([["stand",650],["stand2",650]],0);}
+  slide(x,y,d,wait=0){this.mv={x0:this.N.x,y0:this.N.y,x1:x,y1:y,t:0,d:Math.max(d,.001),wait};}
+  calm(){this.idleAt=FX.time+2.6+Math.random()*2.6;}
+  standAt(x,y){this.mode="stand";this.fall=null;this.mv=null;this.gx=x;this.gy=y;this.N.x=x;this.N.y=y-55*this.s;this.lean=0;this.standLoop();this.calm();this.pin(FX.time);}
+  grab(i){this.mode="climb";this.fall=null;this.mv=null;this.hi=i;const p=this.hangAt(i);this.N.x=p.x;this.N.y=p.y;this.lean=0;this.play([["hang",1e9]]);this.calm();this.pin(FX.time);}
+  stepUp(d){const n=++this.hi,p=this.hangAt(n),ms=d*1000;this.mode="climb";this.slide(p.x,p.y,d);
+    this.play([[n%2?"reachR":"reachL",ms*.5],["pull",ms*.5],["hang",1e9]]);this.calm();}
+  dyno(d){const ms=d*1000;this.hi+=2;const p=this.hangAt(this.hi);this.mode="climb";this.slide(p.x,p.y,d*.6,d*.3);
+    this.play([["crouch",ms*.3],["jump",ms*.6],["pull",ms*.1],["hang",1e9]]);this.calm();}
+  stepDown(d){if(this.hi-2<0)return;const n=--this.hi,p=this.hangAt(n),ms=d*1000;this.slide(p.x,p.y,d);
+    this.play([["pull",ms*.5],[n%2?"reachL":"reachR",ms*.5],["hang",1e9]]);this.calm();}
+  reachFrom(i,d){const ms=d*1000,first=this.mode==="fall"?"pull":"hop";this.mode="climb";this.fall=null;this.hi=i;this.lean=0;const p=this.hangAt(i);
+    this.slide(p.x,p.y,d*.6,d*.4);this.play([[first,ms*.4],["jump",ms*.6],["hang",1e9]]);this.calm();}
+  topOut(x,y,d){this.slide(x,y-55*this.s,d);this.play([["mantle",d*600],["hop",1e9]]);}
+  land(x,y){this.standAt(x,y);this.play([["hop",160],["stand",650],["stand2",650]],1);}
+  startFall(ax,ay,len){this.mode="fall";this.mv=null;this.fall={ax,ay,len,caught:0};this.v.y=-70;this.v.x=(Math.random()-.5)*40;this.play([["fall1",110],["fall2",110]],0);}
+  // put hands, feet, scarf and pompom where the current pose says (no in-betweens)
+  pin(t){const s=this.s,P0=POSES[this.pose]||POSES.stand,wb=this.L.wb||1,mir=this.mode==="climb"&&MIRROR.has(this.pose)&&this.hi%2?-1:1,dy=(P0.dy||0)*s;
+    this.bodyDy=dy;const nx=this.N.x,ny=this.N.y+dy,fy=this.N.y+(P0.air?dy:0),hs=mir<0?[P0.h[1],P0.h[0]]:P0.h,fs=mir<0?[P0.f[1],P0.f[0]]:P0.f;
+    for(let j=0;j<2;j++){this.h[j].x=nx+hs[j][0]*mir*s*(1+(wb-1)*.6);this.h[j].y=ny+hs[j][1]*s;this.ft[j].x=nx+fs[j][0]*mir*s*wb;this.ft[j].y=fy+fs[j][1]*s;}
+    // the scarf and pompom have two drawn positions each, flipping on a slow tick
+    const fl=Math.floor(t*5+this.ph)%2,ax=nx+2*s,ay=ny+s;
+    this.sc.forEach((p,i)=>{p.x=ax+i*4.3*s;p.y=ay+i*1.4*s+(i?(fl?1:-1)*Math.min(i,3)*.9*s:0);});
+    this.pp.x=nx+this.dir*1.5*s+(fl?1.2:-1.2)*s;this.pp.y=ny-31*s*(this.L.hk||1);}
   update(dt,t){
-    const s=this.s,me=this===FX.A.me||this===FX.A.mate;
-    this.h.forEach((h,j)=>{if(h.f&&fly(h,dt)&&this.mode==="climb"){h.sq=1;puff(h.x,h.y);if(me){sfx("grab");if(Math.random()<.3)sfx("chalk");}}h.sq*=Math.exp(-dt*9);});
-    // idle fidgets keep them alive while the quiz runs: shake out an arm, chalk up, or look up the route from a ledge
-    const idle=FX.time-this.lastMove;
-    if(!this.fid&&!RM.matches&&idle>2.6+this.ph%2.5&&Math.random()<dt*.6){
-      if(this.mode==="climb"&&!this.h[0].f&&!this.h[1].f){const j=this.h[0].i<this.h[1].i?0:1;this.fid={k:Math.random()<.55?"shake":"chalk",j,t:0,d:1.3};}
-      else if(this.mode==="stand"&&this.cheer<=0)this.fid={k:"look",j:1,t:0,d:1.8};}
-    if(this.fid){const F=this.fid;F.t+=dt;if(F.t>=F.d){const h=this.h[F.j];this.fid=null;this.lastMove=FX.time;if(this.mode==="climb"){const [x,y]=this.hold(h.i);this.flyHand(h,x,y,.24,1);}}
-      else if(F.k==="chalk"&&F.t>.55&&!F.puffed){F.puffed=1;const h=this.h[F.j];puff(h.x,h.y);}}
-    const anchorOf=j=>this.fid&&this.fid.j===j&&this.mode==="climb"?(()=>{const [x,y]=this.hold(this.h[j].i);return {x,y};})():this.h[j];
-    let tx=this.N.x,ty=this.N.y,k=95;
-    if(this.mode==="climb"){const a=anchorOf(0),b=anchorOf(1),mx=(a.x+b.x)/2;tx=mx+Math.sin(t*1.1+this.ph)*1.2;ty=(a.y+b.y)/2+15*s;
-      this.lean=lerp(this.lean,clamp((this.N.x-mx)*.02+Math.sin(t*.9+this.ph)*.04,-.3,.3),1-Math.exp(-dt*5));}
-    else if(this.mode==="stand"){tx=this.gx;ty=this.gy-55*s+Math.sin(t*1.9+this.ph)*.6;k=60;
-      if(this.cheer>0){this.cheer-=dt;ty-=Math.max(0,Math.sin(t*7))*8*s;}this.lean=lerp(this.lean,0,1-Math.exp(-dt*4));}
+    const c=this.clip;
+    if(c){c.t+=dt*1000;while(c.t>=c.frames[c.i][1]){c.t-=c.frames[c.i][1];if(c.i<c.frames.length-1)c.i++;else if(c.loop>=0)c.i=c.loop;else{c.t=0;break;}}
+      const np=c.frames[c.i][0];if(np!==this.pose){if((np==="pull"||np==="hang")&&this.mode==="climb"&&this.pose!=="chalk"&&!this.pose.startsWith("shake")){sfx("grab");puff(this.h[0].x,this.h[0].y);}this.pose=np;}}
     if(this.mode==="fall"){const F=this.fall;this.v.y+=900*dt;this.N.x+=this.v.x*dt;this.N.y+=this.v.y*dt;
       const dx=this.N.x-F.ax,dy=this.N.y-F.ay,d=Math.hypot(dx,dy);
       if(d>F.len){const nx=dx/d,ny=dy/d,vr=this.v.x*nx+this.v.y*ny;this.N.x=F.ax+nx*F.len;this.N.y=F.ay+ny*F.len;
-        if(vr>0){this.v.x-=nx*vr*1.4;this.v.y-=ny*vr*1.4;if(!F.caught){F.caught=1;this.sq=-.25;if(this.onCatch)this.onCatch(vr);}}}
-      const dm=Math.pow(.5,dt);this.v.x*=dm;this.v.y*=dm;
-      this.lean=lerp(this.lean,clamp(-this.v.x*.004,-.7,.7)+Math.sin(t*7)*.12,1-Math.exp(-dt*6));}
-    else{const c=2*Math.sqrt(k);this.v.x+=((tx-this.N.x)*k-this.v.x*c)*dt;this.v.y+=((ty-this.N.y)*k-this.v.y*c)*dt;this.N.x+=this.v.x*dt;this.N.y+=this.v.y*dt;}
+        if(vr>0){this.v.x-=nx*vr*1.4;this.v.y-=ny*vr*1.4;if(!F.caught){F.caught=1;if(this.onCatch)this.onCatch(vr);}}}
+      const dm=Math.pow(.5,dt);this.v.x*=dm;this.v.y*=dm;}
+    else if(this.mv){const m=this.mv;if(m.wait>0)m.wait-=dt;else{m.t+=dt;const k=Math.min(1,m.t/m.d);this.N.x=lerp(m.x0,m.x1,k);this.N.y=lerp(m.y0,m.y1,k);if(k>=1)this.mv=null;}}
     if(this.dizzy>0)this.dizzy-=dt;
-    this.sqv+=(-this.sq*170-this.sqv*12)*dt;this.sq+=this.sqv*dt;
-    const S=this.shoulders();
-    this.h.forEach((h,j)=>{if(h.f)return;const sd=j?1:-1,F=this.fid&&this.fid.j===j?this.fid:null;let x,y,r=10;
-      if(F&&F.k==="shake"){x=S[j].x+sd*9*s+Math.sin(t*34)*3*s;y=S[j].y+27*s+Math.cos(t*29)*2*s;r=22;}
-      else if(F&&F.k==="chalk"){const P=this.pelvis();x=P.x+sd*10*s;y=P.y-2*s;r=12;}
-      else if(F&&F.k==="look"){x=this.N.x+3*s;y=this.N.y-14*s;r=9;}
-      else if(this.mode==="climb")return;
-      else if(this.mode==="fall"){x=S[j].x+sd*(11+Math.sin(t*21+j*2)*5)*s;y=S[j].y-(22+Math.cos(t*17+j)*7)*s;r=16;}
-      else if(this.cheer>0){x=S[j].x+sd*(12+Math.sin(t*10+j)*3)*s;y=S[j].y-28*s+Math.sin(t*14+j*2)*4*s;r=14;}
-      else{x=S[j].x+sd*4*s;y=S[j].y+28*s+Math.sin(t*1.6+j*1.3)*.8;}
-      const q=1-Math.exp(-dt*r);h.x=lerp(h.x,x,q);h.y=lerp(h.y,y,q);});
-    const P=this.pelvis();
-    this.ft.forEach((f,j)=>{const sd=j?1:-1;
-      if(this.mode==="fall"){const q=1-Math.exp(-dt*14);f.f=null;f.x=lerp(f.x,P.x+sd*(6+Math.sin(t*15+j*3)*6)*s,q);f.y=lerp(f.y,P.y+(32+Math.cos(t*12+j)*4)*s,q);return;}
-      if(f.f){if(fly(f,dt)&&this.mode==="stand"&&me&&Math.random()<.5)sfx("thud");return;}
-      const st=this.mode==="stand",ix=st?this.gx+sd*7*s:P.x+sd*13*s,iy=st?this.gy:P.y+(29+(j?-4:4))*s;
-      if(Math.hypot(ix-f.x,iy-f.y)>(st?3:16)*s&&!this.ft[1-j].f)f.f={x0:f.x,y0:f.y,x1:ix,y1:iy-(st?0:6*s),t:0,d:.2,oy:5*s};});
-    // where they look: up the route toward the next hold while climbing, across at their partner on a ledge
-    const other=FX.A&&(this===FX.A.me?FX.A.mate:FX.A.me);let tt=this.tt||.65,up=0;
-    if(this.mode==="climb"){const nx=this.hold(this.hi+1);if(nx&&Math.abs(nx[0]-this.N.x)>4)tt=(nx[0]>this.N.x?1:-1)*.72;up=this.h.some(h=>h.f)?1:.4;}
-    else if(this.mode==="stand"&&other&&other!==this){if(Math.abs(other.N.x-this.N.x)>4)tt=(other.N.x>this.N.x?1:-1)*.7;if(this.fid&&this.fid.k==="look"){tt*=.4;up=1;}}
-    this.tt=tt;this.turn=lerp(this.turn||0,tt,1-Math.exp(-dt*5));this.up=lerp(this.up||0,up,1-Math.exp(-dt*5));
-    // trailing bits: scarf in the wind, pompom on a spring
-    const sc=this.sc,ax=this.N.x+2*s,ay=this.N.y+s,wind=(150+Math.sin(t*1.7+this.ph)*60+noise1(t*2+this.ph)*90)*s;
-    for(let i=1;i<sc.length;i++){const p=sc[i],vx=(p.x-p.px)*.96,vy=(p.y-p.py)*.96;p.px=p.x;p.py=p.y;p.x+=vx+wind*dt*dt;p.y+=vy+260*dt*dt;}
-    sc[0].x=ax;sc[0].y=ay;
-    for(let it=0;it<3;it++)for(let i=1;i<sc.length;i++){const a=sc[i-1],b=sc[i],dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1,df=(d-4.4*s)/d;
-      if(i===1){b.x-=dx*df;b.y-=dy*df;}else{a.x+=dx*df*.5;a.y+=dy*df*.5;b.x-=dx*df*.5;b.y-=dy*df*.5;}}
-    const pp=this.pp,hk=this.L.hk||1,hx=this.N.x,hy=this.N.y-31*s*hk*(1+this.sq*.5);pp.vx+=((hx-pp.x)*140-pp.vx*9+wind*.15)*dt;pp.vy+=((hy-pp.y)*140-pp.vy*9)*dt;pp.x+=pp.vx*dt;pp.y+=pp.vy*dt;
-    const pd=Math.hypot(pp.x-hx,pp.y-hy);if(pd>7*s*hk){pp.x=hx+(pp.x-hx)/pd*7*s*hk;pp.y=hy+(pp.y-hy)/pd*7*s*hk;}
+    // cheering: a two-frame jump for joy
+    if(this.mode==="stand"){if(this.cheer>0){this.cheer-=dt;if(!(this.clip&&this.clip.joy)){this.play([["cheer1",170],["cheer2",170]],0);this.clip.joy=1;}if(this.cheer<=0)this.standLoop();}
+      else if(this.clip&&this.clip.joy)this.standLoop();}
+    // idle fidgets: chalk up or shake out an arm on the wall, shade the eyes on a ledge
+    if(!this.mv&&this.mode!=="fall"&&this.cheer<=0&&FX.time>this.idleAt&&!RM.matches){this.calm();
+      if(this.mode==="climb")this.play(Math.random()<.5?[["chalk",900],["hang",1e9]]:[["shake1",110],["shake2",110],["shake1",110],["shake2",110],["shake1",110],["shake2",110],["hang",1e9]]);
+      else if(this.pose==="stand"||this.pose==="stand2")this.play([["look",1600],["stand",650],["stand2",650]],1);}
+    // which way they look: toward the next hold on the wall, at their partner on a ledge; it snaps, it doesn't turn
+    const other=FX.A&&(this===FX.A.me?FX.A.mate:FX.A.me);
+    if(this.mode==="climb"){const nx=this.hold(this.hi+1);if(nx&&Math.abs(nx[0]-this.N.x)>4)this.dir=nx[0]>this.N.x?1:-1;}
+    else if(this.mode==="stand"&&other&&other!==this&&Math.abs(other.N.x-this.N.x)>4)this.dir=other.N.x>this.N.x?1:-1;
+    const P0=POSES[this.pose]||POSES.stand;this.turn=this.dir*(P0.up?.35:.72);this.up=P0.up?1:this.mode==="climb"?.5:0;
+    this.pin(t);
   }
   draw(g,t){
-    const s=this.s,L=this.L,P=this.pelvis(),front=this.front(),wb=L.wb||1,br=1+Math.sin(t*2.3+this.ph)*.02,sx=(1-this.sq*.6)*br,sy=1+this.sq;
-    const q=p=>({x:P.x+(p.x-P.x)*sx,y:P.y+(p.y-P.y)*sy}),N=q(this.N),S=this.shoulders().map(q),id=this.id*50;
-    const reach=this.mode==="climb"&&this.h.some(h=>h.f),blink=((t+this.ph*1.7)%3.9)<.13;
+    const s=this.s,L=this.L,dy=this.bodyDy||0,P0=this.pelvis(),P={x:P0.x,y:P0.y+dy},front=this.front(),wb=L.wb||1;
+    const N={x:this.N.x,y:this.N.y+dy},S=this.shoulders().map(p=>({x:p.x,y:p.y+dy})),id=this.id*50;
+    const reach=!!(POSES[this.pose]||{}).eff,blink=((t+this.ph*1.7)%3.9)<.13;
     // soft round shading: light from the upper left, a darker rim on the lower right
     const shade=(x,y,r,c0,c1,c2)=>{const gr=g.createRadialGradient(x-r*.35,y-r*.4,r*.08,x,y,r*1.15);gr.addColorStop(0,c0);gr.addColorStop(.55,c1);gr.addColorStop(1,c2);return gr;};
     if(this.mode!=="fall"){const gr=g.createRadialGradient(N.x+10*s,N.y+20*s,2,N.x+10*s,N.y+20*s,36*s);gr.addColorStop(0,"rgba(60,30,40,.26)");gr.addColorStop(1,"rgba(60,30,40,0)");
@@ -1424,7 +1429,7 @@ class Rig{
   }
   gloves_(g,arm,jx,jy,ox,oy){const s=this.s,L=this.L,id=this.id*50;const shade=(x,y,r,c0,c1,c2)=>{const gr=g.createRadialGradient(x-r*.35,y-r*.4,r*.08,x,y,r*1.15);gr.addColorStop(0,c0);gr.addColorStop(.55,c1);gr.addColorStop(1,c2);return gr;};
     for(let j=0;j<2;j++){const h=this.h[j],[ex,ey,wx0,wy0]=arm[j],wx=wx0+ox,wy=wy0+oy;
-      const k=h.sq,ang=Math.atan2(wy0-ey,wx0-ex);g.save();g.translate(wx,wy);g.rotate(ang);g.scale((1+k*.3)*1.5,(1-k*.25)*1.5);
+      const ang=Math.atan2(wy0-ey,wx0-ex);g.save();g.translate(wx,wy);g.rotate(ang);g.scale(1.5,1.5);
       g.beginPath();g.ellipse(-6.6*s,0,1.9*s,3.9*s,0,0,7);blob(g,L.jkd,1.3*s);
       g.beginPath();g.moveTo(-5.4*s,-3.4*s);g.quadraticCurveTo(-1.6*s,-4.6*s,-1.4*s,0);g.quadraticCurveTo(-1.6*s,4.6*s,-5.4*s,3.4*s);g.quadraticCurveTo(-6.4*s,0,-5.4*s,-3.4*s);g.closePath();blob(g,"#f4efe6",1.4*s);
       g.beginPath();g.arc(1.2*s,0,4.8*s,0,7);blob(g,shade(1.2*s,0,4.8*s,"#fff","#f8f4ec","#d9d0c0"),1.6*s);
@@ -1432,24 +1437,16 @@ class Rig{
       g.beginPath();g.ellipse(-.4*s,-3.8*s*(j?-1:1),1.8*s,1.4*s,0,0,7);blob(g,"#fbf8f2",1.2*s);g.restore();}
   }
 }
-/* ---------- rope: a verlet chain from the partner's harness through the clipped bolts to the leader ---------- */
+/* ---------- rope: a simple drawn line from the partner's harness through the clipped bolts to the leader ---------- */
+// no rope physics: each span between pins is one fixed sagging curve, like a drawn prop
 class Rope{
-  constructor(n){this.n=n;this.p=null;this.reset=1;}
-  update(path,dt){const n=this.n,cum=[0];for(let i=1;i<path.length;i++)cum.push(cum[i-1]+Math.hypot(path[i][0]-path[i-1][0],path[i][1]-path[i-1][1]));
-    const tot=Math.max(cum[cum.length-1],1),pin=cum.map(c=>Math.round(c/tot*(n-1)));
-    const at=k=>{const d=k/(n-1)*tot;let j=1;while(j<cum.length-1&&cum[j]<d)j++;const f=clamp((d-cum[j-1])/Math.max(cum[j]-cum[j-1],1e-6),0,1);return [lerp(path[j-1][0],path[j][0],f),lerp(path[j-1][1],path[j][1],f)];};
-    if(!this.p||this.reset){this.p=Array.from({length:n},(_,k)=>{const [x,y]=at(k);return {x,y,px:x,py:y};});this.reset=0;}
-    const seg=Math.max(tot*1.06,tot+14)/(n-1),gv=500*dt*dt,wd=40*dt*dt;
-    for(const q of this.p){const vx=(q.x-q.px)*.97,vy=(q.y-q.py)*.97;q.px=q.x;q.py=q.y;q.x+=vx+wd;q.y+=vy+gv;}
-    for(let it=0;it<8;it++){for(let i=1;i<n;i++){const a=this.p[i-1],b=this.p[i],dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1e-6;if(d<=seg)continue;
-      const df=(d-seg)/d*.5;a.x+=dx*df;a.y+=dy*df;b.x-=dx*df;b.y-=dy*df;}
-      pin.forEach((ix,k)=>{const q=this.p[ix];q.x=path[k][0];q.y=path[k][1];});}}
-  draw(g){const p=this.p;if(!p)return;g.beginPath();g.moveTo(p[0].x,p[0].y);
-    for(let i=1;i<p.length-1;i++)g.quadraticCurveTo(p[i].x,p[i].y,(p[i].x+p[i+1].x)/2,(p[i].y+p[i+1].y)/2);g.lineTo(p[p.length-1].x,p[p.length-1].y);
+  constructor(){this.path=null;this.reset=1;}
+  update(path){this.path=path;}
+  draw(g){const p=this.path;if(!p||p.length<2)return;g.beginPath();g.moveTo(p[0][0],p[0][1]);
+    for(let i=1;i<p.length;i++){const [x0,y0]=p[i-1],[x1,y1]=p[i],sag=Math.min(16,Math.hypot(x1-x0,y1-y0)*.12);g.quadraticCurveTo((x0+x1)/2+sag*.4,(y0+y1)/2+sag,x1,y1);}
     g.lineCap=g.lineJoin="round";g.strokeStyle=INK;g.lineWidth=4.4;g.stroke();g.strokeStyle="#e0472b";g.lineWidth=2.2;g.stroke();
     g.setLineDash([3,4]);g.strokeStyle="rgba(255,236,206,.7)";g.lineWidth=.9;g.stroke();g.setLineDash([]);}
 }
-
 /* ---------- particles and pop-up words ---------- */
 function emit(p){if(FX.parts.length<420&&!RM.matches)FX.parts.push(p);}
 function puff(x,y){for(let i=0;i<5;i++)emit({k:"chalk",x:x+(Math.random()-.5)*4,y:y+(Math.random()-.5)*3,vx:(Math.random()-.5)*14,vy:-4-Math.random()*8,g:-2,l:.9,m:.9,r:1.2+Math.random()*1.5});}
@@ -1644,7 +1641,7 @@ function ensureScene(){
   const btn=$("#sndBtn");if(btn){const sync=()=>btn.setAttribute("aria-pressed",SND.on?"true":"false");sync();
     btn.onclick=()=>{SND.on=!SND.on;LS.set("sound",SND.on);sync();if(SND.on)sndStart();if(SND.out)SND.out.gain.value=SND.on?.55:0;};}
   const me=new Rig(LOOK.me,i=>holdXY(FX.exp.choice,i),i=>restSpot(i,0),1.14),mate=new Rig(LOOK.mate,i=>holdXY(FX.exp.choice,i),i=>restSpot(i,1),1.14);
-  me.onCatch=v=>{FX.shake=Math.max(FX.shake,clamp(v/240,.35,1.3));FX.ts=.3;FX.kick=-.08;mate.v.y-=Math.min(160,v*.5);mate.sq=-.2;sfx("boing");pop(me,"WHOA!");};
+  me.onCatch=v=>{FX.shake=Math.max(FX.shake,clamp(v/240,.35,1.3));if(mate.mode==="climb")mate.play([["crouch",260],["hang",1e9]]);else if(mate.mode==="stand")mate.land(mate.gx,mate.gy);sfx("boing");pop(me,"WHOA!");};
   FX.A={me,mate};FX.fxEl=$("#fx");
   if(!FX.raf)FX.raf=requestAnimationFrame(frame);
   if(!FX.pre){FX.pre=1;prefetch();}
@@ -1676,12 +1673,12 @@ function updateCam(dt){const me=FX.A.me,mt=FX.A.mate,now=performance.now();let f
   if(FX.fxEl){const s=FX.fxEl.style,v=[A.x,A.y,A.w,A.h].map(n=>Math.round(n)+"px");if(s.width!==v[2]||s.height!==v[3]||s.top!==v[1]){s.left=v[0];s.top=v[1];s.width=v[2];s.height=v[3];}}
   fx=x;fy=y;
   if(!FX.cam||Math.abs(fy-FX.cam.y)>1200)FX.cam={x:fx,y:fy,w};
-  else{const k=1-Math.exp(-dt*2.2);FX.cam.x+=(fx-FX.cam.x)*k;FX.cam.y+=(fy-FX.cam.y)*k;FX.cam.w+=(w-FX.cam.w)*(1-Math.exp(-dt*4));}
+  else{const k=1-Math.exp(-dt*4);FX.cam.x+=(fx-FX.cam.x)*k;FX.cam.y+=(fy-FX.cam.y)*k;FX.cam.w+=(w-FX.cam.w)*(1-Math.exp(-dt*4));}
   FX.shake*=Math.exp(-dt*4);FX.kick*=Math.exp(-dt*2.5);}
 function frame(now){
   const cv=FX.cv;if(!cv||!cv.isConnected){FX.raf=0;FX.cv=null;return;}
   const raw=Math.min(.05,Math.max(0,(now-(FX.last||now))/1000));FX.last=now;
-  FX.ts+=(1-FX.ts)*(1-Math.exp(-raw*2.2));const dt=raw*FX.ts; // slow motion when the rope catches
+  const dt=raw;
   FX.time+=dt;FX.dt=dt;FX.boil=Math.floor(now/83);const t=FX.time;
   for(const w of FX.tw.slice()){
     if(w.ch&&FX.ch[w.ch]!==w.id){FX.tw.splice(FX.tw.indexOf(w),1);w.res(false);continue;}
@@ -1706,7 +1703,7 @@ function prefetch(){const go=window.requestIdleCallback||(f=>setTimeout(f,120));
 function paint(t){
   const g=FX.g,W=FX.W,H=FX.H,dpr=FX.dpr,c0=FX.cam;if(!c0||!FX.exp)return;
   const sw=RM.matches?0:1,b=FX.boil,weave=sw*.5,jx=(Math.random()-.5)*FX.shake*10+(hash(b,1)-.5)*weave,jy=(Math.random()-.5)*FX.shake*10+(hash(b,2)-.5)*weave;
-  const c={x:c0.x+(Math.sin(t*.31)*4+Math.sin(t*.13)*3)*sw+jx,y:c0.y+Math.sin(t*.23)*3*sw+jy,w:c0.w};
+  const c={x:c0.x+jx,y:c0.y+jy,w:c0.w};
   const u=uOf(c.y),pal=palette(u),sc=W/c.w,ch=c.w*H/W,vy0=c.y-ch/2,vy1=c.y+ch/2,vx0=c.x-c.w/2,vx1=c.x+c.w/2;
   const screen=()=>g.setTransform(dpr,0,0,dpr,0,0),world=()=>g.setTransform(dpr*sc,0,0,dpr*sc,dpr*(W/2-c.x*sc),dpr*(H/2-c.y*sc));
   screen();g.globalCompositeOperation="source-over";g.globalAlpha=1;g.imageSmoothingQuality="high";
@@ -1783,14 +1780,14 @@ async function climbRig(r,to,ms,id,ch="main"){
     if(lead&&to-r.hi>=4&&ms<=330&&++r.cnt%5===0){r.dyno(ms*1.4/1000);sfx("hup");pop(r,"HUP!");if(!(await wait(ms*1.7,ch)))return false;continue;}
     r.stepUp(ms/1000*.92);if(!(await wait(ms,ch)))return false;}
   const rs=r.rest(to);
-  if(rs&&r.mode==="climb"){r.h.forEach((h,j)=>r.flyHand(h,rs.x+(j?11:-11)*r.s,rs.y-1,.32,1));if(!(await wait(340,ch)))return false;
-    r.mode="stand";r.gx=rs.x;r.gy=rs.y;r.hi=to;r.moved();r.sq=-.22;if(r===FX.A.me||r===FX.A.mate)sfx("thud");if(!(await wait(520,ch)))return false;}
+  if(rs&&r.mode==="climb"){r.topOut(rs.x,rs.y,.34);if(!(await wait(340,ch)))return false;
+    r.land(rs.x,rs.y);r.hi=to;if(r===FX.A.me||r===FX.A.mate)sfx("thud");if(!(await wait(520,ch)))return false;}
   return ok();
 }
 async function downRig(r,to,ms,id,ch){const ok=()=>FX.ch[ch]===id,rs=r.rest(to),stop=rs?to+2:to;
   if(r.mode==="stand")r.grab(Math.max(r.hi,stop+1));
   while(r.hi>stop){r.stepDown(ms/1000*.9);if(!(await wait(ms,ch)))return false;}
-  if(rs){r.mode="stand";r.gx=rs.x;r.gy=rs.y;r.hi=to;r.moved();if(!(await wait(520,ch)))return false;}
+  if(rs){r.land(rs.x,rs.y);r.hi=to;if(!(await wait(520,ch)))return false;}
   return ok();}
 async function fallRig(r,anchor,back,id,ch,caught){
   const rs=r.rest(anchor),[ax,ay]=rs?[rs.x,rs.y-40]:r.hold(anchor),near=r===FX.A.me;
@@ -1802,7 +1799,7 @@ async function fallRig(r,anchor,back,id,ch,caught){
   return climbRig(r,back,260,id,ch);
 }
 function arrive(name,exp,to){const top=name==="summit";title(top?"SUMMIT!":name.toUpperCase()+"!",`${fmt(to*HS/WK+ALT.base)} m`,"camp");confetti();
-  sfx(top?"summit":"fanfare");FX.kick=-.1;FX.A.me.cheer=2.6;}
+  sfx(top?"summit":"fanfare");FX.A.me.cheer=2.6;}
 async function runEvent(exp,o){
   const id=++FX.ch.main,A=FX.A,me=A.me,mate=A.mate,ok=()=>FX.ch.main===id;
   const to=idxOf(exp,typeof o.to==="number"?o.to:exp.pitch),plan=mateIdx(to);
