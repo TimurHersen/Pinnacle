@@ -437,12 +437,14 @@ function terrainArt(k){if(TART[k])return TART[k];
   else if(k==="traverse"){rock(0,0,96,28);p(0,16,96,3,"#c8b498");p(0,19,96,2,"#3a2a22");for(let x=2;x<96;x+=6)p(x,11+(x%12?0:1),3,1,"#e8792b");climber(40,9);}
   else if(k==="overhang"){rock(52,0,44,28);for(let y=0;y<13;y++){const x0=Math.round(4+y*3.6+(R()*3|0));rock(x0,y,96-x0,1);}p(0,13,56,1,"#0a0d17");climber(30,14);p(31,13,1,1,"#efe3c4");}
   return TART[k]=c.toDataURL();}
-// a head-and-shoulders portrait cut from the climber's standing sprite
+// a head-and-shoulders portrait cut from the climber's front view (or, until that loads, its painted standing sprite)
 const PORT=new Map();
 function portrait(L){if(PORT.has(L))return PORT.get(L);
-  const s=pixelSprite(L,"stand",{}),c=document.createElement("canvas");c.width=c.height=24;const g=c.getContext("2d");
-  g.fillStyle="#4479c6";g.fillRect(0,0,24,24);g.fillStyle="#7cafe0";g.fillRect(0,16,24,8);g.drawImage(s,SPR.hx-9,SPR.hy-45,24,24,0,0,24,24);
-  const u=c.toDataURL();PORT.set(L,u);return u;}
+  const art=L.art&&L.art.ready,c=document.createElement("canvas");c.width=c.height=24;const g=c.getContext("2d");
+  g.fillStyle="#4479c6";g.fillRect(0,0,24,24);g.fillStyle="#7cafe0";g.fillRect(0,16,24,8);
+  if(art){const im=L.art.front,b=boxOf(im);g.drawImage(im,((b.x0+b.x1)>>1)-12,b.y0-2,24,24,0,0,24,24);}
+  else g.drawImage(pixelSprite(L,"stand",{}),SPR.hx-9,SPR.hy-45,24,24,0,0,24,24);
+  const u=c.toDataURL();if(art)PORT.set(L,u);return u;}
 // the expedition as a map: base camp to summit, both route options at each camp, every pitch's state
 function mapHtml(t){
   const e=t.exp,L=lens(e),tot=total(e),at=e.pitch,dim=["s0","s1","s2"];

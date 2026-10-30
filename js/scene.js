@@ -183,7 +183,8 @@ function texAt(T,x,y){const m=(v,n)=>{v=(v%(2*n)+2*n)%(2*n);return v<n?v:2*n-1-v
 
 /* ---------- the cliff: granite blocks, moss low down, snow high up, painted once per chunk ---------- */
 const uOf=y=>clamp(y/TOPY,0,1);
-const edgeL=y=>R0((fbm(y*.011+3)-.5)*22+(fbm(y*.003+9)-.5)*30);
+// the cliff's left edge; over the last stretch it leans right so the route along it runs up into the summit ridge
+const edgeL=y=>R0((fbm(y*.011+3)-.5)*22+(fbm(y*.003+9)-.5)*30+smooth(clamp((y-TOPY-360)/-360,0,1))*36);
 // the summit: a snowy peak whose tip stands above the route's top
 const SX=64,peakTop=x=>TOPY-26+Math.abs(x-SX)*.42+(hash(x>>2,77)<.5?0:1);
 // granite as irregular slabs: a jittered Voronoi grid (cells a little wider than tall), each cell lit along its
@@ -228,16 +229,13 @@ function chunk(ci){let c=FX.chunks.get(ci);if(c){FX.chunks.delete(ci);FX.chunks.
   c=paintChunk(ci);FX.chunks.set(ci,c);if(FX.chunks.size>24)FX.chunks.delete(FX.chunks.keys().next().value);return c;}
 const chunkRange=(vy0,vy1)=>[Math.max(0,Math.floor(-vy1/CHK)),Math.min(Math.ceil(-(TOPY-40)/CHK),Math.floor(-vy0/CHK))];
 
-/* ---------- route geometry: lanes, holds, bolts and where climbers rest ---------- */
-const LANE={s0:t=>50+8*Math.sin(Math.PI*2*t),
-  A0:t=>50-8*Math.sin(Math.PI*t),B0:t=>50+22*Math.sin(Math.PI*t),
-  A1:t=>lerp(50,SX-4,smooth(t))-8*Math.sin(Math.PI*t),B1:t=>lerp(50,SX-4,smooth(t))+18*Math.sin(Math.PI*t)};
-function laneX(ch,y){const a=ALT.base-y/WK;
-  if(a<=ALT.c1)return LANE.s0(clamp((a-ALT.base)/(ALT.c1-ALT.base),0,1));
-  if(a<=ALT.c2)return LANE[(ch[0]||"A")+"0"]((a-ALT.c1)/(ALT.c2-ALT.c1));
-  return LANE[(ch[1]||"A")+"1"](clamp((a-ALT.c2)/(ALT.top-ALT.c2),0,1));}
-const holdXY=(ch,i)=>[R0(laneX(ch,-i*HS)+9+(hash(i,3)-.5)*4),R0(-i*HS+(hash(i,5)-.5)*3)];
-const boltXY=(ch,i)=>[R0(laneX(ch,-i*HS)+2),-i*HS+6];
+/* ---------- route geometry: lanes, holds, bolts and where climbers rest ----------
+   The route runs up the cliff's left edge, seen side-on: holds sit on the edge, so a climber hangs in the open
+   air beside the rock. Option B of each fork takes a crack a few pixels in from the edge. */
+function laneX(ch,y){const a=ALT.base-y/WK,k=a<=ALT.c1?"A":a<=ALT.c2?(ch[0]||"A"):(ch[1]||"A");return edgeL(y)-8+(k==="B"?6:0);}
+const holdXY=(ch,i)=>{const y=R0(-i*HS+(hash(i,5)-.5)*3);return [R0(laneX(ch,y)+10+hash(i,3)*2),y];};
+// bolts go into the rock just in from the holds
+const boltXY=(ch,i)=>[R0(laneX(ch,-i*HS)+15),-i*HS+6];
 const idxOf=(exp,p)=>Math.round(-WY(altOf(exp,p))/HS);
 function restSpot(i,m){if(i<=0)return {x:m?-74:-26,y:0};
   if(i===IDX_C1||i===IDX_C2)return {x:m?-66:-18,y:-i*HS};
@@ -263,6 +261,22 @@ const LOOK={
     hat:{l:"#ffe27a",m:"#f2b233",d:"#b5741c"},band:{l:"#e8a028",m:"#c4841a",d:"#8a5a10"},stripe:"#d23c2a",pom:{l:"#ffffff",m:"#efe3c4",d:"#bfb090"},
     hair:{l:"#a84a24",m:"#7a3418",d:"#4a1e0c"},long:1,freck:1,scarf:{l:"#5a9ae0",m:"#3c78b4",d:"#24507e"},
     pack:{l:"#d08a4a",m:"#a8682a",d:"#6e4218"},roll:{l:"#5aa86a",m:"#3c7a4a",d:"#24502c"},coil:"#d23c2a"}};
+/* ---------- climber art (PixelLab): east-facing animation frames, mirrored to face west ----------
+   Each climber has a climb clip, an idle (breathing) clip, a cheer clip and a front view for the HUD portrait.
+   Until every frame has loaded, the painted sprites below stand in. */
+const CLIMBER_ART={me:"lumberjack",mate:"woman"},CLIP_N={climb:8,idle:4,cheer:8};
+const ART_POSE={hang:["climb",0],chalk:["climb",0],shake1:["climb",0],shake2:["climb",1],reachR:["climb",2],jump:["climb",3],
+  pull:["climb",4],crouch:["climb",5],reachL:["climb",6],mantle:["climb",7],fall1:["climb",3],fall2:["climb",7],look:["idle",1],hop:["idle",3]};
+// the box round a frame's opaque pixels, measured once
+function boxOf(im){if(im.bb)return im.bb;const [,g]=mk(im.width,im.height);g.drawImage(im,0,0);
+  const d=g.getImageData(0,0,im.width,im.height).data;let x0=1e9,y0=1e9,x1=-1,y1=-1;
+  for(let y=0;y<im.height;y++)for(let x=0;x<im.width;x++)if(d[(y*im.width+x)*4+3]>40){x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y);}
+  return im.bb={x0,y0,x1,y1};}
+function loadClimber(L){const who=CLIMBER_ART[L.name],A=L.art={clips:{},ready:0};let left=1;
+  const img=src=>{left++;const im=new Image();im.onload=()=>{if(--left===0)A.ready=1;};im.src=src;return im;};
+  for(const [k,n] of Object.entries(CLIP_N))A.clips[k]=Array.from({length:n},(_,i)=>img(`assets/climbers/${who}/${k}/${i}.png`));
+  A.front=img(`assets/climbers/${who}/south.png`);if(--left===0)A.ready=1;}
+loadClimber(LOOK.me);loadClimber(LOOK.mate);
 function ik(rx,ry,tx,ty,a,b,bend){let dx=tx-rx,dy=ty-ry,d=Math.hypot(dx,dy)||1e-4;const m=a+b-.01;if(d>m){tx=rx+dx/d*m;ty=ry+dy/d*m;d=m;}
   const ang=Math.atan2(ty-ry,tx-rx),j=ang+bend*Math.acos(clamp((a*a+d*d-b*b)/(2*a*d),-1,1));return [rx+Math.cos(j)*a,ry+Math.sin(j)*a,tx,ty];}
 // sprite box and the hips' place in it; HANG is where the near hand sits (from the hips) when hanging on a hold
@@ -420,14 +434,27 @@ class Rig{
     else if(this.mode==="stand"&&other&&other!==this&&Math.abs(other.N.x-this.N.x)>4)this.dir=other.N.x>this.N.x?1:-1;
     this.pin();
   }
+  // the PixelLab frame for this pose: climbing poses pick a frame of the climb clip, a fall flails through its
+  // arms-up frames, standing breathes through the idle clip and cheering plays the cheer clip, both by the clock
+  artFrame(t){const m=ART_POSE[this.pose];if(m)return m;
+    if(this.pose.startsWith("cheer"))return ["cheer",Math.floor(t*12+this.ph)%CLIP_N.cheer];
+    return ["idle",Math.floor(t*4+this.ph)%CLIP_N.idle];}
   draw(g,t,ox,oy){
-    const P0=POSES[this.pose]||POSES.stand,blink=!P0.eff&&!P0.oh&&((t+this.ph*1.7)%3.9)<.13,flap=Math.floor(t*4+this.ph)%2,gear=this.gear|0;
-    const key=`${this.pose}|${gear}|${blink?1:0}|${flap}|${this.dir}`;let img=this.cache.get(key);
-    if(!img){const s=pixelSprite(this.L,this.pose,{gear,blink,flap});
-      if(this.dir<0){const [c,cg]=mk(s.width,s.height);cg.translate(s.width,0);cg.scale(-1,1);cg.drawImage(s,0,0);img=c;}else img=s;
-      this.cache.set(key,img);}
-    const x=R0(this.N.x)+ox,y=R0(this.N.y)+oy,hx=this.dir<0?SPR.W-SPR.hx:SPR.hx;
-    g.drawImage(img,x-hx,y-SPR.hy);
+    const x=R0(this.N.x)+ox,y=R0(this.N.y)+oy,A=this.L.art;
+    if(A&&A.ready){const [k,i]=this.artFrame(t),fr=A.clips[k],b=boxOf(fr[0]),W=fr[0].width,flip=this.dir<0,key=`${k}|${i}|${flip}`;
+      let img=this.cache.get(key);
+      if(!img){if(flip){const [c,cg]=mk(W,fr[i].height);cg.translate(W,0);cg.scale(-1,1);cg.drawImage(fr[i],0,0);img=c;}else img=fr[i];this.cache.set(key,img);}
+      // on the wall the clip's raised hand and its wall-side edge sit on the hold; on a ledge the feet stand
+      // LEG below the hips, the body centred on them (each clip anchored by its first frame, so it moves within it)
+      if(k==="climb")g.drawImage(img,x+HANG[0]+2-b.x1,y+HANG[1]-1-b.y0);
+      else g.drawImage(img,x-(flip?W-1-((b.x0+b.x1)>>1):(b.x0+b.x1)>>1),y+LEG-b.y1);}
+    else{
+      const P0=POSES[this.pose]||POSES.stand,blink=!P0.eff&&!P0.oh&&((t+this.ph*1.7)%3.9)<.13,flap=Math.floor(t*4+this.ph)%2,gear=this.gear|0;
+      const key=`${this.pose}|${gear}|${blink?1:0}|${flap}|${this.dir}`;let img=this.cache.get(key);
+      if(!img){const s=pixelSprite(this.L,this.pose,{gear,blink,flap});
+        if(this.dir<0){const [c,cg]=mk(s.width,s.height);cg.translate(s.width,0);cg.scale(-1,1);cg.drawImage(s,0,0);img=c;}else img=s;
+        this.cache.set(key,img);}
+      g.drawImage(img,x-(this.dir<0?SPR.W-SPR.hx:SPR.hx),y-SPR.hy);}
     if(this.dizzy>0)for(let i=0;i<3;i++){const a=Math.floor(t*8)/8*6+i*2.09;rect(g,x+R0(Math.cos(a)*8)-1,y-50+R0(Math.sin(a)*2)-1,2,2,i%2?C.cream:C.gold);}
   }
 }
@@ -492,7 +519,9 @@ function drawFrontPines(g,ox,oy){for(const [x,h] of [[-214,64],[-6,46],[14,58]])
   g.drawImage(s,x+ox-(s.width>>1),2-h+oy);}}
 // a tall flag on the tip, and a sign on a post down the left ridge
 function drawSummit(g,t,ox,oy){const fx=SX-18,fy=R0(peakTop(fx))+1;rect(g,fx+ox,fy-30+oy,1,30,INK);g.drawImage(sprites().flag[Math.floor(t*3)%2],fx+ox,fy-30+oy);
-  const sx=SX-62,sy=R0(peakTop(sx)),s=sign("SUMMIT");rect(g,sx+ox,sy-14+oy,1,14,C.woodD);g.drawImage(s,sx+ox-(s.width>>1),sy-14-s.height+oy);}
+  // the sign's post stands on the ridge just in from the cliff edge (which leans right near the top), and its board
+  // reaches out left over the drop so it never hides the flag
+  const sx=Math.max(SX-62,edgeL(TOPY)+6),sy=R0(peakTop(sx)),s=sign("SUMMIT");rect(g,sx+ox,sy-14+oy,1,14,C.woodD);g.drawImage(s,sx+ox-s.width+6,sy-14-s.height+oy);}
 const fireAmt=k=>!FX.lit[k]?0:FX.litAt[k]?clamp((FX.time-FX.litAt[k])/1.2,0,1):1;
 function drawRoute(g,vy0,vy1,ox,oy){const e=FX.exp,ch=e.choice,lo=Math.max(1,Math.floor(-vy1/HS)-1),hi=Math.min(IDX_TOP-1,Math.ceil(-vy0/HS)+1),used=FX.A.me.hi,S=sprites();
   const lanes=i=>{const a=ALT.base+i*HS/WK;if(a<=ALT.c1)return [ch];if(a<=ALT.c2)return ch[0]?[ch]:[["A",null],["B",null]];return ch[1]?[ch]:[[ch[0]||"A","A"],[ch[0]||"A","B"]];};
