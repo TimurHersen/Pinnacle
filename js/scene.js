@@ -156,7 +156,7 @@ function drawCloud(g,x,y,s,seed){
 const uOf=y=>clamp(y/TOPY,0,1);
 const edgeL=y=>R0((fbm(y*.011+3)-.5)*22+(fbm(y*.003+9)-.5)*30);
 // the summit: a snowy peak whose tip stands above the route's top
-const SX=46,peakTop=x=>TOPY-26+Math.abs(x-SX)*.42+(hash(x>>2,77)<.5?0:1);
+const SX=64,peakTop=x=>TOPY-26+Math.abs(x-SX)*.42+(hash(x>>2,77)<.5?0:1);
 // granite as irregular slabs: a jittered Voronoi grid (cells a little wider than tall), each cell lit along its
 // upper-left rim and shaded along its lower-right one, with dark cracks between cells; moss or snow on the tops
 function rockAt(wx,wy){
@@ -198,9 +198,9 @@ function chunk(ci){let c=FX.chunks.get(ci);if(c){FX.chunks.delete(ci);FX.chunks.
 const chunkRange=(vy0,vy1)=>[Math.max(0,Math.floor(-vy1/CHK)),Math.min(Math.ceil(-(TOPY-40)/CHK),Math.floor(-vy0/CHK))];
 
 /* ---------- route geometry: lanes, holds, bolts and where climbers rest ---------- */
-const LANE={s0:t=>32+8*Math.sin(Math.PI*2*t),
-  A0:t=>32-8*Math.sin(Math.PI*t),B0:t=>32+20*Math.sin(Math.PI*t),
-  A1:t=>lerp(32,SX-8,smooth(t))-8*Math.sin(Math.PI*t),B1:t=>lerp(32,SX-8,smooth(t))+18*Math.sin(Math.PI*t)};
+const LANE={s0:t=>50+8*Math.sin(Math.PI*2*t),
+  A0:t=>50-8*Math.sin(Math.PI*t),B0:t=>50+22*Math.sin(Math.PI*t),
+  A1:t=>lerp(50,SX-4,smooth(t))-8*Math.sin(Math.PI*t),B1:t=>lerp(50,SX-4,smooth(t))+18*Math.sin(Math.PI*t)};
 function laneX(ch,y){const a=ALT.base-y/WK;
   if(a<=ALT.c1)return LANE.s0(clamp((a-ALT.base)/(ALT.c1-ALT.base),0,1));
   if(a<=ALT.c2)return LANE[(ch[0]||"A")+"0"]((a-ALT.c1)/(ALT.c2-ALT.c1));
@@ -208,110 +208,135 @@ function laneX(ch,y){const a=ALT.base-y/WK;
 const holdXY=(ch,i)=>[R0(laneX(ch,-i*HS)+9+(hash(i,3)-.5)*4),R0(-i*HS+(hash(i,5)-.5)*3)];
 const boltXY=(ch,i)=>[R0(laneX(ch,-i*HS)+2),-i*HS+6];
 const idxOf=(exp,p)=>Math.round(-WY(altOf(exp,p))/HS);
-function restSpot(i,m){if(i<=0)return {x:m?-50:-20,y:0};
-  if(i===IDX_C1||i===IDX_C2)return {x:m?-46:-14,y:-i*HS};
-  if(i>=IDX_TOP){const x=m?SX+34:SX+12;return {x,y:R0(peakTop(x))+2};}return null;}
-function mateIdx(li){if(li<=0||li===IDX_C1||li===IDX_C2||li>=IDX_TOP)return li;return Math.max(li>IDX_C2?IDX_C2:li>IDX_C1?IDX_C1:0,li-5);}
+function restSpot(i,m){if(i<=0)return {x:m?-74:-26,y:0};
+  if(i===IDX_C1||i===IDX_C2)return {x:m?-66:-18,y:-i*HS};
+  if(i>=IDX_TOP){const x=m?SX+48:SX+12;return {x,y:R0(peakTop(x))+2};}return null;}
+function mateIdx(li){if(li<=0||li===IDX_C1||li===IDX_C2||li>=IDX_TOP)return li;return Math.max(li>IDX_C2?IDX_C2:li>IDX_C1?IDX_C1:0,li-7);}
 
-/* ---------- climbers: side-view pixel sprites ----------
-   Like an old console sprite sheet: every pose is rasterised once per climber into a small grid of hard pixels
-   (no anti-aliasing), shaded and outlined, and cached. The game only ever swaps between these images while the
-   body slides from spot to spot. Pose spots are in art pixels relative to the hips, facing right (toward the
-   wall): hn/hf = near/far hand, fn/ff = near/far foot. dy drops the body in that frame; feet stay planted
-   unless the frame is airborne. These are stand-ins until the hand-drawn sprite sheets arrive. */
-const BASE={boot:"#7a4322",bootl:"#b8763f",bootd:"#4a2512",pk:"#a4733f",pkl:"#d9a262",pkd:"#6f4722",roll:"#3f8c82",rolll:"#86cdbf",rope:"#e0472b",
-  skin:"#ffd2a6",skinl:"#ffeed6",skind:"#e7a57a",hair:"#5a3523",hairl:"#8f5f40",haird:"#33190e",pom:C.cream,hn:"#3d5fa8",cb:"#9b5fc0"};
-// player 1: a bearded lumberjack mountaineer (red beanie, red-and-black plaid, dark trousers, green pack);
-// player 2: yellow beanie, orange jacket, long auburn hair, a tan pack
-const LOOK={me:{...BASE,jk:"#c8281e",jkl:"#ff6a4a",jkd:"#7a1410",plaid:"#24121a",pt:"#2a3450",ptl:"#4a5a7a",ptd:"#161c30",hat:"#d23c2a",hatl:"#ff7a5a",hatd:"#8c2a1d",
-    pk:"#4f7a32",pkd:"#33521e",roll:"#8a6a3a",rope:"#e8792b",hair:"#5a3523",beard:1,noscarf:1,pom:null,wb:1,hatk:"beanie",patch:0,hn:"#e8792b",cb:"#d8ccbc"},
-  mate:{...BASE,jk:"#e8792b",jkl:"#ffb070",jkd:"#a04a14",pt:"#3c4a6a",ptl:"#5a6a8a",ptd:"#222a40",hat:"#f2b233",hatl:"#ffe596",hatd:"#b5741c",stripe:"#d23c2a",
-    pk:"#b0682a",pkd:"#7a4418",roll:"#3c7a3c",rope:"#d23c2a",hair:"#9a3a1a",long:1,sc:"#3c78b4",freck:1,skin:"#ffd2a6",wb:.96,hatk:"beanie",patch:1,hn:"#3c78b4",cb:"#9fd0f0"}};
+/* ---------- climbers: side-view explorer sprites ----------
+   Human proportions (head about a sixth of the body), seen side-on facing the wall, after the concept sheet.
+   Every pose is rasterised once per climber into a grid of hard pixels and cached: each body part is a tapered
+   capsule or ellipse lit from the upper left in three tones of its material, then given a dark outline, layer by
+   layer (far limbs, pack, body, near limbs, head) so overlapping parts stay readable. Pose spots are in art
+   pixels relative to the hips, facing right: hn/hf = near/far hand, fn/ff = near/far foot (ankle), lean tips the
+   torso toward the wall in degrees, dy drops the body; feet stay planted unless the frame is airborne. */
+const OUTLINE="#1c120e";
+const SKIN={l:"#ffd9b4",m:"#f0b48a",d:"#c47c56"};
+// player 1: a bearded lumberjack (red beanie, red-and-black plaid, jeans, brown boots, green pack);
+// player 2: yellow bobble beanie, orange jacket, long auburn hair, navy trousers, a tan pack
+const LOOK={
+  me:{name:"me",top:{l:"#ea4a3c",m:"#c4262a",d:"#7e1418",plaid:1},sleeve:null,pants:{l:"#5574a0",m:"#385682",d:"#22375e"},boot:{l:"#b0703c",m:"#7c4622",d:"#4a2812"},
+    hat:{l:"#f2564a",m:"#cc2a26",d:"#861a1a"},band:{l:"#c02424",m:"#9a1c1c",d:"#661010"},hair:{l:"#8e5c32",m:"#66401e",d:"#3e2612"},beard:1,
+    pack:{l:"#86a24e",m:"#5e7832",d:"#3a4c1e"},roll:{l:"#d8b07a",m:"#a8804a",d:"#6e5028"},coil:"#e8792b"},
+  mate:{name:"mate",top:{l:"#ffad66",m:"#e8792b",d:"#a8481a"},zip:1,pants:{l:"#55678e",m:"#3c4a6a",d:"#262f48"},boot:{l:"#9a6a44",m:"#6e4426",d:"#40240f"},
+    hat:{l:"#ffe27a",m:"#f2b233",d:"#b5741c"},band:{l:"#e8a028",m:"#c4841a",d:"#8a5a10"},stripe:"#d23c2a",pom:{l:"#ffffff",m:"#efe3c4",d:"#bfb090"},
+    hair:{l:"#a84a24",m:"#7a3418",d:"#4a1e0c"},long:1,freck:1,scarf:{l:"#5a9ae0",m:"#3c78b4",d:"#24507e"},
+    pack:{l:"#d08a4a",m:"#a8682a",d:"#6e4218"},roll:{l:"#5aa86a",m:"#3c7a4a",d:"#24502c"},coil:"#d23c2a"}};
 function ik(rx,ry,tx,ty,a,b,bend){let dx=tx-rx,dy=ty-ry,d=Math.hypot(dx,dy)||1e-4;const m=a+b-.01;if(d>m){tx=rx+dx/d*m;ty=ry+dy/d*m;d=m;}
   const ang=Math.atan2(ty-ry,tx-rx),j=ang+bend*Math.acos(clamp((a*a+d*d-b*b)/(2*a*d),-1,1));return [rx+Math.cos(j)*a,ry+Math.sin(j)*a,tx,ty];}
-const SPR={W:40,H:58,hx:18,hy:35};
+// sprite box and the hips' place in it; HANG is where the near hand sits (from the hips) when hanging on a hold
+const SPR={W:76,H:100,hx:34,hy:58},HANG=[21,-46],LEG=38;
 const POSES={
-  hang:  {hn:[13,-29],hf:[12,-22],fn:[8,14],ff:[6,7]},
-  reachL:{hn:[14,-33],hf:[12,-18],fn:[8,16],ff:[8,5],eff:1},
-  reachR:{hn:[12,-19],hf:[14,-32],fn:[8,5],ff:[8,16],eff:1},
-  pull:  {hn:[13,-21],hf:[12,-23],fn:[9,3],ff:[7,6],eff:1,dy:-1},
-  crouch:{hn:[13,-25],hf:[12,-23],fn:[9,4],ff:[7,4],eff:1,dy:2},
-  jump:  {hn:[11,-31],hf:[13,-30],fn:[3,18],ff:[5,16],eff:1,air:1},
-  mantle:{hn:[15,-12],hf:[14,-13],fn:[10,-2],ff:[5,16],eff:1},
-  chalk: {hn:[13,-29],hf:[-3,1],fn:[8,14],ff:[6,7]},
-  shake1:{hn:[13,-29],hf:[-4,8],fn:[8,14],ff:[6,7]},
-  shake2:{hn:[13,-29],hf:[0,10],fn:[8,14],ff:[6,7]},
-  stand: {hn:[4,5],hf:[-3,5],fn:[3,18],ff:[-2,18]},
-  stand2:{hn:[4,6],hf:[-3,6],fn:[3,18],ff:[-2,18],dy:1},
-  hop:   {hn:[8,-5],hf:[3,-6],fn:[4,18],ff:[-1,18],dy:3},
-  look:  {hn:[9,-25],hf:[-3,5],fn:[3,18],ff:[-2,18],up:1},
-  cheer1:{hn:[5,-30],hf:[-1,-29],fn:[4,16],ff:[-3,17],dy:-5,air:1,joy:1},
-  cheer2:{hn:[9,-22],hf:[-4,-21],fn:[3,18],ff:[-2,18],joy:1},
-  fall1: {hn:[-8,-24],hf:[11,-22],fn:[-6,14],ff:[8,12],oh:1},
-  fall2: {hn:[-3,-29],hf:[12,-15],fn:[5,16],ff:[-8,10],oh:1}};
+  hang:  {hn:[21,-46],hf:[19,-36],fn:[13,22],ff:[10,11],lean:14},
+  reachL:{hn:[22,-52],hf:[19,-30],fn:[13,26],ff:[13,8],lean:12,eff:1},
+  reachR:{hn:[19,-30],hf:[22,-51],fn:[13,8],ff:[13,26],lean:12,eff:1},
+  pull:  {hn:[21,-34],hf:[19,-37],fn:[14,6],ff:[11,11],lean:18,eff:1,dy:-2},
+  crouch:{hn:[21,-40],hf:[19,-37],fn:[14,7],ff:[11,7],lean:20,eff:1,dy:3},
+  jump:  {hn:[18,-50],hf:[21,-48],fn:[5,30],ff:[9,26],lean:6,eff:1,air:1},
+  mantle:{hn:[24,-18],hf:[22,-20],fn:[16,-2],ff:[8,27],lean:34,eff:1},
+  chalk: {hn:[21,-46],hf:[-3,3],fn:[13,22],ff:[10,11],lean:14},
+  shake1:{hn:[21,-46],hf:[-6,13],fn:[13,22],ff:[10,11],lean:14},
+  shake2:{hn:[21,-46],hf:[0,16],fn:[13,22],ff:[10,11],lean:14},
+  stand: {hn:[7,10],hf:[-5,10],fn:[5,35],ff:[-3,35],lean:2},
+  stand2:{hn:[7,11],hf:[-5,11],fn:[5,35],ff:[-3,35],lean:2,dy:1},
+  hop:   {hn:[13,-6],hf:[6,-8],fn:[6,35],ff:[-2,35],lean:6,dy:4},
+  look:  {hn:[15,-40],hf:[-5,10],fn:[5,35],ff:[-3,35],lean:-4,up:1},
+  cheer1:{hn:[9,-50],hf:[-3,-48],fn:[6,32],ff:[-4,33],lean:0,dy:-8,air:1,joy:1},
+  cheer2:{hn:[15,-38],hf:[-7,-36],fn:[5,35],ff:[-3,35],lean:0,joy:1},
+  fall1: {hn:[-13,-38],hf:[18,-34],fn:[-10,22],ff:[13,19],lean:-12,oh:1},
+  fall2: {hn:[-5,-46],hf:[19,-24],fn:[8,26],ff:[-13,16],lean:-6,oh:1}};
 function hexRGB(h){const n=parseInt(h.slice(1,7),16);return [n>>16&255,n>>8&255,n&255];}
 function tone(h,k){const c=hexRGB(h),t=k<0?[20,12,10]:[255,250,232],a=Math.abs(k);return "#"+c.map((v,i)=>Math.round(v+(t[i]-v)*a).toString(16).padStart(2,"0")).join("");}
-// red-and-black plaid: dark stripes every third pixel, black where they cross
-function plaid(d,L){for(let y=0;y<SPR.H;y++)for(let x=0;x<SPR.W;x++)if(d.get(x,y)===L.jk){const a=x%3===0,b=y%3===0;if(a&&b)d.set(x,y,L.plaid);else if(a||b)d.set(x,y,L.jkd);}}
+const farOf=p=>({l:p.m,m:p.d,d:tone(p.d,-.35),plaid:p.plaid});
 function pixelSprite(L,pose,o){
-  const P=POSES[pose]||POSES.stand,{W,H}=SPR,wb=L.wb||1,out=new Array(W*H).fill(null);
-  // each layer is painted flat, then shaded (light from the upper left) and given its own 1px ink outline,
-  // so a near arm reads cleanly over a jacket of the same colour
-  const layer=paint=>{const b=new Array(W*H).fill(null),set=(x,y,c)=>{x=Math.round(x);y=Math.round(y);if(x>=0&&y>=0&&x<W&&y<H)b[y*W+x]=c;},
-      get=(x,y)=>x>=0&&y>=0&&x<W&&y<H?b[y*W+x]:null,
-      disc=(cx,cy,r,c)=>{for(let y=Math.floor(cy-r);y<=Math.ceil(cy+r);y++)for(let x=Math.floor(cx-r);x<=Math.ceil(cx+r);x++)if((x-cx)**2+(y-cy)**2<=r*r+.25)set(x,y,c);},
-      box=(x0,y0,x1,y1,c)=>{for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)set(x,y,c);},
-      seg=(x0,y0,x1,y1,w,c)=>{const n=Math.ceil(Math.hypot(x1-x0,y1-y0)*2)+1;for(let i=0;i<=n;i++)disc(lerp(x0,x1,i/n),lerp(y0,y1,i/n),w/2,c);};
-    paint({set,get,disc,box,seg});
-    const sh=b.map((c,i)=>{if(!c||c===INK||c.length>7)return c;const x=i%W,y=(i/W)|0;
-      return get(x-1,y-1)===null&&get(x,y-1)===null?tone(c,.22):get(x+1,y+1)===null&&get(x+1,y)===null?tone(c,-.24):c;});
+  const P=POSES[pose]||POSES.stand,{W,H}=SPR,out=new Array(W*H).fill(null);
+  // a layer: parts painted with explicit light, then one dark outline around the layer's silhouette
+  const layer=paint=>{const b=new Array(W*H).fill(null),set=(x,y,c)=>{x=Math.round(x);y=Math.round(y);if(x>=0&&y>=0&&x<W&&y<H&&c)b[y*W+x]=c;},
+      get=(x,y)=>x>=0&&y>=0&&x<W&&y<H?b[y*W+x]:null;
+    // the colour of a lit surface: n is the outward normal (unit-ish), light comes from the upper left
+    const shade=(pal,nx,ny,x,y)=>{const li=-.6*nx-.8*ny;let k=li>.3?"l":li<-.32?"d":"m";
+      if(pal.plaid){const a=((x|0)%4+4)%4===0,c=((y|0)%4+4)%4===1;if(a&&c)return "#2a1018";if(a||c)k=k==="l"?"m":k==="m"?"d":"d";}
+      return pal[k];};
+    // a tapered capsule from (x0,y0) radius r0 to (x1,y1) radius r1
+    const cap=(x0,y0,x1,y1,r0,r1,pal)=>{const dx=x1-x0,dy=y1-y0,L2=dx*dx+dy*dy||1e-4,R=Math.max(r0,r1)+1;
+      for(let y=Math.floor(Math.min(y0,y1)-R);y<=Math.ceil(Math.max(y0,y1)+R);y++)for(let x=Math.floor(Math.min(x0,x1)-R);x<=Math.ceil(Math.max(x0,x1)+R);x++){
+        const t=clamp(((x-x0)*dx+(y-y0)*dy)/L2,0,1),cx=x0+dx*t,cy=y0+dy*t,r=lerp(r0,r1,t),ex=x-cx,ey=y-cy,d=Math.hypot(ex,ey);
+        if(d<=r+.1)set(x,y,shade(pal,ex/(r||1),ey/(r||1),x,y));}};
+    const ell=(cx,cy,rx,ry,pal,clip)=>{for(let y=Math.floor(cy-ry);y<=Math.ceil(cy+ry);y++)for(let x=Math.floor(cx-rx);x<=Math.ceil(cx+rx);x++){
+        const ex=(x-cx)/rx,ey=(y-cy)/ry;if(ex*ex+ey*ey<=1.05&&(!clip||clip(x,y)))set(x,y,shade(pal,ex,ey,x,y));}};
+    paint({set,get,cap,ell,shade});
     for(let i=0;i<W*H;i++){const x=i%W,y=(i/W)|0;
-      if(sh[i])out[i]=sh[i].length>7?sh[i].slice(0,7):sh[i];
-      else if(get(x-1,y)||get(x+1,y)||get(x,y-1)||get(x,y+1))out[i]=INK;}};
-  const dy=P.dy||0,hx=SPR.hx,hy=SPR.hy+dy,fy=SPR.hy+(P.air?dy:0),sx=hx+1,sy=hy-11,glove="#f8f4ecff"; // 9-char colours skip shading
-  const arm=(d,h,c)=>{const tx=hx+h[0],ty=hy+h[1],[ex,ey,wx,wy]=ik(sx,sy,tx,ty,11,10,ty<sy?-1:1);d.seg(sx,sy,ex,ey,3.4,c);d.seg(ex,ey,wx,wy,3.2,c);
-    d.disc(wx-(wx-ex)*.18,wy-(wy-ey)*.18,1.3,tone(c,-.3));d.disc(wx,wy,1.9,glove);};
-  const leg=(d,f,c,boot,patch)=>{const tx=hx+f[0],ty=fy+f[1],[kx,ky,ax,ay]=ik(hx,hy+1,tx,ty,9,9,-1);d.seg(hx,hy+1,kx,ky,4.6,c);d.seg(kx,ky,ax,ay,4.2,c);
-    if(patch)d.box(Math.round(kx)-1,Math.round(ky)-1,Math.round(kx),Math.round(ky),L.ptl);
-    const bx=Math.round(ax),by=Math.round(ay);d.box(bx-2,by-3,bx+3,by,boot);d.box(bx-2,by+1,bx+4,by+1,L.bootd+"ff");d.set(bx+2,by-3,L.bootl);};
-  // far side: the arm and leg away from us, a shade darker, then the pack on the back
-  layer(d=>{arm(d,P.hf,tone(L.jk,-.18));leg(d,P.ff,tone(L.pt,-.2),tone(L.boot,-.15),0);});
-  layer(d=>{d.box(hx-10,hy-16,hx-4,hy-3,L.pk);d.box(hx-10,hy-16,hx-4,hy-13,L.pkd);d.set(hx-7,hy-12,"#f2b233");d.box(hx-11,hy-20,hx-3,hy-17,L.roll);
-    for(let a=0;a<12;a++)d.set(hx-11+Math.cos(a/12*6.28)*2.4,hy-7+Math.sin(a/12*6.28)*2.6,L.rope);});
-  // body: jacket, harness, chalk bag, gear, near leg, scarf, head and hat
-  layer(d=>{d.disc(hx,hy-8,4.6*wb,L.jk);d.disc(hx+1,hy-4,4.6*wb,L.jk);d.box(hx-3,hy-11,hx+3,hy-1,L.jk);
-    if(L.plaid)plaid(d,L);else for(const y of [hy-8,hy-4])for(let x=hx-6;x<=hx+7;x++)if(d.get(x,y)===L.jk)d.set(x,y,L.jkd);
-    for(let x=hx-6;x<=hx+7;x++)for(const y of [hy-1,hy])if(d.get(x,y))d.set(x,y,L.hn);d.set(hx+4,hy-1,"#c7ccd4");
-    d.box(hx-6,hy,hx-4,hy+3,L.cb);for(let i=0;i<(o.gear|0);i++){const x=hx+1+i*2,c=i%2?"#f2b233":"#e0472b";d.set(x,hy+1,c);d.set(x,hy+2,c);}
-    leg(d,P.fn,L.pt,L.boot,L.patch);
-    const fl=o.flap?1:0;if(!L.noscarf){d.box(hx-2,hy-13,hx+3,hy-12,L.sc);for(let i=1;i<=5;i++){const y=hy-12+(i>2?1:0)+(i%2?fl:0);d.set(hx-2-i,y,i%2?L.sc:L.jk);d.set(hx-2-i,y+1,L.sc);}}
-  });
+      if(b[i])out[i]=b[i];else if(get(x-1,y)||get(x+1,y)||get(x,y-1)||get(x,y+1))out[i]=OUTLINE;}};
+  const dy=P.dy||0,hx=SPR.hx,hy=SPR.hy+dy,fy=SPR.hy+(P.air?dy:0),a=(P.lean||0)*Math.PI/180,rot=(x,y)=>[x*Math.cos(a)-y*Math.sin(a),x*Math.sin(a)+y*Math.cos(a)];
+  const at=(x,y)=>{const [u,v]=rot(x,y);return [hx+u,hy+v];};
+  const [sx,sy]=at(1,-23),[nx,ny]=at(1,-26),[cx,cy]=[nx+1+Math.sin(a)*3,ny-7-(P.up?0:0)];
+  const arm=(d,h,far)=>{const tx=hx+h[0],ty=hy+h[1],[ex,ey,wx,wy]=ik(sx,sy,tx,ty,14,13,ty<sy?-1:1),top=far?farOf(L.top):L.top,sk=far?farOf(SKIN):SKIN;
+    d.cap(sx,sy,ex,ey,3.8,3.2,top);d.cap(ex,ey,wx,wy,3.2,2.7,top);
+    const hx2=wx+(wx-ex)/13*2.5,hy2=wy+(wy-ey)/13*2.5;d.cap(wx-(wx-ex)/13*.5,wy-(wy-ey)/13*.5,hx2,hy2,1.6,2.2,sk);};
+  const leg=(d,f,far)=>{const tx=hx+f[0],ty=fy+f[1],[kx,ky,ax,ay]=ik(hx,hy+2,tx,ty,17,17,-1),pt=far?farOf(L.pants):L.pants,bt=far?farOf(L.boot):L.boot;
+    d.cap(hx,hy+2,kx,ky,4.8,4,pt);d.cap(kx,ky,ax,ay,4,3.3,pt);
+    // a laced hiking boot pointing toward the wall, with a dark sole
+    d.cap(ax-1,ay,ax+4,ay+1.5,3,2.4,bt);for(let x=Math.round(ax)-3;x<=Math.round(ax)+6;x++)d.set(x,Math.round(ay)+3,"#2a1a10");
+    d.set(Math.round(ax)+1,Math.round(ay)-2,bt.l);};
+  // far limbs first, a shade darker
+  layer(d=>{arm(d,P.hf,1);});
+  layer(d=>{leg(d,P.ff,1);});
+  // the pack: a tall rucksack on the back with a rolled mat on top, a coiled rope and a side pocket
+  layer(d=>{const [p0x,p0y]=at(-10,-4),[p1x,p1y]=at(-11,-25);d.cap(p0x,p0y,p1x,p1y,6.5,7,L.pack);
+    const [fx,fy2]=at(-10,-26);d.ell(fx,fy2,6.5,3,{l:L.pack.m,m:L.pack.d,d:tone(L.pack.d,-.3)});
+    const [r0x,r0y]=at(-16,-31),[r1x,r1y]=at(-4,-31);d.cap(r0x,r0y,r1x,r1y,2.6,2.6,L.roll);
+    const [kx,ky]=at(-15,-8);for(let k=0;k<14;k++){const q=k/14*6.283;d.set(kx+Math.cos(q)*3.2,ky+Math.sin(q)*3.6,L.coil);}
+    const [qx,qy]=at(-6,-6);d.ell(qx,qy,2.5,3.5,{l:L.pack.m,m:L.pack.d,d:tone(L.pack.d,-.3)});});
+  // body: torso, harness and gear, the near leg, scarf
+  layer(d=>{d.cap(hx,hy-2,sx,sy+2,6.8,8,L.top);
+    if(L.zip){for(let k=0;k<22;k++){const [x,y]=at(6,-3-k);if(d.get(Math.round(x),Math.round(y)))d.set(x,y,L.top.d);}}
+    // harness: a waist belt with a buckle, and carabiners clipped at the hip
+    for(let x=-7;x<=7;x++){const [u,v]=at(x,1);d.set(u,v,"#34343c");const [u2,v2]=at(x,0);if(d.get(Math.round(u2),Math.round(v2)))d.set(u2,v2,"#4a4a54");}
+    const [bx,by]=at(5,0);d.set(bx,by,"#c7ccd4");d.set(bx+1,by,"#c7ccd4");
+    for(let i=0;i<(o.gear|0);i++){const [gx,gy]=at(-5+i*3,3),c=i%2?"#f2b233":"#c7ccd4";for(let k=0;k<4;k++)d.set(gx,gy+k,c);d.set(gx+1,gy+3,c);}
+    // a pack strap over the shoulder
+    for(let k=0;k<16;k++){const [x,y]=at(-2+k*.35,-22+k*1.1);d.set(x,y,tone(L.pack.d,-.2));}
+    leg(d,P.fn,0);
+    if(L.scarf){const fl=o.flap?1:0;d.cap(nx-4,ny+1,nx+4,ny+1,2,2,L.scarf);d.cap(nx-4,ny+2,nx-10,ny+5+fl,2,1.4,L.scarf);}});
   // the near arm goes over the body but under the head, so a raised arm never hides the face
-  layer(d=>{arm(d,P.hn,L.jk);if(L.plaid)plaid(d,L);});
-  layer(d=>{const cx=hx+2,cy=hy-19,R=7;
-    if(L.long)d.box(hx-5,cy-2,hx-1,hy-9,L.hair); // long hair falls behind the shoulders
-    d.disc(cx,cy,R,L.skin);
-    for(let y=cy-R;y<=cy+R;y++)for(let x=cx-R;x<=hx;x++)if(d.get(x,y)===L.skin)d.set(x,y,L.hair);
-    d.disc(hx+1,hy-18,1.3,L.skind);
-    const ex=hx+6,ey=cy-(P.up?1:0);
-    if(P.oh){d.box(ex,ey-1,ex+1,ey+1,"#ffffffff");d.set(ex+1,ey,INK);}
-    else if(o.blink||P.eff){d.set(ex,ey,INK);d.set(ex+1,ey,INK);}
-    else{d.set(ex,ey-1,INK);d.set(ex,ey,INK);d.set(ex+1,ey-1,"#ffffffff");}
-    d.set(ex-1,ey-3+(P.eff?1:0),L.hair);d.set(ex,ey-3,L.hair);d.set(ex+1,ey-3,L.hair);
-    d.disc(hx+9.5,hy-17,1.4,tone(L.skin,-.1));d.set(hx+5,hy-16,"#f08a7a");
-    if(L.freck){d.set(hx+4,hy-17,L.skind);d.set(hx+6,hy-15,L.skind);}
-    // a full beard: jaw and chin in the hair colour, with the mouth showing through
-    if(L.beard){for(let y=hy-16;y<=hy-12;y++)for(let x=hx+1;x<=hx+10;x++)if(d.get(x,y)&&(x-hx-4)**2/40+(y-hy+16)**2/30<=1.2)d.set(x,y,L.hair+"ff");
-      d.box(hx+2,hy-13,hx+8,hy-12,L.hair+"ff");}
-    if(P.oh)d.box(hx+7,hy-15,hx+8,hy-14,INK+"ff");
-    else if(P.joy){d.box(hx+6,hy-15,hx+9,hy-14,"#8c2a1d");d.box(hx+7,hy-15,hx+8,hy-15,"#ffffffff");}
-    else if(P.eff){d.set(hx+7,hy-14,INK);d.set(hx+8,hy-14,INK);}
-    else{d.set(hx+7,hy-14,"#8c2a1d");d.set(hx+8,hy-15,"#8c2a1d");}
-    // beanie: a dome, a folded band, an optional stripe and bobble
-    for(let y=cy-11;y<=cy-3;y++)for(let x=cx-8;x<=cx+8;x++)if((x-cx)**2+((y-cy+3)*1.1)**2<=58)d.set(x,y,L.hat);
-    d.box(cx-8,cy-3,cx+7,cy-1,L.hatd);for(let x=cx-7;x<=cx+7;x+=2)d.set(x,cy-2,tone(L.hatd,-.2));
-    if(L.stripe)for(let x=cx-8;x<=cx+8;x++)if(d.get(x,cy-7)===L.hat)d.set(x,cy-7,L.stripe);
-    if(L.pom)d.disc(hx-2,cy-13,2.3,L.pom);});
+  layer(d=>{arm(d,P.hn,0);});
+  // head: skull, face in profile, hair or beard, then the beanie
+  layer(d=>{const hr=L.hair;
+    if(L.long){d.cap(cx-3,cy-2,cx-6,cy+14,4.2,3.4,hr);}
+    d.cap(nx,ny+2,nx+1,ny-2,2.6,2.6,SKIN); // neck
+    d.ell(cx,cy,6,7,{l:SKIN.l,m:SKIN.m,d:SKIN.m});for(let x=Math.round(cx)-1;x<=Math.round(cx)+4;x++)if(d.get(x,Math.round(cy)+6))d.set(x,Math.round(cy)+6,SKIN.d);
+    // short hair at the back of the head and an ear
+    if(!L.long)for(let y=cy-2;y<=cy+4;y++)for(let x=cx-6;x<=cx-2;x++)if(d.get(Math.round(x),Math.round(y)))d.set(x,y,d.shade(hr,(x-cx)/6,(y-cy)/7,x,y));
+    if(L.long)for(let y=cy-2;y<=cy+3;y++)for(let x=cx-6;x<=cx-1;x++)if(d.get(Math.round(x),Math.round(y)))d.set(x,y,d.shade(hr,(x-cx)/6,(y-cy)/7,x,y));
+    d.set(cx-1,cy+1,SKIN.d);d.set(cx-1,cy+2,SKIN.d);d.set(cx-2,cy+1,SKIN.m);
+    // nose, eye and brow facing the wall
+    const ex=cx+3,ey=cy-(P.up?2:0);
+    d.set(cx+6,cy+1,SKIN.m);d.set(cx+7,cy+1,SKIN.d);d.set(cx+6,cy+2,SKIN.d);
+    if(P.oh){d.set(ex,ey-1,"#ffffff");d.set(ex,ey,"#ffffff");d.set(ex+1,ey,OUTLINE);d.set(ex+1,ey-1,"#ffffff");}
+    else if(o.blink||P.eff){d.set(ex,ey,OUTLINE);d.set(ex+1,ey,OUTLINE);}
+    else{d.set(ex,ey,OUTLINE);d.set(ex,ey-1,OUTLINE);d.set(ex+1,ey-1,"#ffffff");}
+    for(let x=ex-1;x<=ex+2;x++)d.set(x,ey-2-(P.eff?0:0),hr.d);
+    if(L.freck){d.set(cx+3,cy+2,SKIN.d);d.set(cx+5,cy+2,SKIN.d);}
+    // a full beard over jaw and chin, with the mouth showing through; otherwise just a mouth
+    if(L.beard){for(let y=cy+1;y<=cy+9;y++)for(let x=cx-2;x<=cx+7;x++){const inHead=d.get(x,y),chin=y>cy+5&&x>=cx-1&&x<=cx+5-Math.max(0,y-cy-7)*2;
+        if((inHead&&y>=cy+3&&x>=cx-1)||chin)d.set(x,y,d.shade(hr,(x-cx-2)/6,(y-cy-3)/6,x,y));}
+      for(let x=cx+4;x<=cx+6;x++)d.set(x,cy+4,P.oh||P.joy?"#5a1a14":hr.d);}
+    else{if(P.oh||P.joy){d.set(cx+5,cy+4,"#5a1a14");d.set(cx+6,cy+4,"#5a1a14");d.set(cx+5,cy+5,"#8c2a1d");}else{d.set(cx+5,cy+4,"#a04a3a");d.set(cx+6,cy+4,SKIN.d);}}
+    // beanie: a dome over the crown, a ribbed fold-up band, an optional stripe and bobble
+    d.ell(cx-1,cy-4,7,6.5,L.hat,(x,y)=>y<=cy-2);
+    for(let x=Math.round(cx)-7;x<=Math.round(cx)+6;x++)for(let y=Math.round(cy)-3;y<=Math.round(cy)-1;y++){if(x>cx+5&&y>cy-2)continue;d.set(x,y,(x&1)?L.band.m:L.band.d);}
+    if(L.stripe)for(let x=Math.round(cx)-7;x<=Math.round(cx)+5;x++)if(d.get(x,Math.round(cy)-6))d.set(x,Math.round(cy)-6,L.stripe);
+    if(L.pom)d.ell(cx-3,cy-11,2.6,2.4,L.pom);});
   const [c,g]=mk(W,H);
   for(let i=0;i<W*H;i++)if(out[i]){g.fillStyle=out[i];g.fillRect(i%W,(i/W)|0,1,1);}
   return c;}
@@ -319,14 +344,14 @@ class Rig{
   constructor(L,hold,rest){this.L=L;this.hold=hold;this.rest=rest;this.mode="stand";this.N={x:0,y:0};this.v={x:0,y:0};
     this.h=[{x:0,y:0},{x:0,y:0}];this.hi=0;this.gx=0;this.gy=0;this.cheer=0;this.dizzy=0;this.fall=null;this.cnt=0;
     this.mv=null;this.clip=null;this.pose="stand";this.dir=1;this.idleAt=0;this.ph=Math.random()*6;this.cache=new Map();}
-  pelvis(){return {x:this.N.x,y:this.N.y+12};}
-  // the hang spot: near hand on hold i (hands sit 13 art px in front of the hips, 29 above)
-  hangAt(i){const a=this.hold(i);return {x:a[0]-13,y:a[1]+17};}
+  pelvis(){return {x:this.N.x,y:this.N.y};}
+  // the hang spot: N is the hips; the near hand sits HANG from them on hold i
+  hangAt(i){const a=this.hold(i);return {x:a[0]-HANG[0],y:a[1]-HANG[1]};}
   play(frames,loop=-1){this.clip={frames:frames.map(([p,ms])=>[p,Math.max(40,ms)]),loop,i:0,t:0};this.pose=frames[0][0];}
   standLoop(){this.play([["stand",650],["stand2",650]],0);}
   slide(x,y,d,wait=0){this.mv={x0:this.N.x,y0:this.N.y,x1:x,y1:y,t:0,d:Math.max(d,.001),wait};}
   calm(){this.idleAt=FX.time+2.6+Math.random()*2.6;}
-  standAt(x,y){this.mode="stand";this.fall=null;this.mv=null;this.gx=x;this.gy=y;this.N.x=x;this.N.y=y-31;this.standLoop();this.calm();this.pin();}
+  standAt(x,y){this.mode="stand";this.fall=null;this.mv=null;this.gx=x;this.gy=y;this.N.x=x;this.N.y=y-LEG;this.standLoop();this.calm();this.pin();}
   grab(i){this.mode="climb";this.fall=null;this.mv=null;this.hi=i;const p=this.hangAt(i);this.N.x=p.x;this.N.y=p.y;this.play([["hang",1e9]]);this.calm();this.pin();}
   stepUp(d){const n=++this.hi,p=this.hangAt(n),ms=d*1000;this.mode="climb";this.slide(p.x,p.y,d);
     this.play([[n%2?"reachR":"reachL",ms*.5],["pull",ms*.5],["hang",1e9]]);this.calm();}
@@ -336,7 +361,7 @@ class Rig{
     this.play([["pull",ms*.5],[n%2?"reachL":"reachR",ms*.5],["hang",1e9]]);this.calm();}
   reachFrom(i,d){const ms=d*1000,first=this.mode==="fall"?"pull":"hop";this.mode="climb";this.fall=null;this.hi=i;const p=this.hangAt(i);
     this.slide(p.x,p.y,d*.6,d*.4);this.play([[first,ms*.4],["jump",ms*.6],["hang",1e9]]);this.calm();}
-  topOut(x,y,d){this.slide(x,y-31,d);this.play([["mantle",d*600],["hop",1e9]]);}
+  topOut(x,y,d){this.slide(x,y-LEG,d);this.play([["mantle",d*600],["hop",1e9]]);}
   land(x,y){this.standAt(x,y);this.play([["hop",160],["stand",650],["stand2",650]],1);}
   startFall(ax,ay,len){this.mode="fall";this.mv=null;this.fall={ax,ay,len,caught:0};this.v.y=-35;this.v.x=(Math.random()-.5)*20;this.play([["fall1",110],["fall2",110]],0);}
   // where the hands are in the world this frame (for chalk puffs)
@@ -371,8 +396,8 @@ class Rig{
       if(this.dir<0){const [c,cg]=mk(s.width,s.height);cg.translate(s.width,0);cg.scale(-1,1);cg.drawImage(s,0,0);img=c;}else img=s;
       this.cache.set(key,img);}
     const x=R0(this.N.x)+ox,y=R0(this.N.y)+oy,hx=this.dir<0?SPR.W-SPR.hx:SPR.hx;
-    g.drawImage(img,x-hx,y-(SPR.hy-12));
-    if(this.dizzy>0)for(let i=0;i<3;i++){const a=Math.floor(t*8)/8*6+i*2.09;rect(g,x+R0(Math.cos(a)*8)-1,y-26+R0(Math.sin(a)*2)-1,2,2,i%2?C.cream:C.gold);}
+    g.drawImage(img,x-hx,y-SPR.hy);
+    if(this.dizzy>0)for(let i=0;i<3;i++){const a=Math.floor(t*8)/8*6+i*2.09;rect(g,x+R0(Math.cos(a)*8)-1,y-50+R0(Math.sin(a)*2)-1,2,2,i%2?C.cream:C.gold);}
   }
 }
 /* ---------- rope: a stepped sagging line from the partner's harness through the clipped bolts to the leader ---------- */
@@ -391,7 +416,7 @@ function puff(x,y){for(let i=0;i<4;i++)emit({k:"chalk",x:x+(Math.random()-.5)*3,
 function pebbles(r){for(let i=0;i<6;i++)emit({k:"peb",x:r.N.x+(Math.random()-.5)*10,y:r.N.y-10,vx:(Math.random()-.5)*16,vy:-10-Math.random()*16,g:350,l:1.8,m:1.8});}
 function embers(x,y,amt){const dt=FX.dt;if(Math.random()<dt*7*amt)emit({k:"ember",x:x+(Math.random()-.5)*5,y:y-4,vx:(Math.random()-.5)*5+3,vy:-14-Math.random()*10,g:-3,l:1.1+Math.random(),m:2.1});
   if(Math.random()<dt*1.4*amt)emit({k:"smoke",x:x+(Math.random()-.5)*3,y:y-9,vx:4,vy:-8,g:-1,l:2.6,m:2.6});}
-function pop(r,text){if(RM.matches)return;FX.pops.push({x:r.N.x,y:r.N.y-26,text,t:0});sfx("pop");}
+function pop(r,text){if(RM.matches)return;FX.pops.push({x:r.N.x,y:r.N.y-58,text,t:0});sfx("pop");}
 function stepParts(dt){FX.parts=FX.parts.filter(p=>{p.l-=dt;p.vy+=p.g*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;return p.l>0;});
   FX.pops=FX.pops.filter(p=>(p.t+=dt)<1.1);}
 function drawParts(g,ox,oy,t){for(const p of FX.parts){const a=p.l/p.m,x=R0(p.x)+ox,y=R0(p.y)+oy;
@@ -409,17 +434,17 @@ function sign(text){const s=textSprite(text,C.cream,null),[c,g]=mk(s.width+6,s.h
   g.drawImage(s,3,1);return c;}
 // a camp shelf jutting from the cliff: rock with a grassy (Camp I) or snowy (Camp II) top, a tent and a sign
 function campLayer(k,cy){if(FX.camps[k])return FX.camps[k];
-  const x0=-140,x1=30,y0=cy-60,y1=cy+24,[c,g]=mk(x1-x0,y1-y0),X=x=>x-x0,Y=y=>y-y0,snow=k==="c2";
-  for(let x=-134;x<x1;x++){const end=x<-126?(x+134)/8:1,th=R0((9+hash(x>>2,5)*4)*end);
+  const x0=-176,x1=30,y0=cy-60,y1=cy+24,[c,g]=mk(x1-x0,y1-y0),X=x=>x-x0,Y=y=>y-y0,snow=k==="c2";
+  for(let x=-170;x<x1;x++){const end=x<-160?(x+170)/10:1,th=R0((9+hash(x>>2,5)*4)*end);
     for(let y=0;y<=th;y++){let col=rockAt(x,cy+y+400);if(y===th)col=C.crack;else if(y>=th-1)col=C.rockD;
       if(y<=1)col=snow?(y?C.snowS:C.snow):(y?C.moss:C.mossL);if(y===2&&!snow&&hash(x,9)<.4)col=C.mossD;dot(g,X(x),Y(cy+y),col);}
     if(!snow&&hash(x,4)<.35)dot(g,X(x),Y(cy-1),hash(x,6)<.5?C.grassL:C.mossH);}
-  g.drawImage(sprites().tent,X(-130),Y(cy-12));
-  const s=sign(k==="c1"?"CAMP I":"CAMP II");g.drawImage(s,X(-112)-(s.width>>1),Y(cy-44));
-  rect(g,X(-112),Y(cy-44)+s.height,1,44-s.height,C.woodD);
+  g.drawImage(sprites().tent,X(-166),Y(cy-12));
+  const s=sign(k==="c1"?"CAMP I":"CAMP II");g.drawImage(s,X(-150)-(s.width>>1),Y(cy-44));
+  rect(g,X(-150),Y(cy-44)+s.height,1,44-s.height,C.woodD);
   return FX.camps[k]={c,x0,y0};}
 function drawCamp(g,k,cy,t,ox,oy){const L=campLayer(k,cy);g.drawImage(L.c,L.x0+ox,L.y0+oy);
-  const amt=fireAmt(k);g.drawImage(sprites().fire[amt>0?(Math.floor(t*8)%3):0],-94+ox,cy-11+oy);if(amt>0)embers(-89,cy-6,amt);}
+  const amt=fireAmt(k);g.drawImage(sprites().fire[amt>0?(Math.floor(t*8)%3):0],-126+ox,cy-11+oy);if(amt>0)embers(-121,cy-6,amt);}
 // the base-camp meadow and the near pines, painted once per view width
 function baseLayer(){const ox=FX.ox,w=FX.vw;if(FX.base&&FX.base.ox===ox&&FX.base.w===w)return FX.base;
   const x0=-ox-8,x1=w-ox+8,y0=-90,y1=120,[c,g]=mk(x1-x0,y1-y0),X=x=>x-x0,Y=y=>y-y0;
@@ -429,10 +454,10 @@ function baseLayer(){const ox=FX.ox,w=FX.vw;if(FX.base&&FX.base.ox===ox&&FX.base
     for(let y=top;y<y1;y++){let col=y<=0?C.grassL:y<4?C.grass:y<7?(hash(x,y)<.5?C.grass:C.dirt):y<40?(hash(x,y)<.08?C.dirtD:C.dirt):C.dirtD;
       if(y>=1&&y<4&&hash(x*3,y)<.12)col=C.mossH;dot(g,X(x),Y(y),col);}
     if(hash(x,8)<.18)dot(g,X(x),Y(-2),C.grassL);}
-  g.drawImage(sprites().tent,X(-110),Y(-12));
-  const s=sign("BASE CAMP");g.drawImage(s,X(-120)-(s.width>>1),Y(-40));rect(g,X(-120),Y(-40)+s.height,1,40-s.height,C.woodD);
+  g.drawImage(sprites().tent,X(-150),Y(-12));
+  const s=sign("BASE CAMP");g.drawImage(s,X(-166)-(s.width>>1),Y(-40));rect(g,X(-166),Y(-40)+s.height,1,40-s.height,C.woodD);
   return FX.base={c,x0,y0,ox,w};}
-function drawFrontPines(g,ox,oy){for(const [x,h] of [[-168,64],[-6,46],[14,58]]){const s=FX.pines?.[h]||(FX.pines=FX.pines||{},FX.pines[h]=pineSprite(h,h*13,{l:C.pineL,m:C.pine,d:C.pineD,h:C.pineH}));
+function drawFrontPines(g,ox,oy){for(const [x,h] of [[-214,64],[-6,46],[14,58]]){const s=FX.pines?.[h]||(FX.pines=FX.pines||{},FX.pines[h]=pineSprite(h,h*13,{l:C.pineL,m:C.pine,d:C.pineD,h:C.pineH}));
   g.drawImage(s,x+ox-(s.width>>1),2-h+oy);}}
 // a tall flag on the tip, and a sign on a post down the left ridge
 function drawSummit(g,t,ox,oy){const fx=SX-18,fy=R0(peakTop(fx))+1;rect(g,fx+ox,fy-30+oy,1,30,INK);g.drawImage(sprites().flag[Math.floor(t*3)%2],fx+ox,fy-30+oy);
@@ -521,7 +546,7 @@ function paint(t){
     if(cy<h*.7)drawCloud(g,cx,cy,.8+hash(k,2)*.6,k);}
   for(const b of FX.birds)for(let i=0;i<b.n;i++)g.drawImage(SP.bird?SP.bird[Math.floor(b.t*5+i)%2]:sprites().bird[0],R0(b.x-i*7),R0(b.y*h+(i%2?3:-1)*i));
   for(const L of FX.layers){const y=R0(climb*L.par);if(y<h)g.drawImage(L.c,0,y);}
-  if(vy1>-120){const B=baseLayer();g.drawImage(B.c,B.x0+ox,B.y0+oy);g.drawImage(sprites().fire[Math.floor(t*8)%3],-82+ox,-11+oy);embers(-77,-6,1);}
+  if(vy1>-120){const B=baseLayer();g.drawImage(B.c,B.x0+ox,B.y0+oy);g.drawImage(sprites().fire[Math.floor(t*8)%3],-126+ox,-11+oy);embers(-121,-6,1);}
   const [c1,c2]=chunkRange(vy0,vy1);for(let ci=c1;ci<=c2;ci++)g.drawImage(chunk(ci),-40+ox,-(ci+1)*CHK+oy);
   if(vy1>-120)drawFrontPines(g,ox,oy);
   drawRoute(g,vy0,vy1,ox,oy);
@@ -569,11 +594,11 @@ async function downRig(r,to,ms,id,ch){const ok=()=>FX.ch[ch]===id,rs=r.rest(to),
   if(rs){r.land(rs.x,rs.y);r.hi=to;if(!(await wait(520,ch)))return false;}
   return ok();}
 async function fallRig(r,anchor,back,id,ch,caught){
-  const rs=r.rest(anchor),[ax,ay]=rs?[rs.x,rs.y-20]:r.hold(anchor),near=r===FX.A.me;
-  pebbles(r);if(near)sfx("whistle");r.startFall(ax,ay+(caught?5:0),caught?Math.hypot(r.N.x-ax,r.N.y-ay-5)+8:17);
+  const rs=r.rest(anchor),[ax,ay]=rs?[rs.x,rs.y-40]:r.hold(anchor),near=r===FX.A.me;
+  pebbles(r);if(near)sfx("whistle");r.startFall(ax,ay+(caught?8:0),caught?Math.hypot(r.N.x-ax,r.N.y-ay-8)+12:30);
   if(!(await wait(caught?1500:1900,ch)))return false;
   if(!caught){r.dizzy=1.6;FX.shake=Math.max(FX.shake,.6);}
-  r.reachFrom(clamp(Math.round(-(r.N.y-17)/HS),2,IDX_TOP-1),.3);
+  r.reachFrom(clamp(Math.round(-(r.N.y+HANG[1])/HS),2,IDX_TOP-1),.3);
   if(!(await wait(caught?360:900,ch)))return false;
   return climbRig(r,back,260,id,ch);
 }

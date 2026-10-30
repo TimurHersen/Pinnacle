@@ -440,8 +440,8 @@ function terrainArt(k){if(TART[k])return TART[k];
 // a head-and-shoulders portrait cut from the climber's standing sprite
 const PORT=new Map();
 function portrait(L){if(PORT.has(L))return PORT.get(L);
-  const s=pixelSprite(L,"stand",{}),c=document.createElement("canvas");c.width=c.height=20;const g=c.getContext("2d");
-  g.fillStyle="#4479c6";g.fillRect(0,0,20,20);g.fillStyle="#7cafe0";g.fillRect(0,13,20,7);g.drawImage(s,SPR.hx-6,SPR.hy-33,20,20,0,0,20,20);
+  const s=pixelSprite(L,"stand",{}),c=document.createElement("canvas");c.width=c.height=24;const g=c.getContext("2d");
+  g.fillStyle="#4479c6";g.fillRect(0,0,24,24);g.fillStyle="#7cafe0";g.fillRect(0,16,24,8);g.drawImage(s,SPR.hx-9,SPR.hy-45,24,24,0,0,24,24);
   const u=c.toDataURL();PORT.set(L,u);return u;}
 // the expedition as a map: base camp to summit, both route options at each camp, every pitch's state
 function mapHtml(t){
