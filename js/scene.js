@@ -161,12 +161,27 @@ const ART={};
     load=(src,fn)=>{const im=new Image();im.onload=()=>fn(im);im.src=src;};
   load("assets/valley.png",im=>{ART.sky=rgb(pixels(im),im.width>>1,0);ART.valley=im;});
   load("assets/pines.png",im=>{ART.pineBase=rgb(pixels(im),im.width>>1,im.height-1);ART.pines=im;});
-  // rock chunks painted before the textures arrived repaint with them
-  load("assets/cliff-low.png",im=>{ART.rockLo=pixels(im);FX.chunks.clear();});
-  // the high granite is cooled halfway to a blue-grey of its own brightness, so the upper wall reads as cold
-  load("assets/cliff-high.png",im=>{const p=pixels(im),d=p.d;
-    for(let i=0;i<d.length;i+=4){const l=d[i]*.3+d[i+1]*.59+d[i+2]*.11;d[i]=R0(lerp(d[i],l*.86,.5));d[i+1]=R0(lerp(d[i+1],l*.94,.5));d[i+2]=Math.min(255,R0(lerp(d[i+2],l*1.12,.5)));}
-    ART.rockHi=p;FX.chunks.clear();});})();
+  // high on the mountain the same art turns wintry: moss and grass (green-dominant pixels) become snow by brightness,
+  // and the rock is cooled halfway to a blue-grey of its own brightness
+  const wintry=d=>{for(let i=0;i<d.length;i+=4){if(!d[i+3])continue;const r=d[i],gr=d[i+1],b=d[i+2],l=r*.3+gr*.59+b*.11;
+    if(gr>r+8&&gr>b+8){const s=l>110?[242,245,247]:l>70?[191,210,230]:[142,170,204];d[i]=s[0];d[i+1]=s[1];d[i+2]=s[2];}
+    else{d[i]=R0(lerp(r,l*.86,.5));d[i+1]=R0(lerp(gr,l*.94,.5));d[i+2]=Math.min(255,R0(lerp(b,l*1.12,.5)));}}};
+  // one granite texture for the whole wall: mossy low down, its wintry copy high up; rock chunks painted before it
+  // arrived repaint with it
+  load("assets/cliff-low.png",im=>{ART.rockLo=pixels(im);const hi=pixels(im);wintry(hi.d);ART.rockHi=hi;FX.chunks.clear();});
+  // the walkable surface of a platform image: the first opaque row down its middle
+  const surface=p=>{const x=p.w>>1;for(let y=0;y<p.h;y++)if(p.d[(y*p.w+x)*4+3]>40)return y;return 0;};
+  // camp ledges: Camp I as drawn; Camp II with its grass and moss turned to snow and its rock cooled to blue-grey
+  load("assets/ledge.png",im=>{const p=pixels(im);ART.ledge=im;ART.ledgeTop=surface(p);wintry(p.d);
+    const [c,g]=mk(p.w,p.h),id=g.createImageData(p.w,p.h);id.data.set(p.d);g.putImageData(id,0,0);ART.ledgeSnow=c;FX.camps={};});
+  load("assets/tent.png",im=>{ART.tent=im;FX.camps={};FX.base=null;});
+  load("assets/pine.png",im=>{ART.pine=im;FX.base=null;});
+  // the base-camp meadow: a grass-and-soil strip repeated along the valley floor, solid soil below it
+  // (solid soil fills in from the strip's deepest row that is opaque all the way across, in that row's colour, so
+  // the strip's ragged lower edge never shows the scenery behind it)
+  load("assets/ground.png",im=>{const p=pixels(im);ART.groundTop=surface(p);let y=p.h-1;
+    const full=y=>{for(let x=0;x<p.w;x++)if(p.d[(y*p.w+x)*4+3]<250)return false;return true;};
+    while(y>ART.groundTop&&!full(y))y--;ART.ground=im;ART.soilAt=y;ART.soil=rgb(p,p.w>>1,y);FX.base=null;});})();
 const valleyY=(h,climb)=>R0(h-ART.valley.height+climb*.05);
 // the backdrop sinks slowly as the team climbs, with its own sky colour above it and mirrored copies either side
 // when the view is wider than the picture; the lake sits in the open air left of the cliff
@@ -178,8 +193,9 @@ function drawValley(g,w,h,climb){const V=ART.valley,y=valleyY(h,climb),x0=R0(FX.
 function drawPines(g,w,h,climb){const P=ART.pines,y=R0(h*.9-P.height*.6+climb*.17);if(y>=h)return;
   for(let x=FX.ox%P.width-P.width;x<w;x+=P.width)g.drawImage(P,x,y);
   rect(g,0,y+P.height,w,h-y-P.height,ART.pineBase);}
-// a texture pixel, the texture mirrored at every edge so neighbouring tiles always meet
-function texAt(T,x,y){const m=(v,n)=>{v=(v%(2*n)+2*n)%(2*n);return v<n?v:2*n-1-v;},i=(m(y,T.h)*T.w+m(x,T.w))*4;return [T.d[i],T.d[i+1],T.d[i+2]];}
+// a texture pixel, the texture mirrored at every edge so neighbouring tiles always meet; its outermost pixel ring
+// (a flat border line on some generated images) is left out, so a mirror never doubles it into a stripe
+function texAt(T,x,y){const m=(v,n)=>{n-=2;v=(v%(2*n)+2*n)%(2*n);return 1+(v<n?v:2*n-1-v);},i=(m(y,T.h)*T.w+m(x,T.w))*4;return [T.d[i],T.d[i+1],T.d[i+2]];}
 
 /* ---------- the cliff: granite blocks, moss low down, snow high up, painted once per chunk ---------- */
 const uOf=y=>clamp(y/TOPY,0,1);
@@ -219,7 +235,7 @@ function paintChunk(ci){
       if(wx<L)continue;
       if(wx===L)col=C.crack;
       // the generated granite: warm and mossy low down, cold and snowy high up, with a dithered seam between
-      else if(tex){v=texAt(uOf(wy)>.6+(hash(wx,wy)-.5)*.06?ART.rockHi:ART.rockLo,wx-L,wy);if(wx<=L+2)v=v.map(k=>k+(255-k)*.3|0);}
+      else if(tex){v=texAt(uOf(wy)>.6+(hash(wx,wy)-.5)*.06?ART.rockHi:ART.rockLo,wx-L,wy);if(wx===L+1)v=v.map(k=>k+(255-k)*.12|0);}
       else if(wx<=L+2)col=uOf(wy)>.74&&hash(wy>>1,8)<.5?C.snow:uOf(wy)>.6?C.coldL:C.rockL;
       else col=rockAt(wx,wy);
       if(wy-peakTop(wx)<1)col=C.snowS;else if(wy-peakTop(wx)<5)col=C.snow; // snow on the summit ridge
@@ -459,14 +475,21 @@ class Rig{
   }
 }
 /* ---------- rope: a stepped sagging line from the partner's harness through the clipped bolts to the leader ---------- */
+const ROPE={l:"#f0b464",m:"#d0702a",s:"#8a3c14",d:"#3a1a0c"};
 class Rope{
   constructor(){this.path=null;}
   update(path){this.path=path;}
-  draw(g,ox,oy){const p=this.path;if(!p||p.length<2)return;
-    for(let i=1;i<p.length;i++){const [x0,y0]=p[i-1],[x1,y1]=p[i],sag=Math.min(8,Math.hypot(x1-x0,y1-y0)*.12),n=Math.max(2,Math.ceil(Math.hypot(x1-x0,y1-y0)/3));
-      let px=x0,py=y0;for(let k=1;k<=n;k++){const t=k/n,mx=(x0+x1)/2+sag*.4,my=(y0+y1)/2+sag,
-        x=(1-t)*(1-t)*x0+2*(1-t)*t*mx+t*t*x1,y=(1-t)*(1-t)*y0+2*(1-t)*t*my+t*t*y1;
-        pline(g,px+ox,py+oy+1,x+ox,y+oy+1,C.ropeD);pline(g,px+ox,py+oy,x+ox,y+oy,C.rope);px=x;py=y;}}}
+  // a 2px kernmantle rope: every pixel along the sagging curve gets a 2x2 dab, dark on the lower right, and a twisted
+  // sheath pattern (a light fleck every few pixels, a dark one between) so it reads as a braided cord, not a line
+  draw(g,ox,oy){const p=this.path;if(!p||p.length<2)return;let s=0;
+    const dab=(x,y,c)=>{g.fillStyle=c;g.fillRect(x,y,2,2);};
+    for(let pass=0;pass<2;pass++){s=0;
+      for(let i=1;i<p.length;i++){const [x0,y0]=p[i-1],[x1,y1]=p[i],L=Math.hypot(x1-x0,y1-y0),sag=Math.min(8,L*.12),n=Math.max(2,Math.ceil(L));
+        const mx=(x0+x1)/2+sag*.4,my=(y0+y1)/2+sag;let lx=null,ly=null;
+        for(let k=0;k<=n;k++){const t=k/n,x=R0((1-t)*(1-t)*x0+2*(1-t)*t*mx+t*t*x1)+ox,y=R0((1-t)*(1-t)*y0+2*(1-t)*t*my+t*t*y1)+oy;
+          if(x===lx&&y===ly)continue;lx=x;ly=y;s++;
+          if(pass===0)dab(x+1,y+1,ROPE.d);
+          else{dab(x,y,ROPE.m);const q=s%4;if(q===0)dot(g,x,y,ROPE.l);else if(q===2)dot(g,x+1,y+1,ROPE.s);}}}}}
 }
 /* ---------- particles and pop-up words ---------- */
 function emit(p){if(FX.parts.length<300&&!RM.matches)FX.parts.push(p);}
@@ -490,32 +513,49 @@ function drawParts(g,ox,oy,t){for(const p of FX.parts){const a=p.l/p.m,x=R0(p.x)
 function sign(text){const s=textSprite(text,C.cream,null),[c,g]=mk(s.width+6,s.height+4);
   rect(g,0,0,c.width,c.height,INK);rect(g,1,1,c.width-2,c.height-2,C.wood);rect(g,1,1,c.width-2,1,C.woodL);rect(g,1,c.height-2,c.width-2,1,C.woodD);
   g.drawImage(s,3,1);return c;}
-// a camp shelf jutting from the cliff: rock with a grassy (Camp I) or snowy (Camp II) top, a tent and a sign
+// a tent standing on the ground at y: the generated one once it has loaded, the painted one until then
+function drawTent(g,x,y){if(ART.tent)g.drawImage(ART.tent,x,y-boxOf(ART.tent).y1-1);else g.drawImage(sprites().tent,x,y-12);}
+// a camp shelf jutting from the cliff: the generated ledge (grassy for Camp I, snowy for Camp II) with its walkable
+// top at the camp's height and its right end over the rock, or until it loads a painted slab; a tent, sign and fire
+const CAMP_FIRE=-88;
 function campLayer(k,cy){if(FX.camps[k])return FX.camps[k];
-  const x0=-176,x1=30,y0=cy-60,y1=cy+24,[c,g]=mk(x1-x0,y1-y0),X=x=>x-x0,Y=y=>y-y0,snow=k==="c2";
-  for(let x=-170;x<x1;x++){const end=x<-160?(x+170)/10:1,th=R0((9+hash(x>>2,5)*4)*end);
+  // the ledge's back end reaches a little past the cliff edge wherever that edge is beside it, so no sky shows between
+  let reach=30;for(let y=cy-24;y<=cy+48;y+=4)reach=Math.max(reach,edgeL(y)+10);
+  const x0=-176,x1=reach,y0=cy-60,y1=cy+80,[c,g]=mk(x1-x0,y1-y0),X=x=>x-x0,Y=y=>y-y0,snow=k==="c2";
+  if(ART.ledge){const L=snow?ART.ledgeSnow:ART.ledge;g.drawImage(L,X(x1-L.width),Y(cy-ART.ledgeTop));}
+  else for(let x=-170;x<x1;x++){const end=x<-160?(x+170)/10:1,th=R0((9+hash(x>>2,5)*4)*end);
     for(let y=0;y<=th;y++){let col=rockAt(x,cy+y+400);if(y===th)col=C.crack;else if(y>=th-1)col=C.rockD;
       if(y<=1)col=snow?(y?C.snowS:C.snow):(y?C.moss:C.mossL);if(y===2&&!snow&&hash(x,9)<.4)col=C.mossD;dot(g,X(x),Y(cy+y),col);}
     if(!snow&&hash(x,4)<.35)dot(g,X(x),Y(cy-1),hash(x,6)<.5?C.grassL:C.mossH);}
-  g.drawImage(sprites().tent,X(-166),Y(cy-12));
-  const s=sign(k==="c1"?"CAMP I":"CAMP II");g.drawImage(s,X(-150)-(s.width>>1),Y(cy-44));
-  rect(g,X(-150),Y(cy-44)+s.height,1,44-s.height,C.woodD);
+  // the tent pitched near the ledge's outer end (which moves out with it), the sign between the tent and the fire
+  drawTent(g,X(Math.max(-150,x1-180)),Y(cy));
+  const s=sign(k==="c1"?"CAMP I":"CAMP II");g.drawImage(s,X(-96)-(s.width>>1),Y(cy-44));
+  rect(g,X(-96),Y(cy-44)+s.height,1,44-s.height,C.woodD);
   return FX.camps[k]={c,x0,y0};}
 function drawCamp(g,k,cy,t,ox,oy){const L=campLayer(k,cy);g.drawImage(L.c,L.x0+ox,L.y0+oy);
-  const amt=fireAmt(k);g.drawImage(sprites().fire[amt>0?(Math.floor(t*8)%3):0],-126+ox,cy-11+oy);if(amt>0)embers(-121,cy-6,amt);}
+  const amt=fireAmt(k);g.drawImage(sprites().fire[amt>0?(Math.floor(t*8)%3):0],CAMP_FIRE+ox,cy-11+oy);if(amt>0)embers(CAMP_FIRE+5,cy-6,amt);}
 // the base-camp meadow and the near pines, painted once per view width
 function baseLayer(){const ox=FX.ox,w=FX.vw;if(FX.base&&FX.base.ox===ox&&FX.base.w===w)return FX.base;
   const x0=-ox-8,x1=w-ox+8,y0=-90,y1=120,[c,g]=mk(x1-x0,y1-y0),X=x=>x-x0,Y=y=>y-y0;
   // distant pines first, then the meadow, then the big pines in front of the cliff foot
-  for(let x=x0;x<-30;x+=9+(hash(x,1)*8|0)){const h=22+(hash(x,2)*26|0),s=pineSprite(h,x*7,{l:C.pineL,m:C.pine,d:C.pineD,h:C.pineH});g.drawImage(s,X(x)-(s.width>>1),Y(2-h));}
-  for(let x=x0;x<x1;x++){const top=hash(x>>1,3)<.3?-1:0;
+  // (once the generated pine is in, the generated treeline behind stands in for these painted ones)
+  if(!ART.pine)for(let x=x0;x<-30;x+=9+(hash(x,1)*8|0)){const h=22+(hash(x,2)*26|0),s=pineSprite(h,x*7,{l:C.pineL,m:C.pine,d:C.pineD,h:C.pineH});g.drawImage(s,X(x)-(s.width>>1),Y(2-h));}
+  // the generated meadow strip, its grass rising a few pixels above the ground line, soil below it
+  if(ART.ground){const G=ART.ground,gy=-6-ART.groundTop;
+    rect(g,0,Y(gy+ART.soilAt),x1-x0,y1-gy-ART.soilAt,ART.soil);
+    for(let x=x0-((x0%G.width)+G.width)%G.width;x<x1;x+=G.width)g.drawImage(G,X(x),Y(gy));}
+  else for(let x=x0;x<x1;x++){const top=hash(x>>1,3)<.3?-1:0;
     for(let y=top;y<y1;y++){let col=y<=0?C.grassL:y<4?C.grass:y<7?(hash(x,y)<.5?C.grass:C.dirt):y<40?(hash(x,y)<.08?C.dirtD:C.dirt):C.dirtD;
       if(y>=1&&y<4&&hash(x*3,y)<.12)col=C.mossH;dot(g,X(x),Y(y),col);}
     if(hash(x,8)<.18)dot(g,X(x),Y(-2),C.grassL);}
-  g.drawImage(sprites().tent,X(-150),Y(-12));
+  drawTent(g,X(-150),Y(0));
   const s=sign("BASE CAMP");g.drawImage(s,X(-166)-(s.width>>1),Y(-40));rect(g,X(-166),Y(-40)+s.height,1,40-s.height,C.woodD);
   return FX.base={c,x0,y0,ox,w};}
-function drawFrontPines(g,ox,oy){for(const [x,h] of [[-214,64],[-6,46],[14,58]]){const s=FX.pines?.[h]||(FX.pines=FX.pines||{},FX.pines[h]=pineSprite(h,h*13,{l:C.pineL,m:C.pine,d:C.pineD,h:C.pineH}));
+// the big pines in front of the cliff foot: the generated pine (every other one mirrored) once it has loaded
+function drawFrontPines(g,ox,oy){
+  if(ART.pine){const P=ART.pine,b=boxOf(P);[[-214,0],[-6,1],[14,0]].forEach(([x,f])=>{const dx=x+ox-(P.width>>1),dy=2-b.y1-1+oy;
+      if(f){g.save();g.translate(dx+P.width,dy);g.scale(-1,1);g.drawImage(P,0,0);g.restore();}else g.drawImage(P,dx,dy);});return;}
+  for(const [x,h] of [[-214,64],[-6,46],[14,58]]){const s=FX.pines?.[h]||(FX.pines=FX.pines||{},FX.pines[h]=pineSprite(h,h*13,{l:C.pineL,m:C.pine,d:C.pineD,h:C.pineH}));
   g.drawImage(s,x+ox-(s.width>>1),2-h+oy);}}
 // a tall flag on the tip, and a sign on a post down the left ridge
 function drawSummit(g,t,ox,oy){const fx=SX-18,fy=R0(peakTop(fx))+1;rect(g,fx+ox,fy-30+oy,1,30,INK);g.drawImage(sprites().flag[Math.floor(t*3)%2],fx+ox,fy-30+oy);

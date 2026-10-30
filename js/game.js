@@ -287,7 +287,7 @@ function renderLobby(invite){
   const main=$("#main");main.className="lobby";main.scrollTop=0;
   // a title screen: the wordmark and a retro menu that jumps to each section below (all real forms, not mock-ups)
   main.innerHTML=`
-    <div class="card title">${ICON.peak.replace('class="px"','class="px emblem"')}<h2 class="wordmark">Pinnacle</h2>
+    <div class="card title"><img class="emblem" src="assets/emblem.png" alt=""><h2 class="wordmark">Pinnacle</h2>
       <div class="slogan">TWO MINDS. ONE ROPE. HIGHER TOGETHER.</div>
       <nav class="menu" aria-label="Main menu">
         ${S.myTeams.length?`<button class="mbtn" data-go="secCont">Continue expedition</button>`:""}

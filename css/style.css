@@ -5,13 +5,15 @@
    Layout: the climb fills the window; the play column sits on the left over the valley, the HUD floats over the
    open part of the scene, the cliff stays clear on the right. On phones the column becomes a bottom sheet. */
 :root{
-  --navy:#0e1222;--panel:#141a2c;--panel2:#1d2540;--panel3:#262f4e;--line:#3a4460;
-  --cream:#efe3c4;--ink:#efe3c4;--muted:#a8a28f;--dim:#6f7690;
-  --gold:#f2b233;--goldD:#b5741c;--goldL:#fff1c2;--orange:#e8792b;--red:#d23c2a;--redD:#8c2a1d;
-  --good:#7ccf5a;--goodD:#2f5a2a;--warn:#f2b233;--bad:#ff6a5a;--ice:#9fd0f0;
+  /* near-black teal panels, a pale frame line and warm gold labels, picked from the concept sheet */
+  --navy:#020b12;--panel:#04131c;--panel2:#0a2230;--panel3:#10303f;--line:#24414f;
+  --cream:#dfeaee;--ink:#eef3f1;--muted:#9db0b6;--dim:#5d747e;
+  --gold:#f1c677;--goldD:#a8782e;--goldL:#fff1cf;--orange:#e8792b;--red:#d23c2a;--redD:#8c2a1d;
+  --good:#8fd16a;--goodD:#24502a;--warn:#f1c677;--bad:#ff6a5a;--ice:#9fd0f0;
   --head:"Press Start 2P",monospace;--body:"Pixelify Sans","Trebuchet MS",system-ui,sans-serif;
   --edge:max(12px,env(safe-area-inset-left,0px));--colW:min(440px,38vw);
-  --frame:0 0 0 2px var(--navy),4px 4px 0 2px rgba(5,7,13,.75);
+  /* the frame: a black keyline outside the pale line, a dark gap and a dim teal line inside it, and a hard shadow */
+  --frame:0 0 0 2px var(--navy),4px 4px 0 2px rgba(1,6,10,.8),inset 0 0 0 2px var(--navy),inset 0 0 0 4px #17323f;
   color-scheme:dark}
 *,*::before,*::after{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -32,6 +34,8 @@ button,input{font:inherit;color:inherit}
 .bar{position:fixed;z-index:6;top:0;left:0;right:0;display:flex;align-items:center;gap:12px;padding:calc(12px + env(safe-area-inset-top,0px)) var(--edge) 8px;pointer-events:none}
 .bar>*{pointer-events:auto}
 .bar .spacer{flex:1}
+/* the title card already carries the wordmark, so the bar's badge only shows once a climb is open */
+body:has(#main.lobby) .brand{display:none}
 .brand{margin:0;font:400 16px/1 var(--head);letter-spacing:.04em;text-transform:uppercase;padding:10px 12px 8px;color:var(--cream);flex:none;text-shadow:2px 2px 0 var(--goldD)}
 .bar .team{display:flex;align-items:center;gap:10px;min-width:0;padding:6px 8px 6px 12px}
 .bar .team:empty{display:none}
@@ -163,7 +167,8 @@ input:focus{border-color:var(--gold);outline:none}
 /* lobby: the title screen and menu */
 #main.lobby{gap:16px}
 .title{text-align:center;justify-items:center;gap:8px;padding:22px 18px 20px;background:linear-gradient(#1a2440,var(--panel) 70%)}
-.title .emblem{width:88px;height:40px}
+/* the generated peak emblem at exactly twice its pixel size, so every art pixel stays square */
+.title .emblem{width:192px;height:112px;image-rendering:pixelated;margin-bottom:-6px}
 .wordmark{margin:0;font:400 32px/1 var(--head);text-transform:uppercase;letter-spacing:.02em;color:var(--goldL);
   text-shadow:0 2px 0 var(--gold),0 4px 0 var(--goldD),0 6px 0 #6e4310,3px 9px 0 var(--navy)}
 .slogan{font:600 15px/1.3 var(--body);letter-spacing:.06em;color:var(--cream);text-transform:uppercase;margin-top:6px}
