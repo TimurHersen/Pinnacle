@@ -96,9 +96,6 @@ function sprites(){if(SP.tent)return SP;
   SP.flag=[0,1].map(f=>gridSprite(f?["kk.......","kRrrrr...","kRrrrrrr.","kRrrrrr..","kRrr.....","k........","k........","k........","k........","k........","k........","kk......."]
     :["kk.......","kRrrr....","kRrrrrr..","kRrrrrrr.","kRrrrr...","k........","k........","k........","k........","k........","k........","kk......."],P));
   SP.bird=[gridSprite(["k...k",".k.k.","..k.."],P),gridSprite([".....","kkkkk","..k.."],P)];
-  SP.hold=gridSprite([".ggg.","gssgG",".GGG."],{g:"#b8b2a4",s:"#e2dccc",G:"#5b5852"});
-  SP.holdC=gridSprite([".ccc.","cwwcG",".GGG."],{c:"#e8e4da",w:"#ffffff",G:"#5b5852"});
-  SP.bolt=gridSprite([".s.","sSs",".s."],P);
   return SP;}
 // a pine: stepped tiers, lit on the left, with a dark rim, on a short trunk
 function pineSprite(h,seed,pal){const w=Math.round(h*.56)|1,[c,g]=mk(w,h),cx=w>>1,R=rng(seed);
@@ -201,6 +198,14 @@ function texAt(T,x,y){const m=(v,n)=>{n-=2;v=(v%(2*n)+2*n)%(2*n);return 1+(v<n?v
 const uOf=y=>clamp(y/TOPY,0,1);
 // the cliff's left edge; over the last stretch it leans right so the route along it runs up into the summit ridge
 const edgeL=y=>R0((fbm(y*.011+3)-.5)*22+(fbm(y*.003+9)-.5)*30+smooth(clamp((y-TOPY-360)/-360,0,1))*36);
+// under each camp the cliff swells out into a buttress that carries the camp's ledge: well out under the ledge
+// just below its top, curving back into the wall over BUT_H pixels, so the ledge grows out of the rock instead of
+// floating. The rock and the route both follow this edge.
+const BUT_H=84,BUT_OUT=96;
+function rockEdge(y){let e=edgeL(y);
+  for(const ix of [IDX_C1,IDX_C2]){const t=(y+ix*HS-2)/BUT_H;
+    if(t>=0&&t<=1)e=Math.min(e,R0(e-BUT_OUT*(1-smooth(t))+(fbm(y*.08+ix)-.5)*8));}
+  return e;}
 // the summit: a snowy peak whose tip stands above the route's top
 const SX=64,peakTop=x=>TOPY-26+Math.abs(x-SX)*.42+(hash(x>>2,77)<.5?0:1);
 // granite as irregular slabs: a jittered Voronoi grid (cells a little wider than tall), each cell lit along its
@@ -229,13 +234,13 @@ function paintChunk(ci){
   const yTop=-(ci+1)*CHK,w=FX.wallW,[c,g]=mk(w+40,CHK);if(yTop+CHK<TOPY-40)return c;
   const id=g.createImageData(w+40,CHK),d=id.data,cache={},tex=ART.rockLo&&ART.rockHi;
   const hex=h=>cache[h]||(cache[h]=[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]);
-  for(let py=0;py<CHK;py++){const wy=yTop+py,L=edgeL(wy);if(wy>0)continue;
+  for(let py=0;py<CHK;py++){const wy=yTop+py,L=rockEdge(wy);if(wy>0)continue;
     for(let px=0;px<w+40;px++){const wx=px-40;let col=null,v=null;
       if(wy<peakTop(wx))continue;
       if(wx<L)continue;
       if(wx===L)col=C.crack;
       // the generated granite: warm and mossy low down, cold and snowy high up, with a dithered seam between
-      else if(tex){v=texAt(uOf(wy)>.6+(hash(wx,wy)-.5)*.06?ART.rockHi:ART.rockLo,wx-L,wy);if(wx===L+1)v=v.map(k=>k+(255-k)*.12|0);}
+      else if(tex){v=texAt(uOf(wy)>.6+(hash(wx,wy)-.5)*.06?ART.rockHi:ART.rockLo,wx,wy);if(wx===L+1)v=v.map(k=>k+(255-k)*.12|0);}
       else if(wx<=L+2)col=uOf(wy)>.74&&hash(wy>>1,8)<.5?C.snow:uOf(wy)>.6?C.coldL:C.rockL;
       else col=rockAt(wx,wy);
       if(wy-peakTop(wx)<1)col=C.snowS;else if(wy-peakTop(wx)<5)col=C.snow; // snow on the summit ridge
@@ -248,13 +253,13 @@ const chunkRange=(vy0,vy1)=>[Math.max(0,Math.floor(-vy1/CHK)),Math.min(Math.ceil
 /* ---------- route geometry: lanes, holds, bolts and where climbers rest ----------
    The route runs up the cliff's left edge, seen side-on: holds sit on the edge, so a climber hangs in the open
    air beside the rock. Option B of each fork takes a crack a few pixels in from the edge. */
-function laneX(ch,y){const a=ALT.base-y/WK,k=a<=ALT.c1?"A":a<=ALT.c2?(ch[0]||"A"):(ch[1]||"A");return edgeL(y)-8+(k==="B"?6:0);}
+function laneX(ch,y){const a=ALT.base-y/WK,k=a<=ALT.c1?"A":a<=ALT.c2?(ch[0]||"A"):(ch[1]||"A");return rockEdge(y)-8+(k==="B"?6:0);}
 const holdXY=(ch,i)=>{const y=R0(-i*HS+(hash(i,5)-.5)*3);return [R0(laneX(ch,y)+10+hash(i,3)*2),y];};
 // bolts go into the rock just in from the holds
 const boltXY=(ch,i)=>[R0(laneX(ch,-i*HS)+15),-i*HS+6];
 const idxOf=(exp,p)=>Math.round(-WY(altOf(exp,p))/HS);
 function restSpot(i,m){if(i<=0)return {x:m?-74:-26,y:0};
-  if(i===IDX_C1||i===IDX_C2)return {x:m?-66:-18,y:-i*HS};
+  if(i===IDX_C1||i===IDX_C2)return {x:m?-54:-16,y:-i*HS};
   if(i>=IDX_TOP){const x=m?SX+48:SX+12;return {x,y:R0(peakTop(x))+2};}return null;}
 function mateIdx(li){if(li<=0||li===IDX_C1||li===IDX_C2||li>=IDX_TOP)return li;return Math.max(li>IDX_C2?IDX_C2:li>IDX_C1?IDX_C1:0,li-7);}
 
@@ -452,7 +457,16 @@ class Rig{
   }
   // the PixelLab frame for this pose: climbing poses pick a frame of the climb clip, a fall flails through its
   // arms-up frames, standing breathes through the idle clip and cheering plays the cheer clip, both by the clock
-  artFrame(t){const m=ART_POSE[this.pose];if(m)return m;
+  // On the wall the climb clip plays in step with the body: each move up runs half the cycle (one hand reaching,
+  // pulling and the feet stepping up) while the body slides to the next hold, and the next move runs the other half
+  // with the other hand, so a run of moves loops the whole clip smoothly. Hanging still holds the frame the last
+  // move ended on (a shake-out flicks to the next one); a fall flails through the arms-up frames.
+  artFrame(t){
+    if(this.mode==="climb"){const half=CLIP_N.climb>>1,base=(this.hi&1)*half,m=this.mv;
+      if(m&&m.wait<=0)return ["climb",(base+Math.min(half-1,Math.floor(m.t/m.d*half)))%CLIP_N.climb];
+      return ["climb",(base+half-1+(this.pose==="shake2"?1:0))%CLIP_N.climb];}
+    if(this.mode==="fall")return ["climb",[3,7][Math.floor(t*9)%2]];
+    const m=ART_POSE[this.pose];if(m)return m;
     if(this.pose.startsWith("cheer"))return ["cheer",Math.floor(t*12+this.ph)%CLIP_N.cheer];
     return ["idle",Math.floor(t*4+this.ph)%CLIP_N.idle];}
   draw(g,t,ox,oy){
@@ -517,20 +531,23 @@ function sign(text){const s=textSprite(text,C.cream,null),[c,g]=mk(s.width+6,s.h
 function drawTent(g,x,y){if(ART.tent)g.drawImage(ART.tent,x,y-boxOf(ART.tent).y1-1);else g.drawImage(sprites().tent,x,y-12);}
 // a camp shelf jutting from the cliff: the generated ledge (grassy for Camp I, snowy for Camp II) with its walkable
 // top at the camp's height and its right end over the rock, or until it loads a painted slab; a tent, sign and fire
-const CAMP_FIRE=-88;
+// left to right along the ledge: the tent at its outer end, the sign raised above it, the fire, then the climbers
+const CAMP_FIRE=-86;
 function campLayer(k,cy){if(FX.camps[k])return FX.camps[k];
-  // the ledge's back end reaches a little past the cliff edge wherever that edge is beside it, so no sky shows between
-  let reach=30;for(let y=cy-24;y<=cy+48;y+=4)reach=Math.max(reach,edgeL(y)+10);
-  const x0=-176,x1=reach,y0=cy-60,y1=cy+80,[c,g]=mk(x1-x0,y1-y0),X=x=>x-x0,Y=y=>y-y0,snow=k==="c2";
-  if(ART.ledge){const L=snow?ART.ledgeSnow:ART.ledge;g.drawImage(L,X(x1-L.width),Y(cy-ART.ledgeTop));}
+  // (the buttress under the ledge, painted with the cliff, fills in between the ledge's back end and the wall)
+  const x0=-176,x1=30,y0=cy-96,y1=cy+80,[c,g]=mk(x1-x0,y1-y0),X=x=>x-x0,Y=y=>y-y0,snow=k==="c2";
+  // the ledge image's back end has a block of cliff rising above its top; only its rows from the top down are used
+  // there, so nothing stands up out of the ledge next to the wall
+  if(ART.ledge){const L=snow?ART.ledgeSnow:ART.ledge,dx=X(x1-L.width),dy=Y(cy-ART.ledgeTop),cut=150,top=ART.ledgeTop-2;
+    g.drawImage(L,0,0,cut,L.height,dx,dy,cut,L.height);g.drawImage(L,cut,top,L.width-cut,L.height-top,dx+cut,dy+top,L.width-cut,L.height-top);}
   else for(let x=-170;x<x1;x++){const end=x<-160?(x+170)/10:1,th=R0((9+hash(x>>2,5)*4)*end);
     for(let y=0;y<=th;y++){let col=rockAt(x,cy+y+400);if(y===th)col=C.crack;else if(y>=th-1)col=C.rockD;
       if(y<=1)col=snow?(y?C.snowS:C.snow):(y?C.moss:C.mossL);if(y===2&&!snow&&hash(x,9)<.4)col=C.mossD;dot(g,X(x),Y(cy+y),col);}
     if(!snow&&hash(x,4)<.35)dot(g,X(x),Y(cy-1),hash(x,6)<.5?C.grassL:C.mossH);}
-  // the tent pitched near the ledge's outer end (which moves out with it), the sign between the tent and the fire
-  drawTent(g,X(Math.max(-150,x1-180)),Y(cy));
-  const s=sign(k==="c1"?"CAMP I":"CAMP II");g.drawImage(s,X(-96)-(s.width>>1),Y(cy-44));
-  rect(g,X(-96),Y(cy-44)+s.height,1,44-s.height,C.woodD);
+  // the sign first, so the tent stands in front of its post
+  const s=sign(k==="c1"?"CAMP I":"CAMP II");g.drawImage(s,X(-122)-(s.width>>1),Y(cy-80));
+  rect(g,X(-122),Y(cy-80)+s.height,1,80-s.height,C.woodD);
+  drawTent(g,X(-160),Y(cy));
   return FX.camps[k]={c,x0,y0};}
 function drawCamp(g,k,cy,t,ox,oy){const L=campLayer(k,cy);g.drawImage(L.c,L.x0+ox,L.y0+oy);
   const amt=fireAmt(k);g.drawImage(sprites().fire[amt>0?(Math.floor(t*8)%3):0],CAMP_FIRE+ox,cy-11+oy);if(amt>0)embers(CAMP_FIRE+5,cy-6,amt);}
@@ -548,8 +565,9 @@ function baseLayer(){const ox=FX.ox,w=FX.vw;if(FX.base&&FX.base.ox===ox&&FX.base
     for(let y=top;y<y1;y++){let col=y<=0?C.grassL:y<4?C.grass:y<7?(hash(x,y)<.5?C.grass:C.dirt):y<40?(hash(x,y)<.08?C.dirtD:C.dirt):C.dirtD;
       if(y>=1&&y<4&&hash(x*3,y)<.12)col=C.mossH;dot(g,X(x),Y(y),col);}
     if(hash(x,8)<.18)dot(g,X(x),Y(-2),C.grassL);}
-  drawTent(g,X(-150),Y(0));
-  const s=sign("BASE CAMP");g.drawImage(s,X(-166)-(s.width>>1),Y(-40));rect(g,X(-166),Y(-40)+s.height,1,40-s.height,C.woodD);
+  // the sign raised behind the tent, the tent, then (drawn each frame) the fire beside the climbers
+  const s=sign("BASE CAMP");g.drawImage(s,X(-160)-(s.width>>1),Y(-80));rect(g,X(-160),Y(-80)+s.height,1,80-s.height,C.woodD);
+  drawTent(g,X(-196),Y(0));
   return FX.base={c,x0,y0,ox,w};}
 // the big pines in front of the cliff foot: the generated pine (every other one mirrored) once it has loaded
 function drawFrontPines(g,ox,oy){
@@ -563,11 +581,6 @@ function drawSummit(g,t,ox,oy){const fx=SX-18,fy=R0(peakTop(fx))+1;rect(g,fx+ox,
   // reaches out left over the drop so it never hides the flag
   const sx=Math.max(SX-62,edgeL(TOPY)+6),sy=R0(peakTop(sx)),s=sign("SUMMIT");rect(g,sx+ox,sy-14+oy,1,14,C.woodD);g.drawImage(s,sx+ox-s.width+6,sy-14-s.height+oy);}
 const fireAmt=k=>!FX.lit[k]?0:FX.litAt[k]?clamp((FX.time-FX.litAt[k])/1.2,0,1):1;
-function drawRoute(g,vy0,vy1,ox,oy){const e=FX.exp,ch=e.choice,lo=Math.max(1,Math.floor(-vy1/HS)-1),hi=Math.min(IDX_TOP-1,Math.ceil(-vy0/HS)+1),used=FX.A.me.hi,S=sprites();
-  const lanes=i=>{const a=ALT.base+i*HS/WK;if(a<=ALT.c1)return [ch];if(a<=ALT.c2)return ch[0]?[ch]:[["A",null],["B",null]];return ch[1]?[ch]:[[ch[0]||"A","A"],[ch[0]||"A","B"]];};
-  for(let i=lo;i<=hi;i++){if(i===IDX_C1||i===IDX_C2)continue;
-    for(const c of lanes(i)){const [x,y]=holdXY(c,i);g.drawImage(c===ch&&i<=used?S.holdC:S.hold,x-2+ox,y-1+oy);
-      if(i%4===2){const [bx,by]=boltXY(c,i);g.drawImage(S.bolt,bx-1+ox,by-1+oy);}}}}
 function quickdraws(g,ox,oy){const p=FX.pins;for(let i=1;i<p.length-1;i++){const x=R0(p[i][0])+ox,y=R0(p[i][1])+oy;rect(g,x,y,1,3,C.gold);rect(g,x-1,y+3,3,3,C.metal);dot(g,x,y+4,C.navy);}}
 
 /* ---------- setup, loop and frame ---------- */
@@ -649,10 +662,9 @@ function paint(t){
   for(const b of FX.birds)for(let i=0;i<b.n;i++)g.drawImage(SP.bird?SP.bird[Math.floor(b.t*5+i)%2]:sprites().bird[0],R0(b.x-i*7),R0(b.y*h+(i%2?3:-1)*i));
   if(art)drawPines(g,w,h,climb);
   else for(const L of FX.layers){const y=R0(climb*L.par);if(y<h)g.drawImage(L.c,0,y);}
-  if(vy1>-120){const B=baseLayer();g.drawImage(B.c,B.x0+ox,B.y0+oy);g.drawImage(sprites().fire[Math.floor(t*8)%3],-126+ox,-11+oy);embers(-121,-6,1);}
+  if(vy1>-120){const B=baseLayer();g.drawImage(B.c,B.x0+ox,B.y0+oy);g.drawImage(sprites().fire[Math.floor(t*8)%3],-110+ox,-11+oy);embers(-105,-6,1);}
   const [c1,c2]=chunkRange(vy0,vy1);for(let ci=c1;ci<=c2;ci++)g.drawImage(chunk(ci),-40+ox,-(ci+1)*CHK+oy);
   if(vy1>-120)drawFrontPines(g,ox,oy);
-  drawRoute(g,vy0,vy1,ox,oy);
   for(const [kk,ix] of [["c1",IDX_C1],["c2",IDX_C2]]){const y=-ix*HS;if(y>vy0-70&&y<vy1+30)drawCamp(g,kk,y,t,ox,oy);}
   if(vy0<TOPY+60)drawSummit(g,t,ox,oy);
   if(FX.label){const i=FX.label.i,[hx,hy]=holdXY(FX.exp.choice,i),x=hx+8+ox,y=hy+oy,s=textSprite(FX.label.text,C.cream,INK);
