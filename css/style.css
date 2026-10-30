@@ -1,0 +1,251 @@
+/* Pinnacle UI kit: 16-bit mountain adventure, after the concept sheet.
+   Near-black navy panels with a cream pixel line and a hard drop shadow; one bitmap face (Press Start 2P, used at
+   multiples of 8px so it stays on its grid) for labels and headings, one readable pixel face (Pixelify Sans) for
+   questions and explanations; gold for the main action, red for the leader. Square corners everywhere.
+   Layout: the climb fills the window; the play column sits on the left over the valley, the HUD floats over the
+   open part of the scene, the cliff stays clear on the right. On phones the column becomes a bottom sheet. */
+:root{
+  --navy:#0e1222;--panel:#141a2c;--panel2:#1d2540;--panel3:#262f4e;--line:#3a4460;
+  --cream:#efe3c4;--ink:#efe3c4;--muted:#a8a28f;--dim:#6f7690;
+  --gold:#f2b233;--goldD:#b5741c;--goldL:#fff1c2;--orange:#e8792b;--red:#d23c2a;--redD:#8c2a1d;
+  --good:#7ccf5a;--goodD:#2f5a2a;--warn:#f2b233;--bad:#ff6a5a;--ice:#9fd0f0;
+  --head:"Press Start 2P",monospace;--body:"Pixelify Sans","Trebuchet MS",system-ui,sans-serif;
+  --edge:max(12px,env(safe-area-inset-left,0px));--colW:min(440px,38vw);
+  --frame:0 0 0 2px var(--navy),4px 4px 0 2px rgba(5,7,13,.75);
+  color-scheme:dark}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;overflow:hidden}
+body{margin:0;background:var(--navy);color:var(--ink);font:400 17px/1.4 var(--body);-webkit-font-smoothing:none}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.px{display:inline-block;width:1em;height:1em;vertical-align:-.15em;image-rendering:pixelated}
+
+/* the scene */
+.scene{position:fixed;inset:0;z-index:0;overflow:hidden;background:#4479c6}
+.scene canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
+
+/* the shared frame: cream line, navy keyline, hard shadow */
+.panel,.card,.hud .who,.hud .hearts,.hud-r,.bar .team,.brand,.linkbtn,.ibtn,.toast{background:var(--panel);color:var(--ink);border:2px solid var(--cream);box-shadow:var(--frame)}
+
+/* top bar */
+.bar{position:fixed;z-index:6;top:0;left:0;right:0;display:flex;align-items:center;gap:12px;padding:calc(12px + env(safe-area-inset-top,0px)) var(--edge) 8px;pointer-events:none}
+.bar>*{pointer-events:auto}
+.bar .spacer{flex:1}
+.brand{margin:0;font:400 16px/1 var(--head);letter-spacing:.04em;text-transform:uppercase;padding:10px 12px 8px;color:var(--cream);flex:none;text-shadow:2px 2px 0 var(--goldD)}
+.bar .team{display:flex;align-items:center;gap:10px;min-width:0;padding:6px 8px 6px 12px}
+.bar .team:empty{display:none}
+.teamname{font:600 15px/1.3 var(--body);letter-spacing:.06em;color:var(--gold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.chip{font:600 15px/1.3 var(--body);letter-spacing:.06em;background:var(--navy);border:2px solid var(--line);padding:6px 8px;cursor:pointer;white-space:nowrap}
+.chip:hover{border-color:var(--gold)}
+.climbers{display:flex;gap:10px;font-size:14px;color:var(--muted);white-space:nowrap}
+.climber{display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;background:var(--line)}
+.dot.on{background:var(--good)}
+.linkbtn{font:600 15px/1.3 var(--body);letter-spacing:.06em;text-transform:uppercase;padding:12px;cursor:pointer;flex:none}
+.ibtn{width:36px;height:36px;display:grid;place-items:center;padding:0;cursor:pointer;flex:none}
+.ibtn svg{width:24px;height:24px}
+.ibtn[aria-pressed="false"] .on,.ibtn[aria-pressed="true"] .off{display:none}
+.linkbtn:hover,.ibtn:hover{background:var(--panel2)}
+.linkbtn:active,.ibtn:active,.btn:active,.mbtn:active{transform:translate(2px,2px);box-shadow:0 0 0 2px var(--navy),2px 2px 0 2px rgba(5,7,13,.75)}
+
+/* the play column (left) and the HUD over the open scene */
+#main{position:fixed;z-index:4;top:calc(70px + env(safe-area-inset-top,0px));left:var(--edge);bottom:14px;width:var(--colW);overflow-y:auto;overscroll-behavior:contain;
+  display:grid;gap:16px;align-content:start;padding:2px 8px 12px 2px;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.hud{position:fixed;z-index:3;top:calc(70px + env(safe-area-inset-top,0px));left:calc(var(--colW) + 2*var(--edge) + 16px);right:var(--edge);
+  display:flex;justify-content:space-between;align-items:flex-start;gap:12px;pointer-events:none}
+.hud-l{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}
+.hud .who{display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px}
+.port{width:44px;height:44px;image-rendering:pixelated;border:2px solid var(--cream);background:#4479c6;flex:none}
+.hud .nm{font:600 15px/1.3 var(--body);letter-spacing:.06em;color:var(--cream);max-width:12em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:4px}
+.hud .hearts{display:flex;gap:4px;padding:8px 10px}
+.hearts .px{width:27px;height:24px}
+.hud-r{display:grid;padding:4px 12px;min-width:200px}
+.stat{display:grid;grid-template-columns:22px auto 1fr;align-items:center;gap:8px;padding:6px 0;font:600 15px/1.3 var(--body);letter-spacing:.06em}
+.stat+.stat{border-top:2px solid var(--line)}
+.stat .px{width:20px;height:16px}
+.stat .k{color:var(--muted);text-transform:uppercase}
+.stat .v{color:var(--cream);text-align:right;font:400 16px/1 var(--head);letter-spacing:0;white-space:nowrap}
+
+/* panels and cards */
+.panel,.card{padding:18px;min-width:0}
+.card{display:grid;gap:12px;align-content:start}
+.card h3{margin:0;font:600 15px/1.3 var(--body);letter-spacing:.06em;letter-spacing:.06em;text-transform:uppercase;color:var(--gold)}
+.eyebrow{font:600 15px/1.3 var(--body);letter-spacing:.06em;color:var(--muted);text-transform:uppercase;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.terrain{font:400 24px/1.1 var(--head);text-transform:uppercase;color:var(--cream);margin:10px 0 8px;text-shadow:3px 3px 0 var(--navy)}
+.rule,.note,.hero p{color:var(--muted);font-size:16px;margin:0 0 14px;max-width:62ch}
+.note{margin:0}
+.note strong,.rule strong{color:var(--cream);font-weight:600}
+.prompt{font:600 22px/1.25 var(--body);color:var(--cream);margin:4px 0 14px;text-wrap:balance}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row>input{flex:1;min-width:0}
+input[type=text],input[type=number]{background:var(--navy);color:var(--cream);border:2px solid var(--line);padding:10px 12px;font-size:18px;width:100%;border-radius:0}
+input::placeholder{color:var(--dim)}
+input:focus{border-color:var(--gold);outline:none}
+.err{color:var(--bad);font-size:15px;margin-top:6px;min-height:1em}
+
+/* buttons: dark with a cream line; the main action is a gold slab */
+.btn{font:600 15px/1.3 var(--body);letter-spacing:.06em;letter-spacing:.04em;text-transform:uppercase;background:var(--navy);color:var(--cream);border:2px solid var(--cream);padding:12px 14px;cursor:pointer;white-space:nowrap;box-shadow:var(--frame)}
+.btn:hover{background:var(--panel2)}
+.btn.rope{background:var(--gold);color:#1b1408;border-color:var(--goldL);box-shadow:inset 0 -3px 0 var(--goldD),var(--frame)}
+.btn.rope:hover{background:#ffc94d}
+.btn.ghost{background:transparent;border-color:var(--line);box-shadow:none}
+.btn.ghost:hover{border-color:var(--cream)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* roles never rely on colour alone: they carry a word and a mark */
+.role{display:inline-block;font:600 15px/1.3 var(--body);letter-spacing:.06em;text-transform:uppercase;padding:4px 6px}
+.role.lead{background:var(--red);color:#fff;border:2px solid var(--cream)}
+.role.lead::before{content:"▲ "}
+.role.belay{background:var(--navy);color:var(--gold);border:2px solid var(--gold)}
+.role.belay::before{content:"⚓ "}
+
+/* timer as a row of pixel blocks */
+.timer{height:12px;background:var(--navy);border:2px solid var(--line);margin:16px 0 8px;padding:2px}
+.timer i{display:block;height:100%;width:100%;background:repeating-linear-gradient(90deg,var(--gold) 0 6px,transparent 6px 8px);transition:width .5s steps(8)}
+.meta{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;color:var(--muted);font:600 15px/1.3 var(--body);letter-spacing:.06em;text-transform:uppercase}
+.wait{margin-top:12px;padding:10px 12px;border:2px dashed var(--line);background:var(--navy);color:var(--muted);font-size:16px}
+.wait strong{color:var(--cream)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chips span{font-size:15px;padding:3px 8px;background:var(--panel2);border:2px solid var(--line);color:var(--cream)}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.opt{text-align:left;padding:12px;background:var(--navy);border:2px solid var(--line);color:var(--cream);cursor:pointer;font-size:17px}
+.opt:hover:not(:disabled){border-color:var(--cream)}
+.opt.sel{border-color:var(--gold);background:#2a2412}
+.opt.correct{border-color:var(--good);color:var(--good)}
+.clue{font:400 16px/1.2 var(--head);color:var(--gold);text-transform:uppercase}
+
+/* the two halves of a pitch and the rope radio */
+.clue2{display:inline-block;font:600 15px/1.3 var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--cream);background:var(--navy);border:2px dashed var(--gold);padding:10px 14px;margin:0 0 10px}
+.clue2 b{color:var(--gold);font-weight:400;font-size:16px}
+.hidden2{font-size:15px;color:var(--muted);margin:-4px 0 12px}
+.radio{margin-top:16px;background:var(--navy);border:2px solid var(--line);box-shadow:inset 0 0 0 2px #10162a;padding:10px 12px}
+.rhead{display:flex;justify-content:space-between;font:600 15px/1.3 var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--gold);padding-top:2px}
+.rhead span{color:var(--muted)}
+.rlog{display:grid;gap:6px;max-height:140px;overflow:auto;margin:10px 0}
+.msg{justify-self:start;max-width:88%;background:var(--panel2);border:2px solid var(--line);padding:4px 10px;font-size:16px;line-height:1.3;color:var(--cream)}
+.msg.me{justify-self:end;background:#2a2412;border-color:#6b5420}
+.msg b{display:block;font:600 15px/1.3 var(--body);letter-spacing:.06em;color:var(--gold);text-transform:uppercase}
+
+/* each pitch type gets its own pixel vignette and accent line */
+.tart{display:block;width:100%;height:auto;aspect-ratio:96/28;image-rendering:pixelated;border:2px solid var(--line);margin:0 0 12px;background:#4479c6}
+.panel[data-t="slab"]{border-color:#c8c0b0}.panel[data-t="chimney"]{border-color:#c08a5a}.panel[data-t="crevasse"]{border-color:var(--ice)}
+.panel[data-t="traverse"]{border-color:#8fcf6a}.panel[data-t="overhang"]{border-color:#ff8a5a}
+
+/* reveal */
+.headline{font:400 16px/1.4 var(--head);text-transform:uppercase;margin:8px 0 12px;text-wrap:balance;text-shadow:2px 2px 0 var(--navy);animation:hl-pop .4s steps(4) both}
+@keyframes hl-pop{from{transform:scale(.6);opacity:0}}
+.headline.good{color:var(--good)}.headline.bad{color:var(--bad)}.headline.warn{color:var(--warn)}
+.outcome{display:flex;align-items:center;gap:10px;background:var(--navy);border:2px solid var(--line);padding:10px 12px;margin:0 0 14px;font:600 15px/1.3 var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--cream)}
+.outcome .px{width:28px;height:28px;flex:none}
+.outcome.good{border-color:var(--good)}.outcome.bad{border-color:var(--bad)}.outcome.warn{border-color:var(--gold)}
+.echo{display:inline-block;font:400 16px/1 var(--head);color:#1b1408;background:var(--gold);border:2px solid var(--goldL);padding:8px 10px;margin:2px 0 10px;box-shadow:var(--frame)}
+.echo.bad{background:var(--red);color:#fff}
+.lines{display:grid;gap:0;margin:10px 0 14px}
+.line{display:grid;grid-template-columns:96px minmax(0,1fr) auto;gap:10px;align-items:baseline;padding:8px 0;border-bottom:2px solid var(--line)}
+.line .who{font:600 15px/1.3 var(--body);letter-spacing:.06em;color:var(--muted);text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.line .what{color:var(--cream);overflow-wrap:anywhere}
+.tag{font:600 15px/1.3 var(--body);letter-spacing:.06em;white-space:nowrap;text-transform:uppercase}
+.tag.ok{color:var(--good)}.tag.no{color:var(--bad)}
+.rar{letter-spacing:2px;color:var(--gold)}
+.moves{font-size:16px;display:grid;gap:4px;margin-bottom:14px}
+.moves b{font-weight:600}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+
+/* camp: choosing a route */
+.routes{display:grid;gap:10px;margin:12px 0}
+.route{display:grid;gap:4px;text-align:left;padding:12px;background:var(--navy);border:2px solid var(--line);color:var(--cream);cursor:pointer}
+.route:hover{border-color:var(--cream)}
+.route.sel{border-color:var(--gold);background:#2a2412}
+.route h4{margin:0;font:600 15px/1.3 var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--gold)}
+.route .pp,.votes{font-size:14px;color:var(--muted)}
+
+/* lobby: the title screen and menu */
+#main.lobby{gap:16px}
+.title{text-align:center;justify-items:center;gap:8px;padding:22px 18px 20px;background:linear-gradient(#1a2440,var(--panel) 70%)}
+.title .emblem{width:88px;height:40px}
+.wordmark{margin:0;font:400 32px/1 var(--head);text-transform:uppercase;letter-spacing:.02em;color:var(--goldL);
+  text-shadow:0 2px 0 var(--gold),0 4px 0 var(--goldD),0 6px 0 #6e4310,3px 9px 0 var(--navy)}
+.slogan{font:600 15px/1.3 var(--body);letter-spacing:.06em;color:var(--cream);text-transform:uppercase;margin-top:6px}
+.menu{display:grid;gap:10px;width:100%;max-width:300px;margin-top:12px}
+.mbtn{font:600 15px/1.3 var(--body);letter-spacing:.06em;text-transform:uppercase;background:var(--navy);color:var(--cream);border:2px solid var(--cream);padding:13px 12px;cursor:pointer;box-shadow:var(--frame)}
+.mbtn:hover,.mbtn:focus-visible,.mbtn.on{background:var(--gold);color:#1b1408;outline:none}
+.mbtn:hover::before,.mbtn:focus-visible::before{content:"▶ "}
+.card.flash{animation:flash .9s steps(3) 1}
+@keyframes flash{50%{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold),4px 4px 0 2px var(--navy)}}
+.teams{display:grid;gap:6px}
+.teamrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:var(--navy);border:2px solid var(--line);color:var(--cream);cursor:pointer;text-align:left;width:100%}
+.teamrow:hover{border-color:var(--gold)}
+.teamrow span{font:600 15px/1.3 var(--body);letter-spacing:.06em;color:var(--gold)}
+.terrains{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-top:6px}
+.terrains div{border-top:2px solid var(--line);padding-top:8px;font-size:15px;color:var(--muted)}
+.terrains b{display:block;font:600 15px/1.3 var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--gold)}
+.terrains img{display:block;width:100%;image-rendering:pixelated;margin:4px 0 6px;border:2px solid var(--line)}
+.setrow{display:flex;justify-content:space-between;align-items:center;gap:10px;font:600 15px/1.3 var(--body);letter-spacing:.06em;text-transform:uppercase}
+
+/* route map, as in the concept: summit at the top, camps as stops, every pitch as a block */
+.mapcard{gap:8px}
+.map{display:grid;gap:4px}
+.mrow{display:grid;grid-template-columns:24px 1fr;gap:8px;align-items:center}
+.mrow .px{width:22px;height:22px}
+.mstop{font:600 15px/1.3 var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--cream)}
+.mstop small{font-size:13px;color:var(--muted);margin-left:6px}
+.mstop.here{color:var(--gold)}
+.mstage{display:grid;gap:6px;padding:8px 8px 8px 10px;margin-left:10px;border-left:2px dotted var(--line)}
+.mstage.s0{background:linear-gradient(90deg,rgba(60,122,60,.2),transparent)}
+.mstage.s1{background:linear-gradient(90deg,rgba(150,140,130,.2),transparent)}
+.mstage.s2{background:linear-gradient(90deg,rgba(159,208,240,.18),transparent)}
+.mopt{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+.mopt.off{opacity:.4}
+.mopt>b{font:600 15px/1.3 var(--body);letter-spacing:.06em;font-weight:400;color:var(--muted);margin-right:6px;min-width:8.5em;text-transform:uppercase}
+.pit{position:relative;display:inline-grid;place-items:center;width:20px;height:20px;font:600 15px/1.3 var(--body);letter-spacing:.06em;border:2px solid var(--line);background:var(--navy);color:var(--muted)}
+.pit.done{background:var(--goodD);border-color:var(--good);color:var(--cream)}
+.pit.now{background:var(--gold);border-color:var(--goldL);color:#1b1408;animation:blink 1s steps(2) infinite}
+.pit .px{position:absolute;right:-8px;top:-8px;width:14px;height:14px}
+@keyframes blink{50%{background:var(--goldD)}}
+.mlegend{font-size:14px;color:var(--muted);display:flex;flex-wrap:wrap;gap:12px;margin-top:4px;align-items:center}
+.mlegend .pit{vertical-align:middle;margin-right:4px}
+
+/* expedition log */
+.log{margin-top:18px;border-top:2px solid var(--line);padding-top:12px}
+.log h5{margin:0 0 8px;font:600 15px/1.3 var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--gold);font-weight:400}
+.log ol{list-style:none;margin:0;padding:0;display:grid;gap:4px;max-height:180px;overflow:auto;font-size:15px}
+.log li{color:var(--muted)}.log li b{color:var(--cream);font-weight:500}
+
+/* scene overlays: pixel title cards, captions and confetti */
+.fx{position:fixed;z-index:2;left:0;top:0;width:100%;height:100%;pointer-events:none;overflow:hidden;container-type:size}
+.tcard{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;animation:tc-out .3s steps(3) 2.2s forwards}
+.tcard b{font:400 min(7cqw,48px)/1 var(--head);color:var(--gold);text-shadow:0 4px 0 var(--goldD),4px 8px 0 var(--navy);white-space:nowrap;text-transform:uppercase}
+.tcard.bad b{color:#ff8a6a;text-shadow:0 4px 0 var(--redD),4px 8px 0 var(--navy)}
+.tcard.good b{color:#9be36d;text-shadow:0 4px 0 #2f6a2a,4px 8px 0 var(--navy)}
+.tcard b span{display:inline-block;animation:tc-letter .4s steps(4) both;animation-delay:calc(var(--i)*45ms)}
+.tcard small{font:600 15px/1.3 var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--cream);background:var(--panel);border:2px solid var(--cream);padding:10px 14px;box-shadow:var(--frame);animation:tc-letter .4s .3s steps(4) both}
+@keyframes tc-letter{from{transform:translateY(-1em);opacity:0}}
+@keyframes tc-out{to{opacity:0}}
+.cap{position:absolute;left:50%;bottom:8%;transform:translateX(-50%);font:600 15px/1.3 var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--cream);background:var(--panel);border:2px solid var(--cream);
+  padding:10px 14px;box-shadow:var(--frame);white-space:nowrap;animation:cap 2.8s steps(1) forwards}
+@keyframes cap{0%{opacity:0}6%,85%{opacity:1}100%{opacity:0}}
+.conf{position:absolute;left:var(--x);top:-4%;width:8px;height:8px;background:var(--c);animation:conf var(--dur) steps(14) var(--d) both}
+@keyframes conf{from{top:-4%;transform:none}to{top:104%;transform:translateX(var(--dr))}}
+@media (prefers-reduced-motion:reduce){.tcard b span,.tcard small,.cap,.headline,.pit.now{animation:none}.timer i{transition:none}}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));padding:10px 14px;font:600 15px/1.3 var(--body);letter-spacing:.06em;text-transform:uppercase;z-index:20}
+
+/* phones and narrow windows: the column becomes a bottom sheet, the HUD a strip under the bar */
+@media (max-width:899px){
+  :root{--colW:auto}
+  body{font-size:16px}
+  #main{top:auto;left:0;right:0;bottom:0;width:auto;max-height:56vh;padding:12px 12px calc(12px + env(safe-area-inset-bottom,0px));gap:12px;
+    background:var(--panel);border-top:2px solid var(--cream);box-shadow:0 -2px 0 2px var(--navy)}
+  #main>.panel,#main>.card{border:0;box-shadow:none;padding:8px 4px}
+  #main.lobby>.card+.card{border-top:2px dashed var(--line)}
+  .hud{top:calc(66px + env(safe-area-inset-top,0px));left:var(--edge);gap:6px}
+  .hud .who{padding:2px}.hud .who>div{display:none}.port{width:32px;height:32px}
+  .hud .hearts{padding:6px}.hearts .px{width:18px;height:16px}
+  .hud-r{min-width:0;padding:0 8px}.stat{padding:4px 0;gap:6px;grid-template-columns:16px auto 1fr}.stat .v{font-size:8px;line-height:1.4}.stat .px{width:14px;height:12px}
+  .stat:nth-child(3){display:none}
+  .brand{font-size:8px;padding:10px}.linkbtn{padding:10px}.ibtn{width:32px;height:32px}
+  .bar:has(.team:not(:empty)) .brand,.bar .team .climbers,.chip .long{display:none}
+  .wordmark{font-size:24px}.terrain{font-size:16px}
+  .tart{aspect-ratio:96/18;object-fit:cover}
+  .opts{grid-template-columns:1fr}
+}
