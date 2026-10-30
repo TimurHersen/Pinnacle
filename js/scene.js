@@ -152,6 +152,35 @@ function drawCloud(g,x,y,s,seed){
   for(const [bx,by,r] of blobs)pdisc(g,bx-1,by-1,r-1,C.cloud);
   rect(g,x-R0(6*s),y+R0(4*s),R0(34*s),2,C.cloudS);}
 
+/* ---------- generated art (PixelLab): the valley backdrop, a near treeline and two granite textures ----------
+   Each loads in the background; until it has, the painted version above (and the painted rock below) stands in. */
+const ART={};
+(function loadArt(){
+  const pixels=im=>{const [,g]=mk(im.width,im.height);g.drawImage(im,0,0);return {w:im.width,h:im.height,d:g.getImageData(0,0,im.width,im.height).data};},
+    rgb=(p,x,y)=>{const i=(y*p.w+x)*4;return `rgb(${p.d[i]},${p.d[i+1]},${p.d[i+2]})`;},
+    load=(src,fn)=>{const im=new Image();im.onload=()=>fn(im);im.src=src;};
+  load("assets/valley.png",im=>{ART.sky=rgb(pixels(im),im.width>>1,0);ART.valley=im;});
+  load("assets/pines.png",im=>{ART.pineBase=rgb(pixels(im),im.width>>1,im.height-1);ART.pines=im;});
+  // rock chunks painted before the textures arrived repaint with them
+  load("assets/cliff-low.png",im=>{ART.rockLo=pixels(im);FX.chunks.clear();});
+  // the high granite is cooled halfway to a blue-grey of its own brightness, so the upper wall reads as cold
+  load("assets/cliff-high.png",im=>{const p=pixels(im),d=p.d;
+    for(let i=0;i<d.length;i+=4){const l=d[i]*.3+d[i+1]*.59+d[i+2]*.11;d[i]=R0(lerp(d[i],l*.86,.5));d[i+1]=R0(lerp(d[i+1],l*.94,.5));d[i+2]=Math.min(255,R0(lerp(d[i+2],l*1.12,.5)));}
+    ART.rockHi=p;FX.chunks.clear();});})();
+const valleyY=(h,climb)=>R0(h-ART.valley.height+climb*.05);
+// the backdrop sinks slowly as the team climbs, with its own sky colour above it and mirrored copies either side
+// when the view is wider than the picture; the lake sits in the open air left of the cliff
+function drawValley(g,w,h,climb){const V=ART.valley,y=valleyY(h,climb),x0=R0(FX.ox-V.width*.6);
+  rect(g,0,0,w,Math.max(0,y),ART.sky);
+  for(let k=-2;k<=2;k++){const x=x0+k*V.width;if(x>=w||x+V.width<=0)continue;
+    if(k&1){g.save();g.translate(x+V.width,y);g.scale(-1,1);g.drawImage(V,0,0);g.restore();}else g.drawImage(V,x,y);}}
+// the near treeline, sinking faster, solid forest below it
+function drawPines(g,w,h,climb){const P=ART.pines,y=R0(h*.9-P.height*.6+climb*.17);if(y>=h)return;
+  for(let x=FX.ox%P.width-P.width;x<w;x+=P.width)g.drawImage(P,x,y);
+  rect(g,0,y+P.height,w,h-y-P.height,ART.pineBase);}
+// a texture pixel, the texture mirrored at every edge so neighbouring tiles always meet
+function texAt(T,x,y){const m=(v,n)=>{v=(v%(2*n)+2*n)%(2*n);return v<n?v:2*n-1-v;},i=(m(y,T.h)*T.w+m(x,T.w))*4;return [T.d[i],T.d[i+1],T.d[i+2]];}
+
 /* ---------- the cliff: granite blocks, moss low down, snow high up, painted once per chunk ---------- */
 const uOf=y=>clamp(y/TOPY,0,1);
 const edgeL=y=>R0((fbm(y*.011+3)-.5)*22+(fbm(y*.003+9)-.5)*30);
@@ -181,17 +210,19 @@ function rockAt(wx,wy){
   return c;}
 function paintChunk(ci){
   const yTop=-(ci+1)*CHK,w=FX.wallW,[c,g]=mk(w+40,CHK);if(yTop+CHK<TOPY-40)return c;
-  const id=g.createImageData(w+40,CHK),d=id.data,cache={};
+  const id=g.createImageData(w+40,CHK),d=id.data,cache={},tex=ART.rockLo&&ART.rockHi;
   const hex=h=>cache[h]||(cache[h]=[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]);
   for(let py=0;py<CHK;py++){const wy=yTop+py,L=edgeL(wy);if(wy>0)continue;
-    for(let px=0;px<w+40;px++){const wx=px-40;let col=null;
+    for(let px=0;px<w+40;px++){const wx=px-40;let col=null,v=null;
       if(wy<peakTop(wx))continue;
       if(wx<L)continue;
       if(wx===L)col=C.crack;
+      // the generated granite: warm and mossy low down, cold and snowy high up, with a dithered seam between
+      else if(tex){v=texAt(uOf(wy)>.6+(hash(wx,wy)-.5)*.06?ART.rockHi:ART.rockLo,wx-L,wy);if(wx<=L+2)v=v.map(k=>k+(255-k)*.3|0);}
       else if(wx<=L+2)col=uOf(wy)>.74&&hash(wy>>1,8)<.5?C.snow:uOf(wy)>.6?C.coldL:C.rockL;
       else col=rockAt(wx,wy);
       if(wy-peakTop(wx)<1)col=C.snowS;else if(wy-peakTop(wx)<5)col=C.snow; // snow on the summit ridge
-      const i=(py*(w+40)+px)*4,v=hex(col);d[i]=v[0];d[i+1]=v[1];d[i+2]=v[2];d[i+3]=255;}}
+      if(col)v=hex(col);const i=(py*(w+40)+px)*4;d[i]=v[0];d[i+1]=v[1];d[i+2]=v[2];d[i+3]=255;}}
   g.putImageData(id,0,0);return c;}
 function chunk(ci){let c=FX.chunks.get(ci);if(c){FX.chunks.delete(ci);FX.chunks.set(ci,c);return c;}
   c=paintChunk(ci);FX.chunks.set(ci,c);if(FX.chunks.size>24)FX.chunks.delete(FX.chunks.keys().next().value);return c;}
@@ -539,13 +570,16 @@ function paint(t){
   const shk=()=>R0((Math.random()-.5)*FX.shake*5);
   // screen = world + (ox, oy): every offset is a whole pixel, so nothing ever shimmers
   const ox=FX.ox+shk(),oy=R0(c.my-c.y)+shk(),vy0=-oy,vy1=h-oy,u=uOf(c.y);
-  drawSky(g,w,h,u);
   // the valley sinks as the team climbs: each layer by its own share of the camera's height
-  const climb=-c.y;
+  const climb=-c.y,art=ART.valley&&ART.pines;
+  if(art)drawValley(g,w,h,climb);else drawSky(g,w,h,u);
+  // drifting clouds stay in the open sky (over the backdrop, only above its peaks)
+  const cloudMax=art?valleyY(h,climb)+60:h*.7;
   for(let k=0;k<6;k++){const cx=R0(((hash(k,1)*w*1.6+t*(1.2+hash(k,3)*1.5))%(w*1.6))-w*.3),cy=R0(h*(.08+hash(k,4)*.3)+climb*.03);
-    if(cy<h*.7)drawCloud(g,cx,cy,.8+hash(k,2)*.6,k);}
+    if(cy<cloudMax)drawCloud(g,cx,cy,.8+hash(k,2)*.6,k);}
   for(const b of FX.birds)for(let i=0;i<b.n;i++)g.drawImage(SP.bird?SP.bird[Math.floor(b.t*5+i)%2]:sprites().bird[0],R0(b.x-i*7),R0(b.y*h+(i%2?3:-1)*i));
-  for(const L of FX.layers){const y=R0(climb*L.par);if(y<h)g.drawImage(L.c,0,y);}
+  if(art)drawPines(g,w,h,climb);
+  else for(const L of FX.layers){const y=R0(climb*L.par);if(y<h)g.drawImage(L.c,0,y);}
   if(vy1>-120){const B=baseLayer();g.drawImage(B.c,B.x0+ox,B.y0+oy);g.drawImage(sprites().fire[Math.floor(t*8)%3],-126+ox,-11+oy);embers(-121,-6,1);}
   const [c1,c2]=chunkRange(vy0,vy1);for(let ci=c1;ci<=c2;ci++)g.drawImage(chunk(ci),-40+ox,-(ci+1)*CHK+oy);
   if(vy1>-120)drawFrontPines(g,ox,oy);
