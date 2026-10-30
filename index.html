@@ -1087,8 +1087,8 @@ function laneX(ch,y){const a=ALT.base-y/WK;
 const holdXY=(ch,i)=>[laneX(ch,-i*HS)+(i%2?13:-13)+(hash(i,3)-.5)*8,-i*HS+(hash(i,5)-.5)*7];
 const boltXY=(ch,i)=>[laneX(ch,-i*HS)+(hash(i,11)-.5)*6,-i*HS+12];
 const idxOf=(exp,p)=>Math.round(-WY(altOf(exp,p))/HS);
-function restSpot(i,m){if(i<=0){const x=m?382:420;return {x,y:groundY(x)};}
-  if(i===IDX_C1||i===IDX_C2)return {x:m?458:418,y:-i*HS-6}; // on the camp shelf's top surface
+function restSpot(i,m){if(i<=0){const x=m?370:418;return {x,y:groundY(x)};}
+  if(i===IDX_C1||i===IDX_C2)return {x:m?456:406,y:-i*HS-6}; // on the camp shelf's top surface
   if(i>=IDX_TOP)return {x:m?SX+30:SX,y:TOPY};return null;}
 function mateIdx(li){if(li<=0||li===IDX_C1||li===IDX_C2||li>=IDX_TOP)return li;return Math.max(li>IDX_C2?IDX_C2:li>IDX_C1?IDX_C1:0,li-5);}
 
@@ -1185,9 +1185,9 @@ const BASE={boot:"#7a4322",bootl:"#b8763f",bootd:"#4a2512",pk:"#a4733f",pkl:"#d9
   skin:"#ffd2a6",skinl:"#ffeed6",skind:"#e7a57a",hair:"#5a3523",hairl:"#8f5f40",haird:"#33190e",pom:CREAM,hn:"#3d5fa8",cb:"#9b5fc0"};
 // two different people: a wiry, freckled leader in a bobble beanie, and a big, moustached belayer in a trapper hat
 const LOOK={me:{...BASE,jk:"#e0472b",jkl:"#ff9466",jkd:"#9e2914",pt:"#2f4a6b",ptl:"#5776a0",ptd:"#1d3049",hat:"#f2b233",hatl:"#ffe596",hatd:"#c4851a",sc:"#fff3d6",
-    wb:.92,hr:11,hatk:"beanie",freck:1,patch:0,hn:"#f08a24",cb:"#3f8c82"},
+    wb:.92,hr:11,hk:1.42,hatk:"beanie",freck:1,patch:0,hn:"#f08a24",cb:"#3f8c82"},
   mate:{...BASE,jk:"#2f8f8a",jkl:"#79cfc3",jkd:"#1b5f5b",pt:"#6b4a2e",ptl:"#9a7350",ptd:"#43301c",hat:"#e0472b",hatl:"#ff9a78",hatd:"#9e2914",sc:"#f2b233",
-    hair:"#2b1d14",hairl:"#5e4231",haird:"#120a06",skin:"#f4b98a",skinl:"#ffdcb8",skind:"#d48c60",wb:1.16,hr:11.8,hatk:"trapper",stache:1,patch:1}};
+    hair:"#2b1d14",hairl:"#5e4231",haird:"#120a06",skin:"#f4b98a",skinl:"#ffdcb8",skind:"#d48c60",wb:1.16,hr:11.8,hk:1.42,hatk:"trapper",stache:1,patch:1}};
 function ik(rx,ry,tx,ty,a,b,bend){let dx=tx-rx,dy=ty-ry,d=Math.hypot(dx,dy)||1e-4;const m=a+b-.01;if(d>m){tx=rx+dx/d*m;ty=ry+dy/d*m;d=m;}
   const ang=Math.atan2(ty-ry,tx-rx),j=ang+bend*Math.acos(clamp((a*a+d*d-b*b)/(2*a*d),-1,1));return [rx+Math.cos(j)*a,ry+Math.sin(j)*a,tx,ty];}
 // rubber hose: one smooth curve through the IK joint instead of a hinge
@@ -1205,7 +1205,7 @@ class Rig{
     this.cheer=0;this.dizzy=0;this.fall=null;this.fid=null;this.lastMove=0;this.sq=0;this.sqv=0;this.pp={x:0,y:0,vx:0,vy:0};this.cnt=0;
     this.sc=Array.from({length:7},()=>({x:0,y:0,px:0,py:0}));this.ph=Math.random()*6;}
   front(){return this.cheer>0||this.dizzy>0||this.mode==="fall";}
-  shoulders(){const s=this.s;return [{x:this.N.x-8*s,y:this.N.y+3*s},{x:this.N.x+8*s,y:this.N.y+3*s}];}
+  shoulders(){const s=this.s,w=10.5*s*(this.L.wb||1);return [{x:this.N.x-w,y:this.N.y+3*s},{x:this.N.x+w,y:this.N.y+3*s}];}
   pelvis(){return {x:this.N.x+Math.sin(this.lean)*22*this.s,y:this.N.y+Math.cos(this.lean)*22*this.s};}
   moved(){if(this.fid&&this.mode==="climb"){const h=this.h[this.fid.j],[x,y]=this.hold(h.i);this.flyHand(h,x,y,.18,1);}this.lastMove=FX.time;this.fid=null;}
   standAt(x,y){const s=this.s;this.moved();this.mode="stand";this.fall=null;this.gx=x;this.gy=y;this.N.x=x;this.N.y=y-55*s;this.v.x=this.v.y=0;this.lean=0;const S=this.shoulders();
@@ -1273,8 +1273,8 @@ class Rig{
     sc[0].x=ax;sc[0].y=ay;
     for(let it=0;it<3;it++)for(let i=1;i<sc.length;i++){const a=sc[i-1],b=sc[i],dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1,df=(d-4.4*s)/d;
       if(i===1){b.x-=dx*df;b.y-=dy*df;}else{a.x+=dx*df*.5;a.y+=dy*df*.5;b.x-=dx*df*.5;b.y-=dy*df*.5;}}
-    const pp=this.pp,hx=this.N.x,hy=this.N.y-31*s*(1+this.sq*.5);pp.vx+=((hx-pp.x)*140-pp.vx*9+wind*.15)*dt;pp.vy+=((hy-pp.y)*140-pp.vy*9)*dt;pp.x+=pp.vx*dt;pp.y+=pp.vy*dt;
-    const pd=Math.hypot(pp.x-hx,pp.y-hy);if(pd>7*s){pp.x=hx+(pp.x-hx)/pd*7*s;pp.y=hy+(pp.y-hy)/pd*7*s;}
+    const pp=this.pp,hk=this.L.hk||1,hx=this.N.x,hy=this.N.y-31*s*hk*(1+this.sq*.5);pp.vx+=((hx-pp.x)*140-pp.vx*9+wind*.15)*dt;pp.vy+=((hy-pp.y)*140-pp.vy*9)*dt;pp.x+=pp.vx*dt;pp.y+=pp.vy*dt;
+    const pd=Math.hypot(pp.x-hx,pp.y-hy);if(pd>7*s*hk){pp.x=hx+(pp.x-hx)/pd*7*s*hk;pp.y=hy+(pp.y-hy)/pd*7*s*hk;}
   }
   draw(g,t){
     const s=this.s,L=this.L,P=this.pelvis(),front=this.front(),wb=L.wb||1,br=1+Math.sin(t*2.3+this.ph)*.02,sx=(1-this.sq*.6)*br,sy=1+this.sq;
@@ -1285,38 +1285,38 @@ class Rig{
     if(this.mode!=="fall"){const gr=g.createRadialGradient(N.x+10*s,N.y+20*s,2,N.x+10*s,N.y+20*s,36*s);gr.addColorStop(0,"rgba(60,30,40,.26)");gr.addColorStop(1,"rgba(60,30,40,0)");
       g.fillStyle=gr;g.fillRect(N.x-30*s,N.y-20*s,80*s,80*s);}
     // legs: baggy trousers with a harness leg loop, a knee patch on one, rolled cuffs, chunky boots with a tread sole and laces
-    for(let j=0;j<2;j++){const f=this.ft[j],d=j?1:-1,hx=P.x+d*6*s*wb,[kx,ky,fx,fy]=ik(hx,P.y,f.x,f.y,18*s,18*s,j?-1:1);
-      hose(g,hx,P.y,kx,ky,fx,fy,8*s,L.pt,id+j*7);
+    for(let j=0;j<2;j++){const f=this.ft[j],d=j?1:-1,hx=P.x+d*7.5*s*wb,[kx,ky,fx,fy]=ik(hx,P.y,f.x,f.y,18*s,18*s,j?-1:1);
+      hose(g,hx,P.y,kx,ky,fx,fy,12.5*s,L.pt,id+j*7);
       if(j===L.patch){g.save();g.translate(kx,ky);g.rotate(Math.atan2(fy-ky,fx-kx));rr(g,-1.4*s,-3.6*s,7*s,7.2*s,2*s);blob(g,L.ptl,1.2*s);
         g.setLineDash([1.2*s,1.2*s]);rr(g,-.2*s,-2.4*s,4.6*s,4.8*s,1.2*s);g.strokeStyle=INK;g.lineWidth=.7*s;g.stroke();g.setLineDash([]);g.restore();}
       const tx=lerp(hx,kx,.34),ty=lerp(P.y,ky,.34),ta=Math.atan2(ky-P.y,kx-hx);
-      g.beginPath();g.ellipse(tx,ty,1.7*s,5.2*s,ta,0,7);g.strokeStyle=INK;g.lineWidth=3.6*s;g.stroke();g.strokeStyle=L.hn;g.lineWidth=2*s;g.stroke();
-      g.beginPath();g.ellipse(fx,fy-4.2*s,4.9*s,2.2*s,0,0,7);blob(g,L.ptd,1.4*s);
-      const bx=fx+2*d*s,by=fy+1*s;
+      g.beginPath();g.ellipse(tx,ty,2*s,7.2*s,ta,0,7);g.strokeStyle=INK;g.lineWidth=3.6*s;g.stroke();g.strokeStyle=L.hn;g.lineWidth=2*s;g.stroke();
+      g.beginPath();g.ellipse(fx,fy-4.6*s,7*s,3*s,0,0,7);blob(g,L.ptd,1.6*s);
+      const bx=fx+2*d*s,by=fy+1*s;g.save();g.translate(bx,by);g.scale(1.4,1.4);g.translate(-bx,-by);
       g.beginPath();g.ellipse(bx+1*d*s,by+2.8*s,8.2*s,2.7*s,0,0,7);blob(g,L.bootd,1.6*s);
       g.beginPath();g.moveTo(bx-6.4*d*s,by+2.4*s);g.bezierCurveTo(bx-7.6*d*s,by-4.8*s,bx+3.6*d*s,by-6.4*s,bx+7.2*d*s,by-.6*s);
       g.bezierCurveTo(bx+8.6*d*s,by+2.2*s,bx+5*d*s,by+3.6*s,bx-6.4*d*s,by+2.4*s);g.closePath();blob(g,shade(bx-d*s,by-3*s,8*s,L.bootl,L.boot,L.bootd),1.8*s);
       g.beginPath();g.moveTo(bx-3*d*s,by-4.6*s);g.lineTo(bx+.8*d*s,by-2.4*s);g.moveTo(bx-3*d*s,by-2.4*s);g.lineTo(bx+.8*d*s,by-4.6*s);inkPath(g,1*s);
-      g.fillStyle="rgba(255,240,214,.7)";g.beginPath();g.ellipse(bx+3.6*d*s,by-2.6*s,1.8*s,.9*s,0,0,7);g.fill();}
+      g.fillStyle="rgba(255,240,214,.7)";g.beginPath();g.ellipse(bx+3.6*d*s,by-2.6*s,1.8*s,.9*s,0,0,7);g.fill();g.restore();}
     const jx=boilJ(id+20,.6*s),jy=boilJ(id+21,.6*s);g.save();g.translate(jx,jy);
     // egg-shaped puffer jacket: quilted bands with a soft shine on each
-    const mx=(N.x+P.x)/2,my=lerp(N.y,P.y,.5),W1=12*wb*s,W2=14*wb*s,W3=9*wb*s,body=new Path2D();
-    body.moveTo(N.x,N.y-3*s);body.bezierCurveTo(N.x+W1,N.y-3*s,P.x+W2,P.y-7*s,P.x+W3,P.y+3*s);body.bezierCurveTo(P.x+4*s,P.y+7*s,P.x-4*s,P.y+7*s,P.x-W3,P.y+3*s);
+    const mx=(N.x+P.x)/2,my=lerp(N.y,P.y,.5),W1=15.5*wb*s,W2=19*wb*s,W3=12*wb*s,body=new Path2D();
+    body.moveTo(N.x,N.y-3*s);body.bezierCurveTo(N.x+W1,N.y-3*s,P.x+W2,P.y-7*s,P.x+W3,P.y+3*s);body.bezierCurveTo(P.x+6*s,P.y+9.5*s,P.x-6*s,P.y+9.5*s,P.x-W3,P.y+3*s);
     body.bezierCurveTo(P.x-W2,P.y-7*s,N.x-W1,N.y-3*s,N.x,N.y-3*s);body.closePath();
-    g.fillStyle=shade(mx,my,17*s*wb,L.jkl,L.jk,L.jkd);g.fill(body);
+    g.fillStyle=shade(mx,my,21*s*wb,L.jkl,L.jk,L.jkd);g.fill(body);
     g.save();g.clip(body);g.lineCap="round";g.lineWidth=1.3*s;g.strokeStyle="rgba(29,19,15,.34)";
     for(const k of [.3,.6,.88]){const y=lerp(N.y,P.y,k);g.beginPath();g.moveTo(mx-20*s,y-3*s);g.quadraticCurveTo(mx,y+3.2*s,mx+20*s,y-3*s);g.stroke();}
     g.strokeStyle="rgba(255,255,255,.3)";g.lineWidth=1.6*s;
     for(const k of [.14,.45,.74]){const y=lerp(N.y,P.y,k);g.beginPath();g.moveTo(mx-11*s*wb,y);g.quadraticCurveTo(mx-6*s,y+2*s,mx-1.5*s,y+2.2*s);g.stroke();}
     g.restore();g.lineJoin="round";g.strokeStyle=INK;g.lineWidth=2.4*s;g.stroke(body);
     // harness waist belt
-    g.beginPath();g.moveTo(P.x-11*wb*s,P.y-1*s);g.quadraticCurveTo(P.x,P.y+4.5*s,P.x+11*wb*s,P.y-1*s);g.lineCap="round";g.strokeStyle=INK;g.lineWidth=5.2*s;g.stroke();g.strokeStyle=L.hn;g.lineWidth=3*s;g.stroke();
+    g.beginPath();g.moveTo(P.x-14.5*wb*s,P.y-.5*s);g.quadraticCurveTo(P.x,P.y+6*s,P.x+14.5*wb*s,P.y-.5*s);g.lineCap="round";g.strokeStyle=INK;g.lineWidth=5.2*s;g.stroke();g.strokeStyle=L.hn;g.lineWidth=3*s;g.stroke();
     if(front){// zip with its pull, a little mountain badge, and the belt buckle
       g.beginPath();g.moveTo(N.x,N.y+1*s);g.quadraticCurveTo(N.x+.6*s,my,P.x,P.y+1*s);inkPath(g,1.4*s);rr(g,N.x+.2*s,N.y+2.4*s,2.2*s,3.6*s,.9*s);blob(g,"#c7ccd4",.9*s);
       const bxp=N.x-6.4*s*wb,byp=my-3*s;g.beginPath();g.arc(bxp,byp,3.2*s,0,7);blob(g,CREAM,1.1*s);
       g.beginPath();g.moveTo(bxp-2.2*s,byp+1.4*s);g.lineTo(bxp-.4*s,byp-1.8*s);g.lineTo(bxp+.5*s,byp-.3*s);g.lineTo(bxp+1.2*s,byp-1.1*s);g.lineTo(bxp+2.2*s,byp+1.4*s);g.closePath();g.fillStyle=L.jk;g.fill();
       rr(g,P.x-2.8*s,P.y,5.6*s,3.8*s,1*s);blob(g,"#c7ccd4",1.1*s);}
-    else if(!L.nopack){g.save();g.translate(lerp(N.x,P.x,.46),lerp(N.y,P.y,.46));g.rotate(-this.lean);
+    else if(!L.nopack){g.save();g.translate(lerp(N.x,P.x,.46),lerp(N.y,P.y,.46));g.rotate(-this.lean);g.scale(1.2,1.2);
       // rope coil, then a soft sack with a flap, side pocket and brass button, then the rolled bedroll on its straps
       g.beginPath();g.ellipse(12*s,3*s,4.8*s,7.6*s,0,0,7);g.strokeStyle=INK;g.lineWidth=5.2*s;g.stroke();g.strokeStyle=L.rope;g.lineWidth=2.8*s;g.stroke();
       g.beginPath();g.ellipse(12*s,3*s,4.8*s,7.6*s,0,-1.2,.2);g.strokeStyle="rgba(255,236,206,.6)";g.lineWidth=1*s;g.stroke();
@@ -1336,16 +1336,20 @@ class Rig{
       blob(g,shade(cx,cy+4*s,6*s,"#ffffffaa",L.cb,L.cb),1.4*s);rr(g,cx-4.4*s,cy-1.5*s,8.8*s,2.8*s,1.3*s);blob(g,"#f2efe6",1.2*s);}
     else{g.beginPath();g.moveTo(P.x-9*s,P.y-2*s);g.quadraticCurveTo(P.x,P.y+2*s,P.x+9*s,P.y-2*s);inkPath(g,2*s);}
     // the gear rack on the harness: one carabiner per hook left, swinging as they move
-    if(this.gear&&!front)for(let i=0;i<this.gear;i++){g.save();g.translate(P.x+[-13,-8.5,9.5,14][i%4]*s*wb,P.y+2.4*s);g.rotate(Math.sin(t*3+i*1.7)*.25+this.lean*.5);
+    if(this.gear&&!front)for(let i=0;i<this.gear;i++){g.save();g.translate(P.x+[-16,-11,12,17][i%4]*s*wb,P.y+3.4*s);g.rotate(Math.sin(t*3+i*1.7)*.25+this.lean*.5);
       g.beginPath();g.ellipse(0,3.4*s,2.3*s,3.8*s,0,0,7);g.strokeStyle=INK;g.lineWidth=2.8*s;g.stroke();g.strokeStyle=i%2?"#f2b233":"#e0472b";g.lineWidth=1.4*s;g.stroke();
       g.beginPath();g.moveTo(1.4*s,.6*s);g.lineTo(1.4*s,4.6*s);g.strokeStyle="#c7ccd4";g.lineWidth=.8*s;g.stroke();g.restore();}
     // scarf trailing in the wind, drawn as one smooth ribbon with a stripe
     const sc=this.sc;g.beginPath();g.moveTo(sc[0].x,sc[0].y);for(let i=1;i<sc.length-1;i++)g.quadraticCurveTo(sc[i].x,sc[i].y,(sc[i].x+sc[i+1].x)/2,(sc[i].y+sc[i+1].y)/2);
     g.lineTo(sc[sc.length-1].x,sc[sc.length-1].y);g.lineCap=g.lineJoin="round";g.strokeStyle=INK;g.lineWidth=6.8*s;g.stroke();g.strokeStyle=L.sc;g.lineWidth=4.2*s;g.stroke();
     g.setLineDash([2.4*s,3.2*s]);g.strokeStyle=L.jk;g.lineWidth=4.2*s;g.lineCap="butt";g.stroke();g.setLineDash([]);g.lineCap="round";
-    // sleeves go behind the head so a raised arm never hides the face; the gloves are drawn last, on top. Elbows always point outward
-    const arm=[0,1].map(j=>{const h=this.h[j],a=ik(S[j].x-jx,S[j].y-jy,h.x-jx,h.y-jy,16*s,16*s,(j?1:-1)*(h.y>S[j].y+4*s?-1:1));hose(g,S[j].x-jx,S[j].y-jy,a[0],a[1],a[2],a[3],6.6*s,L.jk,id+30+j*3);return a;});
+    // sleeves go behind the head so a raised arm never hides the face. From behind, hands on the wall sit behind the head too;
+    // facing the camera they come in front. Elbows always point outward
+    const arm=[0,1].map(j=>{const h=this.h[j],a=ik(S[j].x-jx,S[j].y-jy,h.x-jx,h.y-jy,16*s,16*s,(j?1:-1)*(h.y>S[j].y+4*s?-1:1));hose(g,S[j].x-jx,S[j].y-jy,a[0],a[1],a[2],a[3],10.5*s,L.jk,id+30+j*3);return a;});
+    const gloves=(ox,oy)=>this.gloves_(g,arm,jx,jy,ox,oy);if(!front)gloves(0,0);
     // the head: from behind while climbing, but turned three-quarters toward the next hold (or the partner) so the face shows
+    // a big round head, drawn at the base size and scaled up from the neck so every face detail grows with it
+    const hk=L.hk||1,hyW=N.y-12.5*s*hk;g.save();g.translate(N.x,hyW);g.scale(hk,hk);g.translate(-N.x,-(N.y-13*s));
     const R=(L.hr||11)*s,hx=N.x,hy=N.y-13*s,tn=front?0:(this.turn||0),ad=Math.abs(tn),sd=tn<0?-1:1;
     if(front){for(const d of [-1,1]){g.beginPath();g.ellipse(hx+d*R,hy+1*s,2.5*s,3.3*s,0,0,7);blob(g,L.skin,1.6*s);}
       g.beginPath();g.arc(hx,hy,R,0,7);blob(g,shade(hx,hy,R,L.skinl,L.skin,L.skind),2.2*s);
@@ -1391,7 +1395,7 @@ class Rig{
           g.fillStyle=L.hair;g.fill();inkPath(g,1.2*s);}
         g.globalAlpha=1;}}
     // hats: a ribbed beanie with a pompom on a spring, or a trapper with fur trim and ear flaps that swing their ties
-    const hb=hy-(front?6:2)*s;
+    const hb=hy-(front?6:2)*s,ppx=hx+(this.pp.x-hx)/hk,ppy=hy+(this.pp.y-hyW)/hk;
     if(L.hatk==="trapper"){
       for(const d of [-1,1]){const fx0=hx+d*(R-2.6*s);g.beginPath();g.moveTo(fx0,hb-1*s);g.quadraticCurveTo(hx+d*(R+4.4*s),hb,hx+d*(R+3*s),hy+5*s);
         g.quadraticCurveTo(hx+d*(R+1.4*s),hy+9*s,hx+d*(R-2*s),hy+6.2*s);g.closePath();blob(g,shade(hx+d*R,hy+2*s,6*s,L.hatl,L.hat,L.hatd),1.8*s);
@@ -1409,14 +1413,18 @@ class Rig{
       g.save();g.clip();g.beginPath();g.moveTo(hx-R-2*s,hy-R+1*s);g.quadraticCurveTo(hx,hy-R-2.4*s,hx+R+2*s,hy-R+1*s);g.strokeStyle=L.jk;g.lineWidth=2.6*s;g.stroke();g.restore();
       g.beginPath();g.moveTo(hx-R-1.6*s,hb-2.2*s);g.quadraticCurveTo(hx,hb+.6*s,hx+R+1.6*s,hb-2.2*s);g.lineTo(hx+R+1.8*s,hb+2.4*s);g.quadraticCurveTo(hx,hb+5.4*s,hx-R-1.8*s,hb+2.4*s);g.closePath();
       blob(g,L.hatd,1.8*s);for(let k=-4;k<=4;k++){const bx=hx+k*2.4*s,o=Math.abs(k)*.25*s;g.beginPath();g.moveTo(bx,hb-.6*s+o*-.6);g.lineTo(bx,hb+3.4*s-o);inkPath(g,.8*s,.35);}
-      g.beginPath();g.moveTo(hx,hy-R-5.5*s);g.lineTo(this.pp.x,this.pp.y);inkPath(g,1.4*s);
-      g.beginPath();g.arc(this.pp.x,this.pp.y,4.4*s,0,7);blob(g,shade(this.pp.x,this.pp.y,4.4*s,"#fff",L.pom,"#e4d4b4"),1.8*s);
-      for(let k=0;k<6;k++){const a=k/6*Math.PI*2+.3;g.beginPath();g.moveTo(this.pp.x+Math.cos(a)*2.4*s,this.pp.y+Math.sin(a)*2.4*s);g.lineTo(this.pp.x+Math.cos(a)*4.2*s,this.pp.y+Math.sin(a)*4.2*s);inkPath(g,.6*s,.3);}}
+      g.beginPath();g.moveTo(hx,hy-R-5.5*s);g.lineTo(ppx,ppy);inkPath(g,1.4*s);
+      g.beginPath();g.arc(ppx,ppy,4.4*s,0,7);blob(g,shade(ppx,ppy,4.4*s,"#fff",L.pom,"#e4d4b4"),1.8*s);
+      for(let k=0;k<6;k++){const a=k/6*Math.PI*2+.3;g.beginPath();g.moveTo(ppx+Math.cos(a)*2.4*s,ppy+Math.sin(a)*2.4*s);g.lineTo(ppx+Math.cos(a)*4.2*s,ppy+Math.sin(a)*4.2*s);inkPath(g,.6*s,.3);}}
     if(this.dizzy>0)for(let i=0;i<3;i++){const a=t*6+i*2.09;star(g,hx+Math.cos(a)*14*s,hy-R-6*s+Math.sin(a)*4*s,4*s);blob(g,"#f2b233",1.3*s);}
     g.restore();
-    // a knit cuff and white cartoon gloves with stitched fingers
-    for(let j=0;j<2;j++){const h=this.h[j],[ex,ey,wx0,wy0]=arm[j],wx=wx0+jx,wy=wy0+jy;
-      const k=h.sq,ang=Math.atan2(wy-ey-jy,wx-ex-jx);g.save();g.translate(wx,wy);g.rotate(ang);g.scale(1+k*.3,1-k*.25);
+    g.restore();
+    // knit cuffs and white cartoon gloves with stitched fingers
+    if(front)gloves(jx,jy);
+  }
+  gloves_(g,arm,jx,jy,ox,oy){const s=this.s,L=this.L,id=this.id*50;const shade=(x,y,r,c0,c1,c2)=>{const gr=g.createRadialGradient(x-r*.35,y-r*.4,r*.08,x,y,r*1.15);gr.addColorStop(0,c0);gr.addColorStop(.55,c1);gr.addColorStop(1,c2);return gr;};
+    for(let j=0;j<2;j++){const h=this.h[j],[ex,ey,wx0,wy0]=arm[j],wx=wx0+ox,wy=wy0+oy;
+      const k=h.sq,ang=Math.atan2(wy0-ey,wx0-ex);g.save();g.translate(wx,wy);g.rotate(ang);g.scale((1+k*.3)*1.5,(1-k*.25)*1.5);
       g.beginPath();g.ellipse(-6.6*s,0,1.9*s,3.9*s,0,0,7);blob(g,L.jkd,1.3*s);
       g.beginPath();g.moveTo(-5.4*s,-3.4*s);g.quadraticCurveTo(-1.6*s,-4.6*s,-1.4*s,0);g.quadraticCurveTo(-1.6*s,4.6*s,-5.4*s,3.4*s);g.quadraticCurveTo(-6.4*s,0,-5.4*s,-3.4*s);g.closePath();blob(g,"#f4efe6",1.4*s);
       g.beginPath();g.arc(1.2*s,0,4.8*s,0,7);blob(g,shade(1.2*s,0,4.8*s,"#fff","#f8f4ec","#d9d0c0"),1.6*s);
@@ -1662,7 +1670,7 @@ function updateCam(dt){const me=FX.A.me,mt=FX.A.mate,now=performance.now();let f
   const A=FX.area;
   // the focus (leader a little above, partner below; or the summit) sits right of the open area's middle so the valley shows on the left
   if(FX.focus==="summit"){fx=SX-30;fy=TOPY-60;}else{fx=me.N.x;fy=lerp(me.N.y,mt.N.y,.32)-6;}
-  let sc=Math.max(A.h/(FX.viewH*(1+FX.kick)),A.w/540);if(A.w/sc<400)sc=A.w/400; // keep climbers a good size, and always show some valley beside them
+  let sc=Math.max(A.h/(FX.viewH*(1+FX.kick)),A.w/540);if(A.w/sc<400)sc=A.w/400;sc=Math.min(sc,A.h/250); // always tall enough for both climbers // keep climbers a good size, and always show some valley beside them
   // keep the open area (not the whole window, which the cards may cover) between the summit sky and the meadow
   const w=FX.W/sc,x=fx+(FX.W/2-(A.x+A.w*.62))/sc,y=clamp(fy+(FX.H/2-(A.y+A.h*.5))/sc,TOPY-560-(A.y-FX.H/2)/sc,150-(A.y+A.h-FX.H/2)/sc);
   if(FX.fxEl){const s=FX.fxEl.style,v=[A.x,A.y,A.w,A.h].map(n=>Math.round(n)+"px");if(s.width!==v[2]||s.height!==v[3]||s.top!==v[1]){s.left=v[0];s.top=v[1];s.width=v[2];s.height=v[3];}}
