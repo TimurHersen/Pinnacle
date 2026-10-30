@@ -6,7 +6,7 @@
 <title>Pinnacle</title>
 <meta name="description" content="A quiz climb for two: rope up with a partner and answer your way to the summit.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Luckiest+Guy&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Silkscreen:wght@400;700&display=swap">
 <style>
 /* Layout: guidebook topo — the mountain is the board (left), the pitch card is the play surface (right); stacks on phones. */
 :root{
@@ -29,7 +29,7 @@
   --rope:#ff7444; --rope-soft:#3d2219;
   --good:#58b884; --warn:#e0a83a; --bad:#ec6a62; color-scheme:dark}
 /* rubber-hose cartoon display face for titles, captions and signs */
-:root{--toon:"Luckiest Guy","Arial Black",sans-serif}
+:root{--toon:"Silkscreen",monospace}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{height:100%;overflow:hidden}
@@ -40,7 +40,7 @@ button,input{font:inherit;color:inherit}
 /* Fullscreen: the painted climb fills the window; the bar, the card column and the HUD float over it */
 :root{--edge:max(12px,env(safe-area-inset-left,0px));--colW:min(430px,40vw);--toonInk:#1d130f}
 .scene{position:fixed;inset:0;z-index:0;background:#f3e2c3}
-.scene canvas{display:block;width:100%;height:100%}
+.scene{overflow:hidden}.scene canvas{display:block;width:100%;height:100%;image-rendering:pixelated}
 
 /* top bar: cartoon pills */
 .bar{position:fixed;z-index:6;top:0;left:0;right:0;display:flex;align-items:center;gap:8px;padding:calc(10px + env(safe-area-inset-top,0px)) var(--edge) 8px;pointer-events:none}
@@ -202,6 +202,7 @@ input:focus{border-color:var(--ink);outline:none}
 .log li{color:var(--muted)} .log li b{color:var(--ink);font-weight:500}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--paper);padding:8px 14px;border-radius:5px;font-size:14px;z-index:20}
 @media (prefers-reduced-motion:reduce){.timer i{transition:none}}
+/* pixel-art skin: square corners everywhere, to match the pixel scene */*,*::before,*::after{border-radius:0!important}
 </style>
 </head>
 <body>
@@ -1012,7 +1013,7 @@ const WK=1.6,HS=32,CHK=256,X0=100,XW=1150,SX=555;
 const WY=a=>-(a-ALT.base)*WK,TOPY=WY(ALT.top);
 const IDX_C1=Math.round(-WY(ALT.c1)/HS),IDX_C2=Math.round(-WY(ALT.c2)/HS),IDX_TOP=Math.round(-TOPY/HS);
 const RM=matchMedia("(prefers-reduced-motion: reduce)");
-const INK="#1d130f",CREAM="#fff3d6",TOON='"Luckiest Guy","Arial Black",sans-serif';
+const INK="#1d130f",CREAM="#fff3d6",TOON='"Silkscreen",monospace';
 const FX={cv:null,g:null,W:1,H:1,dpr:1,rs:1.5,raf:0,last:0,time:0,dt:0,ts:1,boil:0,ch:{main:0},tw:[],A:null,exp:null,mode:"",state:null,
   cam:null,viewH:400,area:{x:0,y:0,w:1,h:1},focus:"me",shake:0,kick:0,parts:[],pops:[],chunks:new Map(),lit:{c1:1,c2:1},litAt:{},rope:null,pins:[],visible:true,
   birds:[],nextBird:2,wisps:[],nextWisp:1,motes:[],spr:null,label:null,sun:[0,0],q:1,avg:16,qAt:0,fc:0};
@@ -1084,7 +1085,7 @@ function laneX(ch,y){const a=ALT.base-y/WK;
   if(a<=ALT.c1)return LANE.s0(clamp((a-ALT.base)/(ALT.c1-ALT.base),0,1));
   if(a<=ALT.c2)return LANE[(ch[0]||"A")+"0"]((a-ALT.c1)/(ALT.c2-ALT.c1));
   return LANE[(ch[1]||"A")+"1"](clamp((a-ALT.c2)/(ALT.top-ALT.c2),0,1));}
-const holdXY=(ch,i)=>[laneX(ch,-i*HS)+(i%2?24:-24)+(hash(i,3)-.5)*8,-i*HS+(hash(i,5)-.5)*7];
+const holdXY=(ch,i)=>[laneX(ch,-i*HS)+18+(hash(i,3)-.5)*8,-i*HS+(hash(i,5)-.5)*7];
 const boltXY=(ch,i)=>[laneX(ch,-i*HS)+(hash(i,11)-.5)*6,-i*HS+12];
 const idxOf=(exp,p)=>Math.round(-WY(altOf(exp,p))/HS);
 function restSpot(i,m){if(i<=0){const x=m?370:418;return {x,y:groundY(x)};}
@@ -1196,66 +1197,123 @@ function hose(g,ax,ay,jx,jy,ex,ey,w,col,k){const cx=2*jx-(ax+ex)/2+boilJ(k,1.2),
   g.beginPath();g.moveTo(ax,ay);g.quadraticCurveTo(cx,cy,ex,ey);g.lineCap="round";g.strokeStyle=INK;g.lineWidth=w+2.8;g.stroke();g.strokeStyle=col;g.lineWidth=w;g.stroke();
   g.save();g.translate(-w*.16,-w*.16);g.strokeStyle="rgba(255,255,255,.24)";g.lineWidth=w*.3;g.stroke();g.restore();}
 function rr(g,x,y,w,h,r){g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath();}
-// Old-school sprite animation: every action is a short strip of fixed poses (like a handful of drawn "model
-// versions") that cut from one to the next on a stepped clock. The body just slides from spot to spot; nothing
-// springs, sways or follows through. Spots are relative to the neck, in rig units; h = hands, f = feet.
-// dy drops the body (and hands) in that pose; feet stay planted unless the pose is airborne.
+/* ---------- climbers: side-view pixel sprites ----------
+   Like an old console sprite sheet: every pose is rasterised once per climber into a small grid of hard pixels
+   (no anti-aliasing), shaded and outlined, and cached. The game only ever swaps between these images while the
+   body slides from spot to spot. Pose spots are in art pixels relative to the hips, facing right (toward the
+   wall): hn/hf = near/far hand, fn/ff = near/far foot. dy drops the body in that frame; feet stay planted
+   unless the frame is airborne. One art pixel is APX world units. */
+const APX=2,SPR={W:40,H:58,hx:18,hy:35};
 const POSES={
-  hang:  {h:[[-21,-28],[21,-3]], f:[[-12,47],[13,44]]},                 // upper hand on the left hold
-  chalk: {h:[[-21,-28],[14,22]], f:[[-12,47],[13,44]]},
-  shake1:{h:[[-21,-28],[27,16]], f:[[-12,47],[13,44]]},
-  shake2:{h:[[-21,-28],[22,27]], f:[[-12,47],[13,44]]},
-  reachL:{h:[[-19,-40],[22,-8]], f:[[-13,40],[11,52]],eff:1},
-  reachR:{h:[[-22,-8],[19,-40]], f:[[-11,52],[13,40]],eff:1},
-  pull:  {h:[[-21,-20],[21,-20]],f:[[-15,33],[15,33]],eff:1,dy:-2},
-  crouch:{h:[[-21,-22],[21,-22]],f:[[-16,30],[16,30]],eff:1,dy:4},
-  jump:  {h:[[-17,-41],[17,-41]],f:[[-6,54],[7,56]],eff:1,air:1},
-  mantle:{h:[[-21,-12],[21,-12]],f:[[-12,46],[14,30]],eff:1},
-  stand: {h:[[-19,30],[19,30]],  f:[[-7,55],[7,55]]},
-  stand2:{h:[[-19,31],[19,31]],  f:[[-7,55],[7,55]],dy:1},
-  hop:   {h:[[-21,-2],[21,-2]],  f:[[-10,55],[10,55]],dy:4},
-  look:  {h:[[-19,30],[25,-30]], f:[[-7,55],[7,55]],up:1},             // points up the route
-  cheer1:{h:[[-21,-31],[21,-31]],f:[[-10,54],[10,54]],front:1,dy:-8,air:1},
-  cheer2:{h:[[-23,-12],[23,-12]],f:[[-9,55],[9,55]],front:1},
-  fall1: {h:[[-22,-26],[18,-31]],f:[[-16,46],[10,52]],front:1},
-  fall2: {h:[[-18,-31],[22,-25]],f:[[-10,52],[16,46]],front:1}};
-const MIRROR=new Set(["hang","chalk","shake1","shake2"]); // flipped when the upper hold is on the right
+  hang:  {hn:[13,-29],hf:[12,-22],fn:[8,14],ff:[6,7]},
+  reachL:{hn:[14,-33],hf:[12,-18],fn:[8,16],ff:[8,5],eff:1},
+  reachR:{hn:[12,-19],hf:[14,-32],fn:[8,5],ff:[8,16],eff:1},
+  pull:  {hn:[13,-21],hf:[12,-23],fn:[9,3],ff:[7,6],eff:1,dy:-1},
+  crouch:{hn:[13,-25],hf:[12,-23],fn:[9,4],ff:[7,4],eff:1,dy:2},
+  jump:  {hn:[11,-31],hf:[13,-30],fn:[3,18],ff:[5,16],eff:1,air:1},
+  mantle:{hn:[15,-12],hf:[14,-13],fn:[10,-2],ff:[5,16],eff:1},
+  chalk: {hn:[13,-29],hf:[-3,1],fn:[8,14],ff:[6,7]},
+  shake1:{hn:[13,-29],hf:[-4,8],fn:[8,14],ff:[6,7]},
+  shake2:{hn:[13,-29],hf:[0,10],fn:[8,14],ff:[6,7]},
+  stand: {hn:[4,5],hf:[-3,5],fn:[3,18],ff:[-2,18]},
+  stand2:{hn:[4,6],hf:[-3,6],fn:[3,18],ff:[-2,18],dy:1},
+  hop:   {hn:[8,-5],hf:[3,-6],fn:[4,18],ff:[-1,18],dy:3},
+  look:  {hn:[9,-25],hf:[-3,5],fn:[3,18],ff:[-2,18],up:1},
+  cheer1:{hn:[5,-30],hf:[-1,-29],fn:[4,16],ff:[-3,17],dy:-5,air:1,joy:1},
+  cheer2:{hn:[9,-22],hf:[-4,-21],fn:[3,18],ff:[-2,18],joy:1},
+  fall1: {hn:[-8,-24],hf:[11,-22],fn:[-6,14],ff:[8,12],oh:1},
+  fall2: {hn:[-3,-29],hf:[12,-15],fn:[5,16],ff:[-8,10],oh:1}};
+function hexRGB(h){const n=parseInt(h.slice(1,7),16);return [n>>16&255,n>>8&255,n&255];}
+function tone(h,k){const c=hexRGB(h),t=k<0?[20,12,10]:[255,250,232],a=Math.abs(k);return "#"+c.map((v,i)=>Math.round(v+(t[i]-v)*a).toString(16).padStart(2,"0")).join("");}
+function pixelSprite(L,pose,o){
+  const P=POSES[pose]||POSES.stand,{W,H}=SPR,wb=L.wb||1,out=new Array(W*H).fill(null);
+  // each layer is painted flat, then shaded (light from the upper left) and given its own 1px ink outline,
+  // so a near arm reads cleanly over a jacket of the same colour
+  const layer=paint=>{const b=new Array(W*H).fill(null),set=(x,y,c)=>{x=Math.round(x);y=Math.round(y);if(x>=0&&y>=0&&x<W&&y<H)b[y*W+x]=c;},
+      get=(x,y)=>x>=0&&y>=0&&x<W&&y<H?b[y*W+x]:null,
+      disc=(cx,cy,r,c)=>{for(let y=Math.floor(cy-r);y<=Math.ceil(cy+r);y++)for(let x=Math.floor(cx-r);x<=Math.ceil(cx+r);x++)if((x-cx)**2+(y-cy)**2<=r*r+.25)set(x,y,c);},
+      box=(x0,y0,x1,y1,c)=>{for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)set(x,y,c);},
+      seg=(x0,y0,x1,y1,w,c)=>{const n=Math.ceil(Math.hypot(x1-x0,y1-y0)*2)+1;for(let i=0;i<=n;i++)disc(lerp(x0,x1,i/n),lerp(y0,y1,i/n),w/2,c);};
+    paint({set,get,disc,box,seg});
+    const sh=b.map((c,i)=>{if(!c||c===INK||c.length>7)return c;const x=i%W,y=(i/W)|0;
+      return get(x-1,y-1)===null&&get(x,y-1)===null?tone(c,.22):get(x+1,y+1)===null&&get(x+1,y)===null?tone(c,-.24):c;});
+    for(let i=0;i<W*H;i++){const x=i%W,y=(i/W)|0;
+      if(sh[i])out[i]=sh[i].length>7?sh[i].slice(0,7):sh[i];
+      else if(get(x-1,y)||get(x+1,y)||get(x,y-1)||get(x,y+1))out[i]=INK;}};
+  const dy=P.dy||0,hx=SPR.hx,hy=SPR.hy+dy,fy=SPR.hy+(P.air?dy:0),sx=hx+1,sy=hy-11,glove="#f8f4ecff"; // 9-char colours skip shading
+  const arm=(d,h,c)=>{const tx=hx+h[0],ty=hy+h[1],[ex,ey,wx,wy]=ik(sx,sy,tx,ty,11,10,ty<sy?-1:1);d.seg(sx,sy,ex,ey,3.4,c);d.seg(ex,ey,wx,wy,3.2,c);
+    d.disc(wx-(wx-ex)*.18,wy-(wy-ey)*.18,1.3,tone(c,-.3));d.disc(wx,wy,1.9,glove);};
+  const leg=(d,f,c,boot,patch)=>{const tx=hx+f[0],ty=fy+f[1],[kx,ky,ax,ay]=ik(hx,hy+1,tx,ty,9,9,-1);d.seg(hx,hy+1,kx,ky,4.6,c);d.seg(kx,ky,ax,ay,4.2,c);
+    if(patch)d.box(Math.round(kx)-1,Math.round(ky)-1,Math.round(kx),Math.round(ky),L.ptl);
+    const bx=Math.round(ax),by=Math.round(ay);d.box(bx-2,by-3,bx+3,by,boot);d.box(bx-2,by+1,bx+4,by+1,L.bootd+"ff");d.set(bx+2,by-3,L.bootl);};
+  // far side: the arm and leg away from us, a shade darker, then the pack on the back
+  layer(d=>{arm(d,P.hf,tone(L.jk,-.18));leg(d,P.ff,tone(L.pt,-.2),tone(L.boot,-.15),0);});
+  layer(d=>{d.box(hx-10,hy-16,hx-4,hy-3,L.pk);d.box(hx-10,hy-16,hx-4,hy-13,L.pkd);d.set(hx-7,hy-12,"#f2b233");d.box(hx-11,hy-20,hx-3,hy-17,L.roll);
+    for(let a=0;a<12;a++)d.set(hx-11+Math.cos(a/12*6.28)*2.4,hy-7+Math.sin(a/12*6.28)*2.6,L.rope);});
+  // body: puffer jacket, harness, chalk bag, gear, near leg, scarf, head and hat
+  layer(d=>{d.disc(hx,hy-8,4.6*wb,L.jk);d.disc(hx+1,hy-4,4.6*wb,L.jk);d.box(hx-3,hy-11,hx+3,hy-1,L.jk);
+    for(const y of [hy-8,hy-4])for(let x=hx-6;x<=hx+7;x++)if(d.get(x,y)===L.jk)d.set(x,y,L.jkd);
+    for(let x=hx-6;x<=hx+7;x++)for(const y of [hy-1,hy])if(d.get(x,y))d.set(x,y,L.hn);d.set(hx+4,hy-1,"#c7ccd4");
+    d.box(hx-6,hy,hx-4,hy+3,L.cb);for(let i=0;i<(o.gear|0);i++){const x=hx+1+i*2,c=i%2?"#f2b233":"#e0472b";d.set(x,hy+1,c);d.set(x,hy+2,c);}
+    leg(d,P.fn,L.pt,L.boot,L.patch);
+    const fl=o.flap?1:0;d.box(hx-2,hy-13,hx+3,hy-12,L.sc);for(let i=1;i<=5;i++){const y=hy-12+(i>2?1:0)+(i%2?fl:0);d.set(hx-2-i,y,i%2?L.sc:L.jk);d.set(hx-2-i,y+1,L.sc);}
+  });
+  // the near arm goes over the body but under the head, so a raised arm never hides the face
+  layer(d=>arm(d,P.hn,L.jk));
+  layer(d=>{const cx=hx+2,cy=hy-19,R=7;d.disc(cx,cy,R,L.skin);
+    for(let y=cy-R;y<=cy+R;y++)for(let x=cx-R;x<=hx;x++)if(d.get(x,y)===L.skin)d.set(x,y,L.hair);
+    d.disc(hx+1,hy-18,1.3,L.skind);
+    const ex=hx+6,ey=cy-(P.up?1:0);
+    if(P.oh){d.box(ex,ey-1,ex+1,ey+1,"#ffffffff");d.set(ex+1,ey,INK);}
+    else if(o.blink||P.eff){d.set(ex,ey,INK);d.set(ex+1,ey,INK);}
+    else{d.set(ex,ey-1,INK);d.set(ex,ey,INK);d.set(ex+1,ey-1,"#ffffffff");}
+    d.set(ex-1,ey-3+(P.eff?1:0),L.hair);d.set(ex,ey-3,L.hair);d.set(ex+1,ey-3,L.hair);
+    d.disc(hx+9.5,hy-17,1.4,tone(L.skin,-.1));d.set(hx+5,hy-16,"#f08a7a");
+    if(L.freck){d.set(hx+4,hy-17,L.skind);d.set(hx+6,hy-15,L.skind);}
+    if(P.oh)d.box(hx+7,hy-15,hx+8,hy-14,INK+"ff");
+    else if(P.joy){d.box(hx+6,hy-15,hx+9,hy-14,"#8c2a1d");d.box(hx+7,hy-15,hx+8,hy-15,"#ffffffff");}
+    else if(P.eff){d.set(hx+7,hy-14,INK);d.set(hx+8,hy-14,INK);}
+    else{d.set(hx+7,hy-14,"#8c2a1d");d.set(hx+8,hy-15,"#8c2a1d");}
+    if(L.stache){d.box(hx+5,hy-15,hx+10,hy-15,L.hair+"ff");d.set(hx+5,hy-14,L.hair+"ff");d.set(hx+10,hy-14,L.hair+"ff");}
+    if(L.hatk==="trapper"){
+      // the dome, then a fur band, an ear flap hanging at the back and a button on top
+      for(let y=cy-12;y<=cy-3;y++)for(let x=cx-8;x<=cx+8;x++)if((x-cx)**2+((y-cy+3)*1.05)**2<=60)d.set(x,y,L.hat);
+      d.box(cx-8,cy-3,cx+7,cy-1,"#f6ead2");d.box(hx-6,hy-19,hx-3,hy-13,L.hat);d.box(hx-6,hy-13,hx-3,hy-13,"#f6ead2");d.set(hx-4,hy-12,INK);d.set(hx-4,hy-11,"#f6ead2");d.set(cx,cy-12,L.hatd);}
+    else{for(let y=cy-11;y<=cy-3;y++)for(let x=cx-8;x<=cx+8;x++)if((x-cx)**2+((y-cy+3)*1.1)**2<=58)d.set(x,y,L.hat);
+      d.box(cx-8,cy-3,cx+7,cy-2,L.hatd);for(let x=cx-8;x<=cx+8;x++)if(d.get(x,cy-7)===L.hat)d.set(x,cy-7,L.jk);
+      d.disc(hx-2,cy-13,2.3,L.pom);}});
+  const c=document.createElement("canvas");c.width=W;c.height=H;const g=c.getContext("2d");
+  for(let i=0;i<W*H;i++)if(out[i]){g.fillStyle=out[i];g.fillRect(i%W,(i/W)|0,1,1);}
+  return c;}
 let RIG_ID=0;
 class Rig{
-  constructor(L,hold,rest,s=1){this.L=L;this.hold=hold;this.rest=rest;this.s=s;this.id=++RIG_ID;this.mode="stand";this.N={x:0,y:0};this.v={x:0,y:0};this.lean=0;
-    this.h=[{x:0,y:0,sq:0},{x:0,y:0,sq:0}];this.ft=[{x:0,y:0},{x:0,y:0}];this.hi=0;this.gx=0;this.gy=0;this.cheer=0;this.dizzy=0;this.fall=null;this.cnt=0;
-    this.mv=null;this.clip=null;this.pose="stand";this.dir=1;this.turn=.72;this.up=0;this.bodyDy=0;this.idleAt=0;this.ph=Math.random()*6;
-    this.sc=Array.from({length:7},()=>({x:0,y:0}));this.pp={x:0,y:0};}
-  front(){return !!(POSES[this.pose]||{}).front||this.dizzy>0||this.mode==="fall";}
-  shoulders(){const s=this.s,w=10.5*s*(this.L.wb||1);return [{x:this.N.x-w,y:this.N.y+3*s},{x:this.N.x+w,y:this.N.y+3*s}];}
-  pelvis(){return {x:this.N.x+Math.sin(this.lean)*22*this.s,y:this.N.y+Math.cos(this.lean)*22*this.s};}
-  hangAt(i){const a=this.hold(i),b=this.hold(i-1);return {x:(a[0]+b[0])/2,y:(a[1]+b[1])/2+15*this.s};}
-  // a strip of [pose, ms] frames; after the last frame it loops back to index `loop`, or holds the last frame
+  constructor(L,hold,rest,s=1){this.L=L;this.hold=hold;this.rest=rest;this.s=s;this.id=++RIG_ID;this.mode="stand";this.N={x:0,y:0};this.v={x:0,y:0};
+    this.h=[{x:0,y:0},{x:0,y:0}];this.ft=[{x:0,y:0},{x:0,y:0}];this.hi=0;this.gx=0;this.gy=0;this.cheer=0;this.dizzy=0;this.fall=null;this.cnt=0;
+    this.mv=null;this.clip=null;this.pose="stand";this.dir=1;this.idleAt=0;this.ph=Math.random()*6;this.cache=new Map();}
+  front(){return false;}
+  pelvis(){return {x:this.N.x,y:this.N.y+12*APX};}
+  // the hang spot: near hand on hold i (hands sit 13 art px in front of the hips, 29 above)
+  hangAt(i){const a=this.hold(i);return {x:a[0]-13*APX,y:a[1]+17*APX};}
   play(frames,loop=-1){this.clip={frames:frames.map(([p,ms])=>[p,Math.max(40,ms)]),loop,i:0,t:0};this.pose=frames[0][0];}
   standLoop(){this.play([["stand",650],["stand2",650]],0);}
   slide(x,y,d,wait=0){this.mv={x0:this.N.x,y0:this.N.y,x1:x,y1:y,t:0,d:Math.max(d,.001),wait};}
   calm(){this.idleAt=FX.time+2.6+Math.random()*2.6;}
-  standAt(x,y){this.mode="stand";this.fall=null;this.mv=null;this.gx=x;this.gy=y;this.N.x=x;this.N.y=y-55*this.s;this.lean=0;this.standLoop();this.calm();this.pin(FX.time);}
-  grab(i){this.mode="climb";this.fall=null;this.mv=null;this.hi=i;const p=this.hangAt(i);this.N.x=p.x;this.N.y=p.y;this.lean=0;this.play([["hang",1e9]]);this.calm();this.pin(FX.time);}
+  standAt(x,y){this.mode="stand";this.fall=null;this.mv=null;this.gx=x;this.gy=y;this.N.x=x;this.N.y=y-31*APX;this.standLoop();this.calm();this.pin();}
+  grab(i){this.mode="climb";this.fall=null;this.mv=null;this.hi=i;const p=this.hangAt(i);this.N.x=p.x;this.N.y=p.y;this.play([["hang",1e9]]);this.calm();this.pin();}
   stepUp(d){const n=++this.hi,p=this.hangAt(n),ms=d*1000;this.mode="climb";this.slide(p.x,p.y,d);
     this.play([[n%2?"reachR":"reachL",ms*.5],["pull",ms*.5],["hang",1e9]]);this.calm();}
   dyno(d){const ms=d*1000;this.hi+=2;const p=this.hangAt(this.hi);this.mode="climb";this.slide(p.x,p.y,d*.6,d*.3);
     this.play([["crouch",ms*.3],["jump",ms*.6],["pull",ms*.1],["hang",1e9]]);this.calm();}
   stepDown(d){if(this.hi-2<0)return;const n=--this.hi,p=this.hangAt(n),ms=d*1000;this.slide(p.x,p.y,d);
     this.play([["pull",ms*.5],[n%2?"reachL":"reachR",ms*.5],["hang",1e9]]);this.calm();}
-  reachFrom(i,d){const ms=d*1000,first=this.mode==="fall"?"pull":"hop";this.mode="climb";this.fall=null;this.hi=i;this.lean=0;const p=this.hangAt(i);
+  reachFrom(i,d){const ms=d*1000,first=this.mode==="fall"?"pull":"hop";this.mode="climb";this.fall=null;this.hi=i;const p=this.hangAt(i);
     this.slide(p.x,p.y,d*.6,d*.4);this.play([[first,ms*.4],["jump",ms*.6],["hang",1e9]]);this.calm();}
-  topOut(x,y,d){this.slide(x,y-55*this.s,d);this.play([["mantle",d*600],["hop",1e9]]);}
+  topOut(x,y,d){this.slide(x,y-31*APX,d);this.play([["mantle",d*600],["hop",1e9]]);}
   land(x,y){this.standAt(x,y);this.play([["hop",160],["stand",650],["stand2",650]],1);}
   startFall(ax,ay,len){this.mode="fall";this.mv=null;this.fall={ax,ay,len,caught:0};this.v.y=-70;this.v.x=(Math.random()-.5)*40;this.play([["fall1",110],["fall2",110]],0);}
-  // put hands, feet, scarf and pompom where the current pose says (no in-betweens)
-  pin(t){const s=this.s,P0=POSES[this.pose]||POSES.stand,wb=this.L.wb||1,mir=this.mode==="climb"&&MIRROR.has(this.pose)&&this.hi%2?-1:1,dy=(P0.dy||0)*s;
-    this.bodyDy=dy;const nx=this.N.x,ny=this.N.y+dy,fy=this.N.y+(P0.air?dy:0),hs=mir<0?[P0.h[1],P0.h[0]]:P0.h,fs=mir<0?[P0.f[1],P0.f[0]]:P0.f;
-    for(let j=0;j<2;j++){this.h[j].x=nx+hs[j][0]*mir*s*(1+(wb-1)*.6);this.h[j].y=ny+hs[j][1]*s;this.ft[j].x=nx+fs[j][0]*mir*s*wb;this.ft[j].y=fy+fs[j][1]*s;}
-    // the scarf and pompom have two drawn positions each, flipping on a slow tick
-    const fl=Math.floor(t*5+this.ph)%2,ax=nx+2*s,ay=ny+s;
-    this.sc.forEach((p,i)=>{p.x=ax+i*4.3*s;p.y=ay+i*1.4*s+(i?(fl?1:-1)*Math.min(i,3)*.9*s:0);});
-    this.pp.x=nx+this.dir*1.5*s+(fl?1.2:-1.2)*s;this.pp.y=ny-31*s*(this.L.hk||1);}
+  // where the hands and feet are in the world this frame (for chalk puffs)
+  pin(){const P0=POSES[this.pose]||POSES.stand,hp=this.pelvis(),k=APX*this.dir;
+    this.h[0].x=hp.x+P0.hn[0]*k;this.h[0].y=hp.y+P0.hn[1]*APX;this.h[1].x=hp.x+P0.hf[0]*k;this.h[1].y=hp.y+P0.hf[1]*APX;}
   update(dt,t){
     const c=this.clip;
     if(c){c.t+=dt*1000;while(c.t>=c.frames[c.i][1]){c.t-=c.frames[c.i][1];if(c.i<c.frames.length-1)c.i++;else if(c.loop>=0)c.i=c.loop;else{c.t=0;break;}}
@@ -1267,174 +1325,27 @@ class Rig{
       const dm=Math.pow(.5,dt);this.v.x*=dm;this.v.y*=dm;}
     else if(this.mv){const m=this.mv;if(m.wait>0)m.wait-=dt;else{m.t+=dt;const k=Math.min(1,m.t/m.d);this.N.x=lerp(m.x0,m.x1,k);this.N.y=lerp(m.y0,m.y1,k);if(k>=1)this.mv=null;}}
     if(this.dizzy>0)this.dizzy-=dt;
-    // cheering: a two-frame jump for joy
     if(this.mode==="stand"){if(this.cheer>0){this.cheer-=dt;if(!(this.clip&&this.clip.joy)){this.play([["cheer1",170],["cheer2",170]],0);this.clip.joy=1;}if(this.cheer<=0)this.standLoop();}
       else if(this.clip&&this.clip.joy)this.standLoop();}
-    // idle fidgets: chalk up or shake out an arm on the wall, shade the eyes on a ledge
     if(!this.mv&&this.mode!=="fall"&&this.cheer<=0&&FX.time>this.idleAt&&!RM.matches){this.calm();
       if(this.mode==="climb")this.play(Math.random()<.5?[["chalk",900],["hang",1e9]]:[["shake1",110],["shake2",110],["shake1",110],["shake2",110],["shake1",110],["shake2",110],["hang",1e9]]);
       else if(this.pose==="stand"||this.pose==="stand2")this.play([["look",1600],["stand",650],["stand2",650]],1);}
-    // which way they look: toward the next hold on the wall, at their partner on a ledge; it snaps, it doesn't turn
+    // on the wall they face it; on a ledge they face their partner
     const other=FX.A&&(this===FX.A.me?FX.A.mate:FX.A.me);
-    if(this.mode==="climb"){const nx=this.hold(this.hi+1);if(nx&&Math.abs(nx[0]-this.N.x)>4)this.dir=nx[0]>this.N.x?1:-1;}
+    if(this.mode==="climb")this.dir=1;
     else if(this.mode==="stand"&&other&&other!==this&&Math.abs(other.N.x-this.N.x)>4)this.dir=other.N.x>this.N.x?1:-1;
-    const P0=POSES[this.pose]||POSES.stand;this.turn=this.dir*(P0.up?.35:.72);this.up=P0.up?1:this.mode==="climb"?.5:0;
-    this.pin(t);
+    this.pin();
   }
   draw(g,t){
-    const s=this.s,L=this.L,dy=this.bodyDy||0,P0=this.pelvis(),P={x:P0.x,y:P0.y+dy},front=this.front(),wb=L.wb||1;
-    const N={x:this.N.x,y:this.N.y+dy},S=this.shoulders().map(p=>({x:p.x,y:p.y+dy})),id=this.id*50;
-    const reach=!!(POSES[this.pose]||{}).eff,blink=((t+this.ph*1.7)%3.9)<.13;
-    // soft round shading: light from the upper left, a darker rim on the lower right
-    const shade=(x,y,r,c0,c1,c2)=>{const gr=g.createRadialGradient(x-r*.35,y-r*.4,r*.08,x,y,r*1.15);gr.addColorStop(0,c0);gr.addColorStop(.55,c1);gr.addColorStop(1,c2);return gr;};
-    if(this.mode!=="fall"){const gr=g.createRadialGradient(N.x+10*s,N.y+20*s,2,N.x+10*s,N.y+20*s,36*s);gr.addColorStop(0,"rgba(60,30,40,.26)");gr.addColorStop(1,"rgba(60,30,40,0)");
-      g.fillStyle=gr;g.fillRect(N.x-30*s,N.y-20*s,80*s,80*s);}
-    // legs: baggy trousers with a harness leg loop, a knee patch on one, rolled cuffs, chunky boots with a tread sole and laces
-    for(let j=0;j<2;j++){const f=this.ft[j],d=j?1:-1,hx=P.x+d*7.5*s*wb,[kx,ky,fx,fy]=ik(hx,P.y,f.x,f.y,18*s,18*s,j?-1:1);
-      hose(g,hx,P.y,kx,ky,fx,fy,12.5*s,L.pt,id+j*7);
-      if(j===L.patch){g.save();g.translate(kx,ky);g.rotate(Math.atan2(fy-ky,fx-kx));rr(g,-1.4*s,-3.6*s,7*s,7.2*s,2*s);blob(g,L.ptl,1.2*s);
-        g.setLineDash([1.2*s,1.2*s]);rr(g,-.2*s,-2.4*s,4.6*s,4.8*s,1.2*s);g.strokeStyle=INK;g.lineWidth=.7*s;g.stroke();g.setLineDash([]);g.restore();}
-      const tx=lerp(hx,kx,.34),ty=lerp(P.y,ky,.34),ta=Math.atan2(ky-P.y,kx-hx);
-      g.beginPath();g.ellipse(tx,ty,2*s,7.2*s,ta,0,7);g.strokeStyle=INK;g.lineWidth=3.6*s;g.stroke();g.strokeStyle=L.hn;g.lineWidth=2*s;g.stroke();
-      g.beginPath();g.ellipse(fx,fy-4.6*s,7*s,3*s,0,0,7);blob(g,L.ptd,1.6*s);
-      const bx=fx+2*d*s,by=fy+1*s;g.save();g.translate(bx,by);g.scale(1.4,1.4);g.translate(-bx,-by);
-      g.beginPath();g.ellipse(bx+1*d*s,by+2.8*s,8.2*s,2.7*s,0,0,7);blob(g,L.bootd,1.6*s);
-      g.beginPath();g.moveTo(bx-6.4*d*s,by+2.4*s);g.bezierCurveTo(bx-7.6*d*s,by-4.8*s,bx+3.6*d*s,by-6.4*s,bx+7.2*d*s,by-.6*s);
-      g.bezierCurveTo(bx+8.6*d*s,by+2.2*s,bx+5*d*s,by+3.6*s,bx-6.4*d*s,by+2.4*s);g.closePath();blob(g,shade(bx-d*s,by-3*s,8*s,L.bootl,L.boot,L.bootd),1.8*s);
-      g.beginPath();g.moveTo(bx-3*d*s,by-4.6*s);g.lineTo(bx+.8*d*s,by-2.4*s);g.moveTo(bx-3*d*s,by-2.4*s);g.lineTo(bx+.8*d*s,by-4.6*s);inkPath(g,1*s);
-      g.fillStyle="rgba(255,240,214,.7)";g.beginPath();g.ellipse(bx+3.6*d*s,by-2.6*s,1.8*s,.9*s,0,0,7);g.fill();g.restore();}
-    const jx=boilJ(id+20,.6*s),jy=boilJ(id+21,.6*s);g.save();g.translate(jx,jy);
-    // egg-shaped puffer jacket: quilted bands with a soft shine on each
-    const mx=(N.x+P.x)/2,my=lerp(N.y,P.y,.5),W1=15.5*wb*s,W2=19*wb*s,W3=12*wb*s,body=new Path2D();
-    body.moveTo(N.x,N.y-3*s);body.bezierCurveTo(N.x+W1,N.y-3*s,P.x+W2,P.y-7*s,P.x+W3,P.y+3*s);body.bezierCurveTo(P.x+6*s,P.y+9.5*s,P.x-6*s,P.y+9.5*s,P.x-W3,P.y+3*s);
-    body.bezierCurveTo(P.x-W2,P.y-7*s,N.x-W1,N.y-3*s,N.x,N.y-3*s);body.closePath();
-    g.fillStyle=shade(mx,my,21*s*wb,L.jkl,L.jk,L.jkd);g.fill(body);
-    g.save();g.clip(body);g.lineCap="round";g.lineWidth=1.3*s;g.strokeStyle="rgba(29,19,15,.34)";
-    for(const k of [.3,.6,.88]){const y=lerp(N.y,P.y,k);g.beginPath();g.moveTo(mx-20*s,y-3*s);g.quadraticCurveTo(mx,y+3.2*s,mx+20*s,y-3*s);g.stroke();}
-    g.strokeStyle="rgba(255,255,255,.3)";g.lineWidth=1.6*s;
-    for(const k of [.14,.45,.74]){const y=lerp(N.y,P.y,k);g.beginPath();g.moveTo(mx-11*s*wb,y);g.quadraticCurveTo(mx-6*s,y+2*s,mx-1.5*s,y+2.2*s);g.stroke();}
-    g.restore();g.lineJoin="round";g.strokeStyle=INK;g.lineWidth=2.4*s;g.stroke(body);
-    // harness waist belt
-    g.beginPath();g.moveTo(P.x-14.5*wb*s,P.y-.5*s);g.quadraticCurveTo(P.x,P.y+6*s,P.x+14.5*wb*s,P.y-.5*s);g.lineCap="round";g.strokeStyle=INK;g.lineWidth=5.2*s;g.stroke();g.strokeStyle=L.hn;g.lineWidth=3*s;g.stroke();
-    if(front){// zip with its pull, a little mountain badge, and the belt buckle
-      g.beginPath();g.moveTo(N.x,N.y+1*s);g.quadraticCurveTo(N.x+.6*s,my,P.x,P.y+1*s);inkPath(g,1.4*s);rr(g,N.x+.2*s,N.y+2.4*s,2.2*s,3.6*s,.9*s);blob(g,"#c7ccd4",.9*s);
-      const bxp=N.x-6.4*s*wb,byp=my-3*s;g.beginPath();g.arc(bxp,byp,3.2*s,0,7);blob(g,CREAM,1.1*s);
-      g.beginPath();g.moveTo(bxp-2.2*s,byp+1.4*s);g.lineTo(bxp-.4*s,byp-1.8*s);g.lineTo(bxp+.5*s,byp-.3*s);g.lineTo(bxp+1.2*s,byp-1.1*s);g.lineTo(bxp+2.2*s,byp+1.4*s);g.closePath();g.fillStyle=L.jk;g.fill();
-      rr(g,P.x-2.8*s,P.y,5.6*s,3.8*s,1*s);blob(g,"#c7ccd4",1.1*s);}
-    else if(!L.nopack){g.save();g.translate(lerp(N.x,P.x,.46),lerp(N.y,P.y,.46));g.rotate(-this.lean);g.scale(1.2,1.2);
-      // rope coil, then a soft sack with a flap, side pocket and brass button, then the rolled bedroll on its straps
-      g.beginPath();g.ellipse(12*s,3*s,4.8*s,7.6*s,0,0,7);g.strokeStyle=INK;g.lineWidth=5.2*s;g.stroke();g.strokeStyle=L.rope;g.lineWidth=2.8*s;g.stroke();
-      g.beginPath();g.ellipse(12*s,3*s,4.8*s,7.6*s,0,-1.2,.2);g.strokeStyle="rgba(255,236,206,.6)";g.lineWidth=1*s;g.stroke();
-      g.beginPath();g.moveTo(-10*s,-11*s);g.bezierCurveTo(-15.5*s,-2*s,-15*s,12*s,-6*s,13.5*s);g.quadraticCurveTo(0,15.5*s,6*s,13.5*s);g.bezierCurveTo(15*s,12*s,15.5*s,-2*s,10*s,-11*s);
-      g.quadraticCurveTo(0,-14*s,-10*s,-11*s);g.closePath();blob(g,shade(0,0,15*s,L.pkl,L.pk,L.pkd),2*s);
-      g.beginPath();g.moveTo(-7*s,5*s);g.quadraticCurveTo(-7.4*s,11.6*s,0,11.8*s);g.quadraticCurveTo(7.4*s,11.6*s,7*s,5*s);g.closePath();blob(g,shade(0,7*s,8*s,L.pkl,L.pk,L.pkd),1.4*s);
-      g.setLineDash([1.2*s,1.2*s]);g.beginPath();g.moveTo(-5.6*s,6.2*s);g.quadraticCurveTo(-5.8*s,10.4*s,0,10.5*s);g.quadraticCurveTo(5.8*s,10.4*s,5.6*s,6.2*s);inkPath(g,.7*s,.6);g.setLineDash([]);
-      g.beginPath();g.moveTo(-10.5*s,-10*s);g.quadraticCurveTo(0,-13.5*s,10.5*s,-10*s);g.quadraticCurveTo(11*s,-1*s,0,2*s);g.quadraticCurveTo(-11*s,-1*s,-10.5*s,-10*s);g.closePath();
-      blob(g,shade(0,-7*s,11*s,L.pk,L.pkd,L.pkd),1.6*s);g.beginPath();g.arc(0,-.5*s,2.1*s,0,7);blob(g,"#f2b233",1.2*s);
-      const bw=14*s;g.beginPath();g.moveTo(-bw,-19.5*s);g.lineTo(bw,-19.5*s);g.arc(bw,-15.5*s,4*s,-Math.PI/2,Math.PI/2);g.lineTo(-bw,-11.5*s);g.arc(-bw,-15.5*s,4*s,Math.PI/2,Math.PI*1.5);g.closePath();
-      const rg=g.createLinearGradient(0,-19.5*s,0,-11.5*s);rg.addColorStop(0,L.rolll);rg.addColorStop(.6,L.roll);rg.addColorStop(1,L.roll);blob(g,rg,1.8*s);
-      g.beginPath();g.ellipse(bw+.6*s,-15.5*s,2.2*s,4*s,0,0,7);blob(g,L.rolll,1.2*s);g.beginPath();g.ellipse(bw+.6*s,-15.5*s,1*s,2*s,0,0,7);inkPath(g,.8*s,.6);
-      for(const x of [-7*s,7*s]){rr(g,x-1.4*s,-20.4*s,2.8*s,9.8*s,.8*s);blob(g,"#6f4722",1.1*s);}
-      g.restore();
-      // chalk bag hanging off the back of the belt
-      const cx=P.x+1*s,cy=P.y+3.6*s;g.beginPath();g.moveTo(cx-3.8*s,cy);g.lineTo(cx+3.8*s,cy);g.quadraticCurveTo(cx+4.6*s,cy+7.6*s,cx,cy+8*s);g.quadraticCurveTo(cx-4.6*s,cy+7.6*s,cx-3.8*s,cy);g.closePath();
-      blob(g,shade(cx,cy+4*s,6*s,"#ffffffaa",L.cb,L.cb),1.4*s);rr(g,cx-4.4*s,cy-1.5*s,8.8*s,2.8*s,1.3*s);blob(g,"#f2efe6",1.2*s);}
-    else{g.beginPath();g.moveTo(P.x-9*s,P.y-2*s);g.quadraticCurveTo(P.x,P.y+2*s,P.x+9*s,P.y-2*s);inkPath(g,2*s);}
-    // the gear rack on the harness: one carabiner per hook left, swinging as they move
-    if(this.gear&&!front)for(let i=0;i<this.gear;i++){g.save();g.translate(P.x+[-16,-11,12,17][i%4]*s*wb,P.y+3.4*s);g.rotate(Math.sin(t*3+i*1.7)*.25+this.lean*.5);
-      g.beginPath();g.ellipse(0,3.4*s,2.3*s,3.8*s,0,0,7);g.strokeStyle=INK;g.lineWidth=2.8*s;g.stroke();g.strokeStyle=i%2?"#f2b233":"#e0472b";g.lineWidth=1.4*s;g.stroke();
-      g.beginPath();g.moveTo(1.4*s,.6*s);g.lineTo(1.4*s,4.6*s);g.strokeStyle="#c7ccd4";g.lineWidth=.8*s;g.stroke();g.restore();}
-    // scarf trailing in the wind, drawn as one smooth ribbon with a stripe
-    const sc=this.sc;g.beginPath();g.moveTo(sc[0].x,sc[0].y);for(let i=1;i<sc.length-1;i++)g.quadraticCurveTo(sc[i].x,sc[i].y,(sc[i].x+sc[i+1].x)/2,(sc[i].y+sc[i+1].y)/2);
-    g.lineTo(sc[sc.length-1].x,sc[sc.length-1].y);g.lineCap=g.lineJoin="round";g.strokeStyle=INK;g.lineWidth=6.8*s;g.stroke();g.strokeStyle=L.sc;g.lineWidth=4.2*s;g.stroke();
-    g.setLineDash([2.4*s,3.2*s]);g.strokeStyle=L.jk;g.lineWidth=4.2*s;g.lineCap="butt";g.stroke();g.setLineDash([]);g.lineCap="round";
-    // sleeves go behind the head so a raised arm never hides the face. From behind, hands on the wall sit behind the head too;
-    // facing the camera they come in front. Elbows always point outward
-    const arm=[0,1].map(j=>{const h=this.h[j],a=ik(S[j].x-jx,S[j].y-jy,h.x-jx,h.y-jy,16*s,16*s,(j?1:-1)*(h.y>S[j].y+4*s?-1:1));hose(g,S[j].x-jx,S[j].y-jy,a[0],a[1],a[2],a[3],10.5*s,L.jk,id+30+j*3);return a;});
-    const gloves=(ox,oy)=>this.gloves_(g,arm,jx,jy,ox,oy);if(!front)gloves(0,0);
-    // the head: from behind while climbing, but turned three-quarters toward the next hold (or the partner) so the face shows
-    // a big round head, drawn at the base size and scaled up from the neck so every face detail grows with it
-    const hk=L.hk||1,hyW=N.y-12.5*s*hk;g.save();g.translate(N.x,hyW);g.scale(hk,hk);g.translate(-N.x,-(N.y-13*s));
-    const R=(L.hr||11)*s,hx=N.x,hy=N.y-13*s,tn=front?0:(this.turn||0),ad=Math.abs(tn),sd=tn<0?-1:1;
-    if(front){for(const d of [-1,1]){g.beginPath();g.ellipse(hx+d*R,hy+1*s,2.5*s,3.3*s,0,0,7);blob(g,L.skin,1.6*s);}
-      g.beginPath();g.arc(hx,hy,R,0,7);blob(g,shade(hx,hy,R,L.skinl,L.skin,L.skind),2.2*s);
-      const ey=hy+1.6*s,big=this.mode==="fall"?1.3:1;
-      if(this.dizzy>0){for(const d of [-1,1]){g.beginPath();g.moveTo(hx+d*4*s-2*s,ey-2*s);g.lineTo(hx+d*4*s+2*s,ey+2*s);g.moveTo(hx+d*4*s+2*s,ey-2*s);g.lineTo(hx+d*4*s-2*s,ey+2*s);inkPath(g,1.6*s);}}
-      else for(const d of [-1,1]){g.beginPath();g.ellipse(hx+d*3.8*s,ey,2.2*s*big,3.6*s*big,0,0,7);g.fillStyle=INK;g.fill();
-        g.fillStyle="#fff";g.beginPath();g.moveTo(hx+d*3.8*s+.4*s,ey-2.6*s*big);g.lineTo(hx+d*3.8*s+1.9*s*big,ey-1.3*s*big);g.lineTo(hx+d*3.8*s+.5*s,ey-.6*s);g.closePath();g.fill();}
-      const fb=this.mode==="fall"?-1.6*s:0;for(const d of [-1,1]){g.beginPath();g.moveTo(hx+d*1.6*s,ey-5*s+fb);g.quadraticCurveTo(hx+d*4*s,ey-7.2*s+fb,hx+d*6.4*s,ey-5.4*s+fb*.4);inkPath(g,1.4*s);}
-      g.fillStyle="rgba(240,110,100,.45)";g.beginPath();g.arc(hx-7*s,hy+5*s,2.4*s,0,7);g.arc(hx+7*s,hy+5*s,2.4*s,0,7);g.fill();
-      if(L.freck){g.fillStyle="rgba(150,80,50,.7)";for(const d of [-1,1])for(const [a,b] of [[-1,-.6],[.4,.5],[1.2,-.8]]){g.beginPath();g.arc(hx+d*7*s+a*s,hy+4.6*s+b*s,.45*s,0,7);g.fill();}}
-      g.beginPath();g.ellipse(hx,hy+4*s,2.5*s,2.1*s,0,0,7);blob(g,"#ef7f63",1.2*s);
-      if(L.stache){g.beginPath();g.moveTo(hx,hy+5.4*s);for(const d of [-1,1]){g.moveTo(hx,hy+5.6*s);g.bezierCurveTo(hx+d*3*s,hy+4.4*s,hx+d*7*s,hy+5*s,hx+d*7.4*s,hy+7.6*s);g.quadraticCurveTo(hx+d*4*s,hy+7.6*s,hx,hy+6.8*s);}
-        g.fillStyle=L.hair;g.fill();inkPath(g,1.2*s);}
-      if(this.mode==="fall"||this.dizzy>0){g.beginPath();g.ellipse(hx,hy+8.6*s,2.2*s,2.8*s,0,0,7);g.fillStyle=INK;g.fill();}
-      else{g.beginPath();g.moveTo(hx-5*s,hy+6.8*s);g.quadraticCurveTo(hx,hy+12.8*s,hx+5*s,hy+6.8*s);g.closePath();blob(g,"#8c2a1d",1.4*s);
-        g.fillStyle="#fff";g.fillRect(hx-3.4*s,hy+6.9*s,6.8*s,1.3*s);g.fillStyle="#ef7f63";g.beginPath();g.ellipse(hx,hy+10*s,2.2*s,1.1*s,0,0,7);g.fill();}}
-    else{const hp=new Path2D();hp.arc(hx,hy,R,0,7);
-      if(ad<.7){g.beginPath();g.ellipse(hx-sd*R*.98,hy+1.5*s,2.4*s,3.2*s,0,0,7);blob(g,L.skind,1.6*s);}
-      g.fillStyle=shade(hx,hy,R,L.skinl,L.skin,L.skind);g.fill(hp);
-      // the hair is a second circle that slides away from the side they turn toward, uncovering the cheek
-      const hcx=hx-sd*R*ad*.95,hcy=hy-R*.06;g.save();g.clip(hp);g.beginPath();g.arc(hcx,hcy,R*1.03,0,7);g.fillStyle=shade(hcx,hcy,R,L.hairl,L.hair,L.haird);g.fill();
-      g.strokeStyle="rgba(29,19,15,.6)";g.lineWidth=1.3*s;g.stroke();
-      g.strokeStyle="rgba(255,236,206,.45)";g.lineWidth=1.4*s;g.beginPath();g.arc(hcx,hcy,R*.82,Math.PI*.75,Math.PI*1.15);g.stroke();g.restore();
-      for(const k of [-1,0,1]){const px=hcx+k*3.6*s,py=hy+R*.86-Math.abs(k)*1.4*s;if(Math.abs(px-hx)>R*.8)continue;
-        g.beginPath();g.moveTo(px-2.2*s,py-1.4*s);g.quadraticCurveTo(px+.4*s,py+3.4*s,px+2.2*s,py-1.2*s);g.closePath();g.fillStyle=L.hair;g.fill();inkPath(g,1.1*s);}
-      g.lineWidth=2.4*s;g.strokeStyle=INK;g.stroke(hp);
-      if(ad>.18){const a=clamp((ad-.18)/.3,0,1),xb=hx+sd*R*(1.03-.95*ad),xe=hx+sd*R,ex=lerp(xb,xe,.6),ey=hy-.2*s-(this.up||0)*1.8*s,cx=lerp(xb,xe,.42);
-        g.globalAlpha=a;
-        g.beginPath();g.ellipse(xb,hy+1.8*s,2.6*s,3.5*s,0,0,7);blob(g,shade(xb,hy+1.8*s,3*s,L.skinl,L.skin,L.skind),1.5*s);
-        g.beginPath();g.arc(xb+sd*.4*s,hy+1.9*s,1.3*s,sd>0?-1.3:Math.PI-1.3,sd>0?1.3:Math.PI+1.3);inkPath(g,.9*s,.6);
-        // eye: a pie-cut oval looking up the route, squeezed shut with effort mid-reach
-        if(reach||blink){g.beginPath();g.moveTo(ex-1.9*s,ey);g.quadraticCurveTo(ex,ey+(reach?-2.4:1.4)*s,ex+1.9*s,ey);inkPath(g,1.5*s);}
-        else{g.beginPath();g.ellipse(ex,ey,1.7*s,3*s,0,0,7);g.fillStyle=INK;g.fill();g.fillStyle="#fff";g.beginPath();g.moveTo(ex+sd*.1*s,ey-2.3*s);g.lineTo(ex+sd*1.3*s,ey-1.3*s);g.lineTo(ex+sd*.2*s,ey-.6*s);g.closePath();g.fill();}
-        const lb=reach?1.4*s:0;g.beginPath();g.moveTo(ex-sd*2.4*s,ey-4.8*s+lb);g.quadraticCurveTo(ex,ey-6.6*s+lb*.5,ex+sd*2.2*s,ey-5.2*s);inkPath(g,1.4*s);
-        g.fillStyle="rgba(240,110,100,.45)";g.beginPath();g.arc(cx,hy+5*s,2.4*s,0,7);g.fill();
-        if(L.freck){g.fillStyle="rgba(150,80,50,.7)";for(const [a2,b2] of [[-1,-.6],[.4,.5],[1.2,-.8]]){g.beginPath();g.arc(cx+a2*sd*s,hy+4.6*s+b2*s,.45*s,0,7);g.fill();}}
-        const mxx=lerp(xb,xe,.8),myy=hy+7.4*s;
-        if(reach){g.beginPath();g.ellipse(mxx,myy,1.2*s,1.6*s,0,0,7);g.fillStyle=INK;g.fill();}
-        else{g.beginPath();g.moveTo(mxx-sd*2.4*s,myy-.6*s);g.quadraticCurveTo(mxx-sd*.4*s,myy+1.8*s,mxx+sd*1.2*s,myy);inkPath(g,1.3*s);}
-        // the nose pokes out past the outline, which is what sells the turn
-        g.beginPath();g.ellipse(xe-sd*.4*s,hy+2.8*s,3*s,2.5*s,0,0,7);blob(g,shade(xe-sd*.4*s,hy+2.8*s,3*s,L.skinl,"#f39a7c","#d9785c"),1.5*s);
-        if(L.stache){g.beginPath();g.moveTo(xe-sd*6*s,hy+5.4*s);g.bezierCurveTo(xe-sd*3*s,hy+3.8*s,xe+sd*1*s,hy+4.4*s,xe+sd*2.4*s,hy+6.4*s);g.quadraticCurveTo(xe-sd*1*s,hy+8.4*s,xe-sd*6*s,hy+5.4*s);g.closePath();
-          g.fillStyle=L.hair;g.fill();inkPath(g,1.2*s);}
-        g.globalAlpha=1;}}
-    // hats: a ribbed beanie with a pompom on a spring, or a trapper with fur trim and ear flaps that swing their ties
-    const hb=hy-(front?6:2)*s,ppx=hx+(this.pp.x-hx)/hk,ppy=hy+(this.pp.y-hyW)/hk;
-    if(L.hatk==="trapper"){
-      for(const d of [-1,1]){const fx0=hx+d*(R-2.6*s);g.beginPath();g.moveTo(fx0,hb-1*s);g.quadraticCurveTo(hx+d*(R+4.4*s),hb,hx+d*(R+3*s),hy+5*s);
-        g.quadraticCurveTo(hx+d*(R+1.4*s),hy+9*s,hx+d*(R-2*s),hy+6.2*s);g.closePath();blob(g,shade(hx+d*R,hy+2*s,6*s,L.hatl,L.hat,L.hatd),1.8*s);
-        const sw=Math.sin(t*3.2+d+this.ph)*2*s,ex2=hx+d*(R-.4*s)+sw,ey2=hy+14.5*s;g.beginPath();g.moveTo(hx+d*(R+.6*s),hy+7.6*s);g.quadraticCurveTo(hx+d*(R+1.6*s)+sw*.5,hy+11*s,ex2,ey2);inkPath(g,1.2*s);
-        g.beginPath();g.arc(ex2,ey2,1.5*s,0,7);blob(g,"#f6ead2",1*s);}
-      g.beginPath();g.moveTo(hx-R-.4*s,hb);g.bezierCurveTo(hx-R,hy-R-11*s,hx+R,hy-R-11*s,hx+R+.4*s,hb);g.quadraticCurveTo(hx,hb-3*s,hx-R-.4*s,hb);g.closePath();
-      blob(g,shade(hx,hb-R*.6,R*1.2,L.hatl,L.hat,L.hatd),2*s);
-      g.beginPath();g.moveTo(hx-R*.55,hb-2.6*s);g.quadraticCurveTo(hx-R*.4,hy-R-4*s,hx-1*s,hy-R-6.6*s);inkPath(g,1*s,.4);
-      g.beginPath();g.arc(hx,hy-R-6.4*s,2.1*s,0,7);blob(g,L.hatd,1.3*s);
-      g.beginPath();for(let k=-4;k<=4;k++){const x=hx+k*2.9*s*(R/(11*s)),y=hb+Math.abs(k)*.25*s;g.moveTo(x+2.4*s,y);g.arc(x,y,2.4*s,0,7);}g.fillStyle="#f6ead2";g.fill();
-      g.strokeStyle=INK;g.lineWidth=1.3*s;g.stroke();g.beginPath();for(let k=-4;k<=4;k++){const x=hx+k*2.9*s*(R/(11*s)),y=hb+Math.abs(k)*.25*s;g.moveTo(x+1.6*s,y);g.arc(x,y,1.6*s,0,7);}g.fillStyle="#f6ead2";g.fill();}
-    else{
-      g.beginPath();g.moveTo(hx-R-.6*s,hb);g.bezierCurveTo(hx-R-.6*s,hy-R-9*s,hx+R+.6*s,hy-R-9*s,hx+R+.6*s,hb);g.quadraticCurveTo(hx,hb-3*s,hx-R-.6*s,hb);g.closePath();
-      blob(g,shade(hx,hb-R*.6,R*1.2,L.hatl,L.hat,L.hatd),2*s);
-      g.save();g.clip();g.beginPath();g.moveTo(hx-R-2*s,hy-R+1*s);g.quadraticCurveTo(hx,hy-R-2.4*s,hx+R+2*s,hy-R+1*s);g.strokeStyle=L.jk;g.lineWidth=2.6*s;g.stroke();g.restore();
-      g.beginPath();g.moveTo(hx-R-1.6*s,hb-2.2*s);g.quadraticCurveTo(hx,hb+.6*s,hx+R+1.6*s,hb-2.2*s);g.lineTo(hx+R+1.8*s,hb+2.4*s);g.quadraticCurveTo(hx,hb+5.4*s,hx-R-1.8*s,hb+2.4*s);g.closePath();
-      blob(g,L.hatd,1.8*s);for(let k=-4;k<=4;k++){const bx=hx+k*2.4*s,o=Math.abs(k)*.25*s;g.beginPath();g.moveTo(bx,hb-.6*s+o*-.6);g.lineTo(bx,hb+3.4*s-o);inkPath(g,.8*s,.35);}
-      g.beginPath();g.moveTo(hx,hy-R-5.5*s);g.lineTo(ppx,ppy);inkPath(g,1.4*s);
-      g.beginPath();g.arc(ppx,ppy,4.4*s,0,7);blob(g,shade(ppx,ppy,4.4*s,"#fff",L.pom,"#e4d4b4"),1.8*s);
-      for(let k=0;k<6;k++){const a=k/6*Math.PI*2+.3;g.beginPath();g.moveTo(ppx+Math.cos(a)*2.4*s,ppy+Math.sin(a)*2.4*s);g.lineTo(ppx+Math.cos(a)*4.2*s,ppy+Math.sin(a)*4.2*s);inkPath(g,.6*s,.3);}}
-    if(this.dizzy>0)for(let i=0;i<3;i++){const a=t*6+i*2.09;star(g,hx+Math.cos(a)*14*s,hy-R-6*s+Math.sin(a)*4*s,4*s);blob(g,"#f2b233",1.3*s);}
-    g.restore();
-    g.restore();
-    // knit cuffs and white cartoon gloves with stitched fingers
-    if(front)gloves(jx,jy);
-  }
-  gloves_(g,arm,jx,jy,ox,oy){const s=this.s,L=this.L,id=this.id*50;const shade=(x,y,r,c0,c1,c2)=>{const gr=g.createRadialGradient(x-r*.35,y-r*.4,r*.08,x,y,r*1.15);gr.addColorStop(0,c0);gr.addColorStop(.55,c1);gr.addColorStop(1,c2);return gr;};
-    for(let j=0;j<2;j++){const h=this.h[j],[ex,ey,wx0,wy0]=arm[j],wx=wx0+ox,wy=wy0+oy;
-      const ang=Math.atan2(wy0-ey,wx0-ex);g.save();g.translate(wx,wy);g.rotate(ang);g.scale(1.5,1.5);
-      g.beginPath();g.ellipse(-6.6*s,0,1.9*s,3.9*s,0,0,7);blob(g,L.jkd,1.3*s);
-      g.beginPath();g.moveTo(-5.4*s,-3.4*s);g.quadraticCurveTo(-1.6*s,-4.6*s,-1.4*s,0);g.quadraticCurveTo(-1.6*s,4.6*s,-5.4*s,3.4*s);g.quadraticCurveTo(-6.4*s,0,-5.4*s,-3.4*s);g.closePath();blob(g,"#f4efe6",1.4*s);
-      g.beginPath();g.arc(1.2*s,0,4.8*s,0,7);blob(g,shade(1.2*s,0,4.8*s,"#fff","#f8f4ec","#d9d0c0"),1.6*s);
-      g.beginPath();g.moveTo(2*s,-2.6*s);g.quadraticCurveTo(3.6*s,-2*s,4.4*s,-1*s);g.moveTo(2.2*s,0);g.lineTo(4.8*s,0);g.moveTo(2*s,2.6*s);g.quadraticCurveTo(3.6*s,2*s,4.4*s,1*s);inkPath(g,.9*s,.75);
-      g.beginPath();g.ellipse(-.4*s,-3.8*s*(j?-1:1),1.8*s,1.4*s,0,0,7);blob(g,"#fbf8f2",1.2*s);g.restore();}
+    const P0=POSES[this.pose]||POSES.stand,blink=!P0.eff&&!P0.oh&&((t+this.ph*1.7)%3.9)<.13,flap=Math.floor(t*4+this.ph)%2,gear=this.gear|0;
+    const key=`${this.pose}|${gear}|${blink?1:0}|${flap}`;let img=this.cache.get(key);
+    if(!img){img=pixelSprite(this.L,this.pose,{gear,blink,flap});this.cache.set(key,img);}
+    // snap to the art-pixel grid so sprite pixels land exactly on screen pixels
+    const x=Math.round(this.N.x/APX)*APX,y=Math.round(this.N.y/APX)*APX;
+    g.save();g.imageSmoothingEnabled=false;g.translate(x,y);if(this.dir<0)g.scale(-1,1);
+    g.drawImage(img,-SPR.hx*APX,-(SPR.hy-12)*APX,SPR.W*APX,SPR.H*APX);g.restore();
+    if(this.dizzy>0)for(let i=0;i<3;i++){const a=Math.floor(t*8)/8*6+i*2.09;g.fillStyle=i%2?"#fff3d6":"#f2b233";
+      g.fillRect(Math.round((x+Math.cos(a)*14)/APX)*APX-2,Math.round((y-46+Math.sin(a)*4)/APX)*APX-2,4,4);}
   }
 }
 /* ---------- rope: a simple drawn line from the partner's harness through the clipped bolts to the leader ---------- */
@@ -1462,7 +1373,7 @@ function drawParts(g){for(const p of FX.parts){const a=clamp(p.l/p.m,0,1);
   else if(p.k==="smoke"){const r=p.r*(1.4+(1-a)*3.5);g.globalAlpha=.5*a;g.beginPath();g.arc(p.x,p.y,r,0,7);blob(g,"#e9e0d0",1.2);g.globalAlpha=1;}
   else{g.beginPath();g.arc(p.x,p.y,p.r,0,7);blob(g,"#8d7466",1);}}
   for(const p of FX.pops){const k=p.t/1.1,sc=k<.25?backOut(k/.25):1;g.save();g.translate(p.x,p.y-k*22);g.rotate(-.12+Math.sin(k*9)*.05);g.scale(sc,sc);g.globalAlpha=k>.75?(1-k)/.25:1;
-    g.font=`17px ${TOON}`;g.textAlign="center";g.lineJoin="round";g.strokeStyle=INK;g.lineWidth=5;g.strokeText(p.text,0,0);g.fillStyle="#f2b233";g.fillText(p.text,0,0);g.restore();}}
+    g.font=`16px ${TOON}`;g.textAlign="center";g.lineJoin="round";g.strokeStyle=INK;g.lineWidth=5;g.strokeText(p.text,0,0);g.fillStyle="#f2b233";g.fillText(p.text,0,0);g.restore();}}
 
 /* ---------- sky: grinning sun, smiling clouds, watercolour ranges, inked spires (screen space, parallax) ---------- */
 const TOWERS=[[.24,.05,.5,31,.85],[.36,.04,.42,37,.8],[.43,.05,.7,21,.55],[.3,.06,.56,13,.4],[.15,.075,.86,9,.3],[.02,.11,.66,5,.15]]; // x, width, height, seed, depth (far first)
@@ -1547,10 +1458,10 @@ function fire(g,x,y,t,amt){for(let i=0;i<6;i++){const a=i/6*Math.PI*2;g.beginPat
 function fireGlow(g,x,y,t,amt){if(amt<=0)return;const r=110*(1+Math.sin(t*9)*.03+noise1(t*3)*.06);g.save();g.globalCompositeOperation="lighter";
   const gr=g.createRadialGradient(x,y-6,2,x,y-6,r);gr.addColorStop(0,`rgba(255,170,80,${.28*amt})`);gr.addColorStop(.4,`rgba(255,130,60,${.1*amt})`);gr.addColorStop(1,"rgba(255,120,60,0)");
   g.fillStyle=gr;g.fillRect(x-r,y-6-r,r*2,r*2);g.restore();}
-function plaque(g,x,y,text,size=11){g.font=`${size}px ${TOON}`;const w=g.measureText(text).width+16,h=size+9;g.save();g.translate(x,y);g.rotate(-.04);
+function plaque(g,x,y,text,size=16){size=Math.max(size,16);g.font=`${size}px ${TOON}`;const w=g.measureText(text).width+16,h=size+9;g.save();g.translate(x,y);g.rotate(-.04);
   rr(g,-w/2,-h/2,w,h,4);blob(g,"#c98c4a",2);g.fillStyle="rgba(255,236,206,.35)";g.fillRect(-w/2+3,-h/2+2,w-6,2);
   g.fillStyle=INK;g.beginPath();g.arc(-w/2+4.5,0,1.3,0,7);g.arc(w/2-4.5,0,1.3,0,7);g.fill();g.textAlign="center";g.textBaseline="middle";g.fillStyle=INK;g.fillText(text,0,1);g.restore();}
-function label(g,x,y,text,size=11,fill=CREAM){g.font=`${size}px ${TOON}`;g.textAlign="center";g.textBaseline="alphabetic";g.lineJoin="round";g.strokeStyle=INK;g.lineWidth=3.6;g.strokeText(text,x,y);g.fillStyle=fill;g.fillText(text,x,y);}
+function label(g,x,y,text,size=16,fill=CREAM){size=Math.max(size,16);g.font=`${size}px ${TOON}`;g.textAlign="center";g.textBaseline="alphabetic";g.lineJoin="round";g.strokeStyle=INK;g.lineWidth=3.6;g.strokeText(text,x,y);g.fillStyle=fill;g.fillText(text,x,y);}
 const fireAmt=k=>!FX.lit[k]?0:FX.litAt[k]?clamp((FX.time-FX.litAt[k])/1.2,0,1):1;
 /* A camp is a broad shelf running the full width of the face, from round the pillar's sunlit edge to beyond
    the right of the screen, with a big tent, bunting, a crate of fresh gear and a fire. Everything but the fire
@@ -1626,16 +1537,16 @@ function drawGround(g,t){const M=meadow();g.drawImage(M.c,M.x0,M.y0,M.w,M.h);
 /* ---------- setup, loop and frame ---------- */
 function ensureScene(){
   const cv=$("#topo");if(!cv)return false;if(FX.cv===cv)return true;
-  FX.cv=cv;FX.g=cv.getContext("2d");FX.mode="";FX.state=null;FX.tw=[];FX.ch.main++;FX.cam=null;FX.parts=[];FX.pops=[];FX.wisps=[];FX.rope=new Rope(30);FX.label=null;FX.pins=[];
+  FX.cv=cv;FX.g=cv.getContext("2d",{willReadFrequently:true});FX.mode="";FX.state=null;FX.tw=[];FX.ch.main++;FX.cam=null;FX.parts=[];FX.pops=[];FX.wisps=[];FX.rope=new Rope(30);FX.label=null;FX.pins=[];
   if(!FX.spr)FX.spr=makeSprites();FX.sky=FX.film=null;
   FX.motes=Array.from({length:30},()=>({x:Math.random(),y:Math.random(),s:.6+Math.random()*1.4,p:Math.random()*6}));
-  // cap the pixels painted per frame: a large high-DPI screen would otherwise cost 4-8x more for little visible gain
-  // never draw below the screen's own pixels (that is what looks blurry); only extra high-DPI detail is capped,
-  // and that is what a slow machine gives up first (FX.q, see adapt); only a very slow one drops a little below
-  const fit=()=>{const r=cv.getBoundingClientRect(),W=Math.max(1,r.width),H=Math.max(1,r.height),dev=devicePixelRatio||1,
-      base=Math.min(2,dev,Math.max(1,Math.sqrt(3.5e6/(W*H)))),hi=base>1?1+(base-1)*clamp((FX.q-.55)/.45,0,1):base,dpr=FX.q<=.55?hi*.85:hi;
-    if(W===FX.W&&H===FX.H&&dpr===FX.dpr)return;FX.W=W;FX.H=H;FX.dpr=dpr;cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);FX.sky=FX.film=null;FX.areaAt=0;FX.rsAt=-9;};
-  FX.fit=fit;fit();try{new ResizeObserver(fit).observe(cv);}catch(e){addEventListener("resize",fit);}
+
+  // pixel art: the canvas holds one pixel per art pixel and the browser scales it up with hard edges by an exact
+  // whole number (px screen pixels per art pixel), chosen so roughly 330 art pixels fit across, fewer on small screens
+  const box=cv.parentElement||cv,fit=()=>{const r=box.getBoundingClientRect(),W=Math.max(1,r.width),H=Math.max(1,r.height),px=clamp(Math.round(Math.min(W/330,H/250)),2,8),dpr=1/px;
+    if(W===FX.W&&H===FX.H&&dpr===FX.dpr)return;FX.W=W;FX.H=H;FX.dpr=dpr;FX.px=px;cv.width=Math.ceil(W/px);cv.height=Math.ceil(H/px);
+    cv.style.width=cv.width*px+"px";cv.style.height=cv.height*px+"px";FX.sky=null;FX.areaAt=0;};
+  FX.fit=fit;fit();try{new ResizeObserver(fit).observe(box);}catch(e){addEventListener("resize",fit);}
   FX.visible=true; // skip painting while scrolled out of view; a removed canvas's observer must not switch the new one off
   try{const io=new IntersectionObserver(es=>{if(es[0].target!==FX.cv){io.disconnect();return;}FX.visible=es[0].isIntersecting;});io.observe(cv);}catch(e){}
   const btn=$("#sndBtn");if(btn){const sync=()=>btn.setAttribute("aria-pressed",SND.on?"true":"false");sync();
@@ -1667,7 +1578,7 @@ function updateCam(dt){const me=FX.A.me,mt=FX.A.mate,now=performance.now();let f
   const A=FX.area;
   // the focus (leader a little above, partner below; or the summit) sits right of the open area's middle so the valley shows on the left
   if(FX.focus==="summit"){fx=SX-30;fy=TOPY-60;}else{fx=me.N.x;fy=lerp(me.N.y,mt.N.y,.32)-6;}
-  let sc=Math.max(A.h/(FX.viewH*(1+FX.kick)),A.w/540);if(A.w/sc<400)sc=A.w/400;sc=Math.min(sc,A.h/250); // always tall enough for both climbers // keep climbers a good size, and always show some valley beside them
+  const sc=FX.px/APX; // fixed zoom: one art pixel (APX world units) is always px screen pixels
   // keep the open area (not the whole window, which the cards may cover) between the summit sky and the meadow
   const w=FX.W/sc,x=fx+(FX.W/2-(A.x+A.w*.62))/sc,y=clamp(fy+(FX.H/2-(A.y+A.h*.5))/sc,TOPY-560-(A.y-FX.H/2)/sc,150-(A.y+A.h-FX.H/2)/sc);
   if(FX.fxEl){const s=FX.fxEl.style,v=[A.x,A.y,A.w,A.h].map(n=>Math.round(n)+"px");if(s.width!==v[2]||s.height!==v[3]||s.top!==v[1]){s.left=v[0];s.top=v[1];s.width=v[2];s.height=v[3];}}
@@ -1700,54 +1611,43 @@ function adapt(ms){if(!(ms>0&&ms<100))return;FX.avg+=(ms-FX.avg)*.05;const now=F
 function prefetch(){const go=window.requestIdleCallback||(f=>setTimeout(f,120));
   go(()=>{const c=FX.cam;if(c&&FX.cv){const ch=c.w*FX.H/FX.W,[n1,n2]=chunkRange(c.y-ch/2-CHK,c.y+ch/2+CHK);for(let ci=n1;ci<=n2;ci++)if(!FX.chunks.has(ci)){chunk(ci);break;}}
     setTimeout(prefetch,150);});}
+// retro finish: snap every colour to a few levels per channel with a 4x4 ordered dither, so soft gradients turn
+// into chunky pixel-art bands. Run over the scene before the sprites go on, so their colours stay exact.
+const BAYER=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5].map(v=>Math.round((v/16-.47)*30));
+const QLUT=(()=>{const S=30,q=new Uint8ClampedArray(16*256);for(let b=0;b<16;b++)for(let v=0;v<256;v++)q[b*256+v]=Math.min(255,Math.round((v+BAYER[b])/S)*S);return q;})();
+function retro(g,w,h){const id=g.getImageData(0,0,w,h),d=id.data;
+  for(let y=0,i=0;y<h;y++){const r=(y&3)*4;for(let x=0;x<w;x++,i+=4){const o=(r+(x&3))*256;d[i]=QLUT[o+d[i]];d[i+1]=QLUT[o+d[i+1]];d[i+2]=QLUT[o+d[i+2]];}}
+  g.putImageData(id,0,0);}
 function paint(t){
   const g=FX.g,W=FX.W,H=FX.H,dpr=FX.dpr,c0=FX.cam;if(!c0||!FX.exp)return;
-  const sw=RM.matches?0:1,b=FX.boil,weave=sw*.5,jx=(Math.random()-.5)*FX.shake*10+(hash(b,1)-.5)*weave,jy=(Math.random()-.5)*FX.shake*10+(hash(b,2)-.5)*weave;
-  const c={x:c0.x+jx,y:c0.y+jy,w:c0.w};
-  const u=uOf(c.y),pal=palette(u),sc=W/c.w,ch=c.w*H/W,vy0=c.y-ch/2,vy1=c.y+ch/2,vx0=c.x-c.w/2,vx1=c.x+c.w/2;
-  const screen=()=>g.setTransform(dpr,0,0,dpr,0,0),world=()=>g.setTransform(dpr*sc,0,0,dpr*sc,dpr*(W/2-c.x*sc),dpr*(H/2-c.y*sc));
-  screen();g.globalCompositeOperation="source-over";g.globalAlpha=1;g.imageSmoothingQuality="high";
-  // cached art (rock, meadow, camps) is painted at the size it is shown, so it stays crisp; re-checked once a second
-  if(t-(FX.rsAt||0)>1){FX.rsAt=t;const need=clamp(dpr*W/c0.w*1.05,1,2.4);if(Math.abs(need-FX.rs)/FX.rs>.2){FX.rs=need;FX.chunks.clear();}}
-  // the sky and the distant valley are soft and slow, so they are painted at half resolution into a cache and
-  // repainted only when the camera has moved or on the 12 fps animation tick (sun, clouds, rays)
-  const sk=FX.sky||(FX.sky={c:document.createElement("canvas"),u:-1,x:0,b:-1}),u0=uOf(c0.y);
-  const ss=Math.min(dpr*.8,1);if(!sk.g){sk.c.width=Math.ceil(W*ss);sk.c.height=Math.ceil(H*ss);sk.g=sk.c.getContext("2d");}
-  const moved=Math.abs(sk.u-u0)*H>.4||Math.abs(sk.x-c0.x)*sc>.4;FX.fc++;
-  if(sk.b!==b||moved&&FX.fc%2){sk.u=u0;sk.x=c0.x;sk.b=b;const sg=sk.g;
-    sg.setTransform(ss,0,0,ss,0,0);sg.globalCompositeOperation="source-over";const sp=palette(u0);drawSky(sg,W,H,sp,u0,t,c0.x);skyRays(sg,W,H,t,sp);
+  // the camera snaps to whole art pixels (and shakes in whole art pixels) so nothing shimmers
+  const sn=v=>Math.round(v/APX)*APX,shk=()=>sn((Math.random()-.5)*FX.shake*10);
+  const c={x:sn(c0.x)+shk(),y:sn(c0.y)+shk(),w:c0.w};
+  const u=uOf(c.y),sc=W/c.w,ch=c.w*H/W,vy0=c.y-ch/2,vy1=c.y+ch/2,b=FX.boil,cw=g.canvas.width,chh=g.canvas.height,k=dpr*sc;
+  const screen=()=>g.setTransform(dpr,0,0,dpr,0,0),world=()=>g.setTransform(k,0,0,k,Math.round(cw/2-c.x*k),Math.round(chh/2-c.y*k));
+  screen();g.globalCompositeOperation="source-over";g.globalAlpha=1;g.imageSmoothingEnabled=false;
+  if(Math.abs(k-FX.rs)>.001){FX.rs=k;FX.chunks.clear();} // cached art is painted at exactly one pixel per art pixel
+  // the sky and distant valley: repainted on the 12 fps tick or when the camera moves
+  const sk=FX.sky||(FX.sky={c:document.createElement("canvas"),u:-1,x:0,b:-1});
+  if(!sk.g){sk.c.width=cw;sk.c.height=chh;sk.g=sk.c.getContext("2d");}
+  if(sk.b!==b||sk.u!==u||sk.x!==c.x){sk.u=u;sk.x=c.x;sk.b=b;const sg=sk.g,sp=palette(u);
+    sg.setTransform(dpr,0,0,dpr,0,0);sg.globalCompositeOperation="source-over";drawSky(sg,W,H,sp,u,t,c.x);skyRays(sg,W,H,t,sp);
     sg.globalCompositeOperation="multiply";sg.fillStyle=rgb(sp.tint,.32);sg.fillRect(0,0,W,H);sg.globalCompositeOperation="source-over";}
   g.drawImage(sk.c,0,0,W,H);
   world();
   const [c1,c2]=chunkRange(vy0,vy1);for(let ci=c1;ci<=c2;ci++)g.drawImage(chunk(ci),X0,-(ci+1)*CHK,XW,CHK+2);
   if(vy1>-260)drawGround(g,t);
   drawRoute(g,vy0,vy1);
-  for(const [k,ix] of [["c1",IDX_C1],["c2",IDX_C2]]){const y=-ix*HS;if(y>vy0-140&&y<vy1+140)drawCamp(g,420,y,t,k);}
+  for(const [kk,ix] of [["c1",IDX_C1],["c2",IDX_C2]]){const y=-ix*HS;if(y>vy0-140&&y<vy1+140)drawCamp(g,420,y,t,kk);}
   if(vy0<TOPY+160)drawSummit(g,t);
-  screen();const fa=.55*clamp(-c.y/700,0,1);
-  if(fa>0){const gr=g.createLinearGradient(0,H*.62,0,H);gr.addColorStop(0,rgb(pal.fog,0));gr.addColorStop(1,rgb(pal.fog,fa));g.fillStyle=gr;g.fillRect(0,H*.62,W,H*.38);}
-  world();
-  const A=FX.A;
   if(FX.label){const i=FX.label.i,x=laneX(FX.exp.choice,-i*HS),y=-i*HS;g.beginPath();g.moveTo(x,y+4);g.lineTo(x,y-24);g.strokeStyle=INK;g.lineWidth=3.4;g.stroke();g.strokeStyle="#8a5a34";g.lineWidth=1.6;g.stroke();
-    g.beginPath();g.moveTo(x,y-24);g.lineTo(x+15,y-20+Math.sin(t*5)*1.5);g.lineTo(x,y-15);g.closePath();blob(g,"#f2b233",1.6);
-    g.font=`11px ${TOON}`;const lw=g.measureText(FX.label.text).width;plaque(g,x+26+lw/2,y-16,FX.label.text,11);}
-  FX.rope.draw(g);quickdraws(g);A.mate.draw(g,t);A.me.draw(g,t);
-  if(vy1>-260)fireGlow(g,488,groundY(488),t,1);
-  for(const [k,ix] of [["c1",IDX_C1],["c2",IDX_C2]]){const y=-ix*HS;if(y>vy0-140&&y<vy1+140)fireGlow(g,480,y-7,t,fireAmt(k));}
+    g.beginPath();g.moveTo(x,y-24);g.lineTo(x+15,y-20+(Math.floor(t*4)%2)*2);g.lineTo(x,y-15);g.closePath();blob(g,"#f2b233",1.6);
+    g.font=`16px ${TOON}`;const lw=g.measureText(FX.label.text).width;plaque(g,x+26+lw/2,y-16,FX.label.text,16);}
+  FX.rope.draw(g);quickdraws(g);
+  // everything painted so far gets the retro palette; then the sprites, particles and pop-up words go on top
+  retro(g,cw,chh);
+  world();FX.A.mate.draw(g,t);FX.A.me.draw(g,t);
   drawParts(g);
-  for(const w of FX.wisps){g.globalAlpha=w.a;g.drawImage(FX.spr.puff,w.x-w.r,w.y-w.r*.45,w.r*2,w.r*.9);}g.globalAlpha=1;
-  // grade and the old-film finish: one tinted multiply pass (with the projector flicker folded in), then a
-  // pre-baked vignette-and-grain overlay nudged a few pixels each tick so the grain dances
-  screen();const [sx,sy]=FX.sun;
-  g.globalCompositeOperation="lighter";
-  if(FX.q>=.75)for(const m of FX.motes){const x=m.x*W,y=m.y*H,a=(.5+.5*Math.sin(t*1.5+m.p))*.3*clamp(1-Math.hypot(x-sx,y-sy)/(W*.9),0,1);g.fillStyle=rgb(pal.sun,a);g.beginPath();g.arc(x,y,m.s,0,7);g.fill();}
-  g.globalCompositeOperation="source-over";
-  const film=FX.film||(FX.film=makeFilm(W,H,dpr));g.globalAlpha=sw?.8+hash(b,3)*.2:.9; // the projector flicker rides on the vignette's strength
-  g.drawImage(film.c,-hash(b,4)*film.pad,-hash(b,5)*film.pad,W+film.pad,H+film.pad);g.globalAlpha=1;
-  if(sw){g.fillStyle="rgba(29,19,15,.55)";g.strokeStyle="rgba(29,19,15,.45)";g.lineWidth=1;
-    for(let i=0;i<4;i++){const x=hash(b,10+i)*W,y=hash(b,20+i)*H;if(hash(b,30+i)<.6){g.beginPath();g.arc(x,y,.6+hash(b,40+i)*1.4,0,7);g.fill();}
-      else{g.beginPath();g.moveTo(x,y);g.quadraticCurveTo(x+6,y+3,x+4+hash(b,50+i)*8,y+9);g.stroke();}}
-    if(hash(Math.floor(b/3),7)<.35){const x=hash(Math.floor(b/3),8)*W;g.fillStyle="rgba(29,19,15,.25)";g.fillRect(x,0,1,H);}}
 }
 
 /* ---------- overlays: cartoon title cards, captions and confetti ---------- */
