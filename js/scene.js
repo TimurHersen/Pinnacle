@@ -462,6 +462,8 @@ class Rig{
   // with the other hand, so a run of moves loops the whole clip smoothly. Hanging still holds the frame the last
   // move ended on (a shake-out flicks to the next one); a fall flails through the arms-up frames.
   artFrame(t){
+    // (while a move off a ledge or a fall waits to start, the body keeps the frame it had, so it never dips first)
+    if(this.mode==="climb"&&this.mv&&this.mv.wait>0&&this.lastArt)return this.lastArt;
     if(this.mode==="climb"){const half=CLIP_N.climb>>1,base=(this.hi&1)*half,m=this.mv;
       if(m&&m.wait<=0)return ["climb",(base+Math.min(half-1,Math.floor(m.t/m.d*half)))%CLIP_N.climb];
       return ["climb",(base+half-1+(this.pose==="shake2"?1:0))%CLIP_N.climb];}
@@ -471,7 +473,7 @@ class Rig{
     return ["idle",Math.floor(t*4+this.ph)%CLIP_N.idle];}
   draw(g,t,ox,oy){
     const x=R0(this.N.x)+ox,y=R0(this.N.y)+oy,A=this.L.art;
-    if(A&&A.ready){const [k,i]=this.artFrame(t),fr=A.clips[k],b=boxOf(fr[0]),W=fr[0].width,flip=this.dir<0,key=`${k}|${i}|${flip}`;
+    if(A&&A.ready){const [k,i]=this.lastArt=this.artFrame(t),fr=A.clips[k],b=boxOf(fr[0]),W=fr[0].width,flip=this.dir<0,key=`${k}|${i}|${flip}`;
       let img=this.cache.get(key);
       if(!img){if(flip){const [c,cg]=mk(W,fr[i].height);cg.translate(W,0);cg.scale(-1,1);cg.drawImage(fr[i],0,0);img=c;}else img=fr[i];this.cache.set(key,img);}
       // on the wall the clip's raised hand and its wall-side edge sit on the hold; on a ledge the feet stand
