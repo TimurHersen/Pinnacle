@@ -312,6 +312,10 @@ body:has(#main.game2) .hud{left:var(--edge)}
    --u is the size of one of the painting's pixels on screen, so every frame and label lines up with it */
 #menubg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:88% 60%;image-rendering:pixelated;display:none}
 body.home #menubg{display:block}
+/* the animation layers over the painting (TFX in js/title.js): light is screen-blended so it only ever brightens */
+.tfx{position:absolute;image-rendering:pixelated;image-rendering:crisp-edges;pointer-events:none;display:none}
+body.home .tfx{display:block}
+.tfx.light{mix-blend-mode:screen}
 body.home .scene canvas{visibility:hidden}
 #home{position:fixed;inset:0;z-index:3;pointer-events:none;--u:3px}
 #home[hidden]{display:none}

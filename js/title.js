@@ -76,6 +76,7 @@ async function showHome(items,onPick){
   let home=document.getElementById("home");
   if(!home){home=document.createElement("div");home.id="home";document.body.appendChild(home);
     const bg=document.createElement("img");bg.id="menubg";bg.alt="";bg.src=asset("assets/menu-dusk.png");document.querySelector(".scene").appendChild(bg);}
+  TFX.start(document.getElementById("menubg"));
   home.hidden=false;home.innerHTML=`<div class="tlogo" role="img" aria-label="Pinnacle. ${SLOGAN.toLowerCase()}"></div><nav class="pmenu" aria-label="Main menu"></nav>`;
   const nav=home.querySelector(".pmenu");
   for(const it of items){const b=document.createElement("button");b.className="pbtn";b.dataset.id=it.id;b.setAttribute("aria-label",it.label);
@@ -88,4 +89,67 @@ async function showHome(items,onPick){
 // the menu steps aside for a panel (the painting stays), or the title screen goes away for the climb
 function homeMenu(on){const h=document.getElementById("home");if(!h)return;h.classList.toggle("away",!on);
   if(on)h.querySelectorAll(".pbtn").forEach(x=>x.removeAttribute("aria-current"));}
-function hideHome(){HOME_N++;document.body.classList.remove("home");const h=document.getElementById("home");if(h){h.hidden=true;h.innerHTML="";}}
+function hideHome(){HOME_N++;TFX.stop();document.body.classList.remove("home");const h=document.getElementById("home");if(h){h.hidden=true;h.innerHTML="";}}
+
+/* ---------- the painting comes alive: two transparent layers at the painting's own 384x216 pixels, laid exactly
+   over it. The light layer is screen-blended, so it can only brighten: the fire's flickering glow on the ground and
+   the tent, extra flame tongues over the painted fire, sparks and twinkling stars. The other layer is drawn normally:
+   smoke drifting up off the fire and, now and then, two birds crossing the sky. ---------- */
+const TFX=(()=>{
+  const FIRE={x:285,y:190,top:180},BG_POS=[.88,.6]; // the painted fire's core; BG_POS matches #menubg's object-position
+  let light=null,air=null,lg=null,ag=null,raf=0,last=0,t=0,stars=[],tent=[],sparks=[],smoke=[],birds=[],nextBird=6,nextSmoke=0;
+  const rnd=(a,b)=>a+Math.random()*(b-a);
+  function layer(cls){const c=document.createElement("canvas");c.width=BG_W;c.height=BG_H;c.className="tfx "+cls;document.querySelector(".scene").appendChild(c);return c;}
+  // lay both layers over the painting exactly as object-fit:cover places it
+  function place(){if(!light)return;const W=innerWidth,H=innerHeight,s=Math.max(W/BG_W,H/BG_H),w=BG_W*s,h=BG_H*s,x=(W-w)*BG_POS[0],y=(H-h)*BG_POS[1];
+    for(const c of [light,air])Object.assign(c.style,{left:x+"px",top:y+"px",width:w+"px",height:h+"px"});}
+  // read the painting once: where the night sky is (for stars) and which pixels are the tent (for its firelight)
+  function survey(img){const c=document.createElement("canvas");c.width=BG_W;c.height=BG_H;const g=c.getContext("2d");g.drawImage(img,0,0);
+    const d=g.getImageData(0,0,BG_W,BG_H).data,px=(x,y)=>{const i=(y*BG_W+x)*4;return [d[i],d[i+1],d[i+2]];};
+    stars=[];for(let tries=0;stars.length<22&&tries<600;tries++){const x=(Math.random()*290)|0,y=(Math.random()*26)|0,[r,gg,b]=px(x,y);
+      if(b>=r*.8&&r+gg+b<330)stars.push({x,y,ph:rnd(0,6.3),sp:rnd(.6,1.8),big:Math.random()<.2});}
+    tent=[];for(let y=150;y<210;y++)for(let x=250;x<350;x++){const [r,gg,b]=px(x,y);if(r>190&&gg>80&&gg<160&&b<70)tent.push(x,y);}}
+  function draw(dt){
+    t+=dt;lg.clearRect(0,0,BG_W,BG_H);ag.clearRect(0,0,BG_W,BG_H);
+    // firelight: a slow breathing glow with a quick flicker on top, dithered so it stays pixel art
+    const f=.75+.15*Math.sin(t*2.1)+.1*Math.sin(t*9.3+Math.sin(t*3.7)*2);
+    for(let y=FIRE.y-34;y<FIRE.y+18;y++)for(let x=FIRE.x-46;x<FIRE.x+46;x++){
+      const dx=(x-FIRE.x)/46,dy=(y-FIRE.y)/26,r=dx*dx+dy*dy;if(r>=1)continue;const k=(1-r)*f;
+      if(((x+y)&1)&&k<.45)continue;lg.fillStyle=k>.7?"#4a2408":k>.4?"#33180a":"#1e0e06";lg.fillRect(x,y,1,1);}
+    lg.globalAlpha=.12+.1*f;lg.fillStyle="#ff9a3a";for(let i=0;i<tent.length;i+=2)lg.fillRect(tent[i],tent[i+1],1,1);lg.globalAlpha=1;
+    // flame tongues licking up over the painted fire
+    const step=Math.floor(t*12);for(let i=0;i<7;i++){const h=Math.abs(Math.sin(step*1.7+i*2.3))*6+2,x=FIRE.x-3+i;
+      for(let j=0;j<h;j++){lg.fillStyle=j<h*.4?"#ffcf5a":j<h*.75?"#ff8a2a":"#a3360f";lg.fillRect(x,FIRE.y-2-j,1,1);}}
+    // sparks
+    if(Math.random()<dt*3.2)sparks.push({x:FIRE.x+rnd(-3,3),y:FIRE.top+rnd(0,4),vy:rnd(-16,-9),ph:rnd(0,6),life:rnd(1.2,2.6),age:0});
+    sparks=sparks.filter(s=>(s.age+=dt)<s.life);
+    for(const s of sparks){s.y+=s.vy*dt;const k=s.age/s.life,x=Math.round(s.x+Math.sin(s.age*3+s.ph)*2.5);
+      if(k>.8&&Math.floor(t*14)%2)continue;lg.fillStyle=k<.3?"#ffe08a":k<.65?"#ff9a3a":"#b5481a";lg.fillRect(x,Math.round(s.y),1,1);}
+    // stars twinkling in the last of the night sky
+    for(const s of stars){const v=Math.sin(t*s.sp+s.ph);if(v<.15)continue;lg.fillStyle=v>.8?"#ffffff":v>.5?"#a9b4d8":"#5a6088";
+      lg.fillRect(s.x,s.y,1,1);if(s.big&&v>.85){lg.fillStyle="#5a6088";lg.fillRect(s.x-1,s.y,1,1);lg.fillRect(s.x+1,s.y,1,1);lg.fillRect(s.x,s.y-1,1,1);lg.fillRect(s.x,s.y+1,1,1);}}
+    // smoke: soft puffs rising off the fire and leaning with the breeze
+    if((nextSmoke-=dt)<=0){nextSmoke=rnd(.35,.6);smoke.push({x:FIRE.x+rnd(-1,2),y:FIRE.top-2,age:0,life:rnd(4,6),ph:rnd(0,6)});}
+    smoke=smoke.filter(p=>(p.age+=dt)<p.life);
+    for(const p of smoke){const k=p.age/p.life,x=Math.round(p.x+p.age*2.2+Math.sin(p.age*1.4+p.ph)*2),y=Math.round(p.y-p.age*9),sz=k<.3?1:k<.7?2:3;
+      ag.globalAlpha=.42*(1-k);ag.fillStyle=k<.4?"#d8d0dc":"#a8a2bc";ag.fillRect(x,y,sz,sz);}
+    ag.globalAlpha=1;
+    // now and then two birds glide across the sky, wings flapping
+    if((nextBird-=dt)<=0){nextBird=rnd(14,26);const y=rnd(30,60);birds.push({x:-8,y,v:rnd(10,15)},{x:-16,y:y+rnd(3,6),v:0});birds[birds.length-1].v=birds[birds.length-2].v;}
+    birds=birds.filter(b=>(b.x+=b.v*dt)<BG_W+8);ag.fillStyle="#2a2036";
+    for(const b of birds){const up=Math.floor(t*5+b.y)%2,x=Math.round(b.x),y=Math.round(b.y+Math.sin(t*1.3+b.y)*1.5);
+      for(const [dx,dy] of up?[[0,1],[1,0],[2,1],[3,0],[4,1]]:[[0,0],[1,1],[2,1],[3,1],[4,0]])ag.fillRect(x+dx,y+dy,1,1);}
+  }
+  function loop(now){raf=requestAnimationFrame(loop);const dt=Math.min(.1,(now-(last||now))/1000);
+    if(dt<1/24&&last)return;last=now;draw(dt||1/24);}
+  async function start(img){
+    if(!light){light=layer("light");air=layer("air");lg=light.getContext("2d");ag=air.getContext("2d");}
+    if(!img.complete)await new Promise(r=>{img.onload=img.onerror=r;});if(!img.naturalWidth)return;
+    if(!stars.length)survey(img);place();cancelAnimationFrame(raf);last=0;
+    // with reduced motion: the warm glow and the stars, held still
+    if(RM.matches){draw(0);return;}raf=requestAnimationFrame(loop);}
+  function stop(){cancelAnimationFrame(raf);raf=0;sparks=[];smoke=[];birds=[];}
+  addEventListener("resize",place);
+  document.addEventListener("visibilitychange",()=>{if(document.hidden)cancelAnimationFrame(raf);else if(document.body.classList.contains("home")&&light&&!RM.matches){last=0;raf=requestAnimationFrame(loop);}});
+  return {start,stop};
+})();
