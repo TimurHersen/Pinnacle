@@ -9,6 +9,8 @@ const clone=o=>JSON.parse(JSON.stringify(o));
 const fmt=n=>Math.round(n).toLocaleString("en-US").replace(/,/g," ");
 // an art file's address at the page's version (see index.html), so new art is fetched fresh after an update
 const asset=p=>window.V?`${p}?${window.V}`:p;
+// a crevasse number as written: a bare count or year (no unit) without the thousands space, so 1523 never reads "1 523"
+const qnum=(n,q)=>q&&!q.u?String(Math.round(n)):fmt(n);
 function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,2600);}
 const memberIds=t=>Object.keys(t.members||{}).sort();
 function nameOf(id){if(id===S.uid)return "You";return S.names[id]||"Partner";}
@@ -139,11 +141,11 @@ async function judge(t,ans){
   }
   else if(r.terrain==="crevasse"){ // the belayer's window plus the leader's jump
     const v=A(leader)?.num,jumped=typeof v==="number"&&isFinite(v);
-    if(typeof r.lo==="number")o.lines.push({who:bel||null,text:`Hint: between ${fmt(r.lo)} and ${fmt(r.hi)}`,tag:"",note:bel?"belayer":""});
-    o.lines.push({who:leader,text:jumped?fmt(v)+" "+q.u:"no jump",tag:"",note:bel?"leader":""});
+    if(typeof r.lo==="number")o.lines.push({who:bel||null,text:`Hint: between ${qnum(r.lo,q)} and ${qnum(r.hi,q)}`,tag:"",note:bel?"belayer":""});
+    o.lines.push({who:leader,text:jumped?(qnum(v,q)+" "+q.u).trim():"no jump",tag:"",note:bel?"leader":""});
     if(!jumped){o.fall=true;o.headline="Nobody jumped.";o.tone="bad";}
     else{const err=Math.abs(v-q.a);
-      o.lines.push({who:null,text:`Answer ${fmt(q.a)} ${q.u}`,tag:`<span class="tag ${err<=q.t[1]?"ok":"no"}">off by ${fmt(err)}</span>`});
+      o.lines.push({who:null,text:`Answer ${qnum(q.a,q)} ${q.u}`.trim(),tag:`<span class="tag ${err<=q.t[1]?"ok":"no"}">off by ${fmt(err)}</span>`});
       if(err<=q.t[0]){o.move=2;o.headline="Dead centre of the bridge.";}
       else if(err<=q.t[1]){o.move=1;o.headline="Made the jump.";}
       else{o.fall=true;o.headline="Into the crevasse.";o.tone="bad";}}
@@ -529,7 +531,7 @@ function answerView(t,mine){
   const r=t.round,q=qById(r.terrain,r.qid),T=TERRAIN[r.terrain];
   const ids=memberIds(t);const lead=r.leader===S.uid;const solo=ids.length<2;
   const head=`<img class="tart" src="${terrainArt(r.terrain)}" alt="">
-   <div class="eyebrow">Pitch ${t.exp.pitch+1} · ${fmt(altOf(t.exp,t.exp.pitch))} m <span class="role ${lead?"lead":"belay"}">${lead?"You lead":"You belay"}</span>${T.talk&&!solo?"":`<span>· no radio</span>`}</div>
+   <div class="eyebrow">Pitch ${t.exp.pitch+1} · ${fmt(altOf(t.exp,t.exp.pitch))} m <span class="role ${lead?"lead":"belay"}">${lead?"You lead":"You belay"}</span>${T.talk&&!solo?"":`<span class="chip0">No radio</span>`}</div>
    <div class="terrain">${T.name}</div><p class="rule">${esc(T.rule)}</p>`;
   const radio=T.talk&&!solo?radioHtml(T):"";
   const foot=radio+`<div class="timer"><i id="timerBar"></i></div><div class="meta"><span id="timerTxt"></span><span id="partnerTxt"></span></div>`;
@@ -558,7 +560,7 @@ function answerView(t,mine){
 function halves(r,q,lead,solo){
   if(r.terrain==="slab"){const L=`<div class="clue2">Starts with <b>${esc((r.letter||"").toUpperCase())}</b></div>`;
     return solo?`<div class="prompt">${esc(q.q)}</div>${L}`:lead?`<div class="prompt">${esc(q.q)}</div><div class="hidden2">Your belayer has the first letter.</div>`:`${L}<div class="hidden2">Your leader has the category.</div>`;}
-  if(r.terrain==="crevasse"){const H=typeof r.lo==="number"?`<div class="clue2">Between <b>${fmt(r.lo)}</b> and <b>${fmt(r.hi)}</b>${q.u?" "+esc(q.u):""}</div>`:"";
+  if(r.terrain==="crevasse"){const H=typeof r.lo==="number"?`<div class="clue2">Between <b>${qnum(r.lo,q)}</b> and <b>${qnum(r.hi,q)}</b>${q.u?" "+esc(q.u):""}</div>`:"";
     return `<div class="prompt">${esc(q.q)}</div>`+(solo||!lead?H:`<div class="hidden2">Your belayer can see roughly where the answer lies.</div>`);}
   return `<div class="prompt">${esc(r.terrain==="overhang"&&lead&&!solo?"Category: "+q.cat:q.q)}</div>`;}
 /* the rope radio: a few short messages per pitch, stored beside the answers under answers/<team>/<round>/_talk */

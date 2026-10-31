@@ -165,7 +165,11 @@ const ART={},FIRE_N=6;
     else{d[i]=R0(lerp(r,l*.86,.5));d[i+1]=R0(lerp(gr,l*.94,.5));d[i+2]=Math.min(255,R0(lerp(b,l*1.12,.5)));}}};
   // one granite texture for the whole wall: mossy low down, its wintry copy high up; rock chunks painted before it
   // arrived repaint with it
-  load(asset("assets/cliff-low.png"),im=>{ART.rockLo=pixels(im);const hi=pixels(im);wintry(hi.d);ART.rockHi=hi;FX.chunks.clear();});
+  // three granite textures (from one generation, so they match), each with its wintry copy; the wall is painted
+  // once all three are in, and chunks painted before that repaint with them
+  ART.rocks=[];let rockLeft=3;
+  ["cliff-low","cliff-b","cliff-c"].forEach((n,i)=>load(asset(`assets/${n}.png`),im=>{const hi=pixels(im);wintry(hi.d);ART.rocks[i]={lo:pixels(im),hi};
+    if(!--rockLeft){ART.rockLo=ART.rocks[0].lo;ART.rockHi=ART.rocks[0].hi;FX.chunks.clear();}}));
   // the walkable surface of a platform image: the first opaque row down its middle
   const surface=p=>{const x=p.w>>1;for(let y=0;y<p.h;y++)if(p.d[(y*p.w+x)*4+3]>40)return y;return 0;};
   // camp ledges: Camp I as drawn; Camp II with its grass and moss turned to snow and its rock cooled to blue-grey
@@ -259,9 +263,26 @@ function rockAt(wx,wy){
   if(top&&!snowy&&e<4.5+hash(wx,id)*2.5&&hash(id,5)<.5-u*.6)c=e<2.4?C.mossL:e<3.6?(hash(wx,1)<.3?C.mossH:C.mossL):hash(wx,wy)<.5?C.moss:C.mossD;
   if(top&&snowy&&e<4+hash(wx,id)*3)c=e<3?C.snow:C.snowS;
   return c;}
+// The granite wall as irregular cells (a jittered grid, Voronoi-style): each cell shows a patch of one of the three
+// textures, picked, offset and maybe flipped by the cell's own hash, centred on the texture so it never reaches a
+// texture edge; a thin dark crack runs along the borders between cells, so they read as fractures in the rock.
+// (No mirroring and no straight seams, so the wall has no repeating symmetric shapes.) High up the wintry copies
+// are used, with a ragged seam between the zones.
+const RC_W=46,RC_H=38;
+function rockCell(wx,wy){
+  const gx=Math.floor(wx/RC_W),gy=Math.floor(wy/RC_H);let d1=1e9,d2=1e9,sx=0,sy=0,id=0;
+  for(let j=-1;j<=1;j++)for(let i=-1;i<=1;i++){const cx=gx+i,cy=gy+j,
+    px=(cx+.2+hash(cx,cy*7+3)*.6)*RC_W,py=(cy+.2+hash(cx*5,cy+11)*.6)*RC_H,dx=wx-px,dy=(wy-py)*1.1,d=Math.hypot(dx,dy);
+    if(d<d1){d2=d1;d1=d;sx=px;sy=py;id=cx*7919+cy*104729;}else if(d<d2)d2=d;}
+  const R=ART.rocks[Math.floor(hash(id,1)*ART.rocks.length)],T=uOf(wy)>.6+(hash(wx>>2,wy>>2)-.5)*.06?R.hi:R.lo;
+  const fx=hash(id,2)<.5?-1:1,ox=R0((hash(id,3)-.5)*28),oy=R0((hash(id,4)-.5)*28);
+  const tx=clamp(R0((wx-sx)*fx+T.w/2+ox),1,T.w-2),ty=clamp(R0(wy-sy+T.h/2+oy),1,T.h-2),i=(ty*T.w+tx)*4;
+  let c=[T.d[i],T.d[i+1],T.d[i+2]];
+  const e=d2-d1;if(e<1.2)c=c.map(k=>k*.28|0);else if(e<2.4)c=c.map(k=>k*.62|0);
+  return c;}
 function paintChunk(ci){
   const yTop=-(ci+1)*CHK,w=FX.wallW,[c,g]=mk(w+40,CHK);if(yTop+CHK<TOPY-40)return c;
-  const id=g.createImageData(w+40,CHK),d=id.data,cache={},tex=ART.rockLo&&ART.rockHi;
+  const id=g.createImageData(w+40,CHK),d=id.data,cache={},tex=ART.rockLo&&ART.rocks.length===3;
   const hex=h=>cache[h]||(cache[h]=[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]);
   for(let py=0;py<CHK;py++){const wy=yTop+py,L=rockEdge(wy);if(wy>0)continue;
     for(let px=0;px<w+40;px++){const wx=px-40;let col=null,v=null;
@@ -269,7 +290,7 @@ function paintChunk(ci){
       if(wx<L)continue;
       if(wx===L)col=C.crack;
       // the generated granite: warm and mossy low down, cold and snowy high up, with a dithered seam between
-      else if(tex){v=texAt(uOf(wy)>.6+(hash(wx,wy)-.5)*.06?ART.rockHi:ART.rockLo,wx,wy);if(wx===L+1)v=v.map(k=>k+(255-k)*.12|0);}
+      else if(tex){v=rockCell(wx,wy);if(wx===L+1)v=v.map(k=>k+(255-k)*.12|0);}
       else if(wx<=L+2)col=uOf(wy)>.74&&hash(wy>>1,8)<.5?C.snow:uOf(wy)>.6?C.coldL:C.rockL;
       else col=rockAt(wx,wy);
       if(wy-peakTop(wx)<1)col=C.snowS;else if(wy-peakTop(wx)<5)col=C.snow; // snow on the summit ridge
@@ -702,7 +723,9 @@ function stepAmbient(dt){
   if(cp&&cp.sleep&&!RM.matches&&(FX.nextZ=(FX.nextZ||0)-dt)<0){FX.nextZ=1.4;const S=campSpots();FX.pops.push({x:S.door+8,y:cp.cy-6,text:"z",t:0});}
 }
 // the part of the window the cards and bar leave open, in CSS px: the camera frames the climb inside it
-function sceneArea(){const W=FX.W,H=FX.H,wide=W>=900,top=wide?64:96,m=$("#main");let a={x:0,y:top,w:W,h:H-top};
+// (below the HUD when it shows, so the portraits and the altitude box never sit over the leader)
+function sceneArea(){const W=FX.W,H=FX.H,wide=W>=900,hud=$("#hud"),hb=hud&&!hud.hidden?hud.getBoundingClientRect().bottom+8:0,
+    top=Math.max(wide?64:96,hb),m=$("#main");let a={x:0,y:top,w:W,h:H-top};
   const r=m&&m.getBoundingClientRect();if(r&&r.width>0&&r.height>0){if(wide){a.x=Math.min(W-240,r.right+8);a.w=W-a.x;}else a.h=Math.max(150,r.top-top);}
   return a;}
 function updateCam(dt){const me=FX.A.me,mt=FX.A.mate,now=performance.now();
@@ -711,8 +734,11 @@ function updateCam(dt){const me=FX.A.me,mt=FX.A.mate,now=performance.now();
   // the cliff's edge sits a little left of the open area's middle so the valley shows beside it
   // (at a camp the view eases over to centre the wide ledge, from its far end to the wall, in the open part of the
   // screen, so the tent and fire are never under the cards)
-  const oxT=FX.camp?ax+aw/2-(ledgeL()+30)/2:ax+aw*(FX.W>=900?.42:.38);
-  FX.oxF=FX.oxF==null?oxT:lerp(FX.oxF,oxT,1-Math.exp(-dt*2.5));FX.ox=R0(FX.oxF);
+  // (likewise at base camp, from the tent out to the wall, while both stand there)
+  const atBase=!FX.camp&&me.mode==="stand"&&mt.mode==="stand"&&me.hi<=0&&mt.hi<=0;
+  const oxT=FX.camp?ax+aw/2-(ledgeL()+30)/2:atBase?ax+aw/2+104:ax+aw*(FX.W>=900?.42:.38);
+  // (a new camera, or a jump of half the screen or more such as the first frames on load, snaps rather than slides)
+  FX.oxF=FX.oxF==null||!FX.cam||Math.abs(oxT-FX.oxF)>FX.vw*.5?oxT:lerp(FX.oxF,oxT,1-Math.exp(-dt*2.5));FX.ox=R0(FX.oxF);
   let fy=FX.focus==="summit"?TOPY-30:lerp(me.N.y,mt.N.y,.3);
   // camera y is the world y at the open area's vertical middle; keep the summit sky and the meadow in frame
   let y=clamp(fy,TOPY-120+(ah/2),60-(ah/2));
@@ -730,7 +756,9 @@ function frame(now){
   const A=FX.A;
   if(FX.exp){A.me.update(dt);A.mate.update(dt);
     const ch=FX.exp.choice,pm=A.mate.pelvis(),pl=A.me.pelvis(),path=[[pm.x,pm.y]];
-    if(A.me.mode!=="stand"||A.mate.mode!=="stand")for(let i=A.mate.hi+1;i<A.me.hi;i++)if(i%4===2)path.push(boltXY(ch,i));
+    // the rope runs through the clipped bolts between the two only while the leader is on the wall (once the leader
+    // has topped out onto a ledge they belay from there), and only bolts that lie between them on the way up
+    if(A.me.mode==="climb")for(let i=A.mate.hi+1;i<A.me.hi;i++)if(i%4===2){const b=boltXY(ch,i);if(b[1]<pm.y-6&&b[1]>pl.y+6)path.push(b);}
     path.push([pl.x,pl.y]);if(A.me.hidden&&A.mate.hidden)path.length=0; // (coiled away while they sleep)
     FX.pins=path;FX.rope.update(path);}
   stepParts(dt);stepAmbient(dt);updateCam(dt);
@@ -761,8 +789,11 @@ function paint(t){
   if(vy1>-120)drawFrontPines(g,ox,oy);
   for(const [kk,ix] of [["c1",IDX_C1],["c2",IDX_C2]]){const y=-ix*HS;if(y>vy0-70&&y<vy1+30)drawCamp(g,kk,y,t,ox,oy);}
   if(vy0<TOPY+60)drawSummit(g,t,ox,oy);
-  if(FX.label){const i=FX.label.i,[hx,hy]=holdXY(FX.exp.choice,i),x=hx+8+ox,y=hy+oy,s=textSprite(FX.label.text,C.cream,INK);
-    g.drawImage(sprites().flag[Math.floor(t*3)%2],x,y-12);g.drawImage(s,x+9,y-15);}
+  // the next pitch's goal: a little flag at the route with a wooden plaque beside it on the rock, so its pixel
+  // lettering reads against the busy granite
+  if(FX.label){const i=FX.label.i,[hx,hy]=holdXY(FX.exp.choice,i),x=hx+6+ox,y=hy+oy,txt=FX.label.text;
+    const s=(FX.signs||(FX.signs=new Map())).get(txt)||(FX.signs.size>20&&FX.signs.clear(),FX.signs.set(txt,sign(txt)).get(txt));
+    g.drawImage(sprites().flag[Math.floor(t*3)%2],x,y-12);g.drawImage(s,x+8,y-14);}
   FX.rope.draw(g,ox,oy);quickdraws(g,ox,oy);
   FX.A.mate.draw(g,t,ox,oy);FX.A.me.draw(g,t,ox,oy);
   drawPoofs(g,ox,oy);
@@ -776,7 +807,9 @@ function drawNight(g,w,h,t,ox,oy){const n=FX.night,cp=FX.camp;
   const edge=ox-20;for(let i=0;i<70;i++){const sx=R0(hash(i,21)*w),sy=R0(hash(i,22)*h*.55);if(sx>edge)continue;
     if(hash(i,23)*1.3>n)continue;const tw=Math.sin(t*2+i*1.7)>.7;dot(g,sx,sy,tw?"#ffffff":"#c9d6f2");}
   if(!cp)return;const S=campSpots(),cy=cp.cy;
-  if(cp.tent>0){g.globalAlpha=.55*n;drawTentRise(g,S.tentX+ox,cy+oy,cp.tent);g.globalAlpha=1;}
+  // (the tent glows through the dark only once both are inside it; while they still stand at its door, redrawing
+  // it would show it through them)
+  if(cp.tent>0&&cp.sleep){g.globalAlpha=.55*n;drawTentRise(g,S.tentX+ox,cy+oy,cp.tent);g.globalAlpha=1;}
   if(fireLit(cp)){const fx=S.fireC+ox,fy=cy-8+oy;
     for(const [r,a,c] of [[30,.10,"#ff9a3a"],[20,.16,"#ffb04a"],[12,.22,"#ffd27a"]]){g.globalAlpha=a*n;pdisc(g,fx,fy,r,c);}
     g.globalAlpha=1;drawFire(g,S.fireX+ox,cy+oy,cp.fire,t);}}
