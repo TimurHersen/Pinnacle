@@ -172,12 +172,17 @@ const ART={},FIRE_N=6;
   // (the ledge's walkable span: the columns whose top lies within a few pixels of the surface, where a tent can stand)
   load(asset("assets/ledge.png"),im=>{const p=pixels(im);ART.ledge=im;ART.ledgeTop=surface(p);
     const top=x=>{for(let y=0;y<p.h;y++)if(p.d[(y*p.w+x)*4+3]>40)return y;return p.h;};let a=0,b=p.w-1;
-    while(a<p.w&&top(a)>ART.ledgeTop+4)a++;while(b>a&&top(b)>ART.ledgeTop+4)b--;ART.ledgeWalk=[a,b];wintry(p.d);
+    // (the image's back end may carry a slab of cliff rising well above the ledge: it is cut off where that starts,
+    // so only the ledge itself is drawn, its back end against the real wall)
+    while(a<p.w&&top(a)>ART.ledgeTop+4)a++;let w=a;while(w<p.w&&top(w)>=ART.ledgeTop-6)w++;
+    b=w-1;while(b>a&&top(b)>ART.ledgeTop+4)b--;ART.ledgeWalk=[a,b];ART.ledgeW=w;wintry(p.d);
     const [c,g]=mk(p.w,p.h),id=g.createImageData(p.w,p.h);id.data.set(p.d);g.putImageData(id,0,0);ART.ledgeSnow=c;FX.camps={};});
   load(asset("assets/tent.png"),im=>{ART.tent=im;FX.camps={};FX.base=null;});
-  // the campfire's flicker loop; the unlit pile is the first frame's logs and stone ring (its lowest rows) alone
+  // the campfire's flicker loop; the unlit pile is its first frame with the flames (bright orange and yellow pixels)
+  // taken out, leaving the leaning logs and the stones
   ART.fire=Array.from({length:FIRE_N},(_,i)=>{const im=new Image();im.src=asset(`assets/fire/${i}.png`);
-    if(!i)im.onload=()=>{const b=boxOf(im),cut=b.y1-15,[c,g]=mk(im.width,im.height);g.drawImage(im,0,cut,im.width,im.height-cut,0,cut,im.width,im.height-cut);ART.firePile=c;};
+    if(!i)im.onload=()=>{const p=pixels(im),d=p.d;for(let j=0;j<d.length;j+=4)if(d[j]>200&&d[j+1]>90&&d[j]-d[j+2]>80)d[j+3]=0;
+      const [c,g]=mk(p.w,p.h),id=g.createImageData(p.w,p.h);id.data.set(d);g.putImageData(id,0,0);ART.firePile=c;};
     return im;});
   load(asset("assets/pine.png"),im=>{ART.pine=im;FX.base=null;});
   // the base-camp meadow: a grass-and-soil strip repeated along the valley floor, solid soil below it
@@ -548,29 +553,28 @@ function sign(text){const s=textSprite(text,C.cream,null),[c,g]=mk(s.width+6,s.h
 function drawTent(g,x,y){if(ART.tent)g.drawImage(ART.tent,x,y-boxOf(ART.tent).y1-1);else g.drawImage(sprites().tent,x,y-12);}
 // a camp shelf jutting from the cliff: the generated ledge (grassy for Camp I, snowy for Camp II) with its walkable
 // top at the camp's height and its right end over the rock, or until it loads a painted slab; a tent, sign and fire
-// left to right along the ledge: the tent at its outer end, the sign raised above it, the fire, then the climbers
-const CAMP_FIRE=-86;
+// the ledge as drawn: the image up to where its cliff slab starts, its back end at x=30 over the wall
+const ledgeW=()=>ART.ledge?ART.ledgeW||ART.ledge.width:0,ledgeL=()=>30-ledgeW();
 function campLayer(k,cy){if(FX.camps[k])return FX.camps[k];
   // (the buttress under the ledge, painted with the cliff, fills in between the ledge's back end and the wall)
-  const x0=-176,x1=30,y0=cy-96,y1=cy+80,[c,g]=mk(x1-x0,y1-y0),X=x=>x-x0,Y=y=>y-y0,snow=k==="c2";
-  // the ledge image's back end has a block of cliff rising above its top; only its rows from the top down are used
-  // there, so nothing stands up out of the ledge next to the wall
-  if(ART.ledge){const L=snow?ART.ledgeSnow:ART.ledge,dx=X(x1-L.width),dy=Y(cy-ART.ledgeTop),cut=150,top=ART.ledgeTop-2;
-    g.drawImage(L,0,0,cut,L.height,dx,dy,cut,L.height);g.drawImage(L,cut,top,L.width-cut,L.height-top,dx+cut,dy+top,L.width-cut,L.height-top);}
+  const x1=30,x0=Math.min(-176,ledgeL()-8),y0=cy-110,y1=cy+100,[c,g]=mk(x1-x0,y1-y0),X=x=>x-x0,Y=y=>y-y0,snow=k==="c2";
+  if(ART.ledge){const L=snow?ART.ledgeSnow:ART.ledge,W=ledgeW();g.drawImage(L,0,0,W,L.height,X(ledgeL()),Y(cy-ART.ledgeTop),W,L.height);}
   else for(let x=-170;x<x1;x++){const end=x<-160?(x+170)/10:1,th=R0((9+hash(x>>2,5)*4)*end);
     for(let y=0;y<=th;y++){let col=rockAt(x,cy+y+400);if(y===th)col=C.crack;else if(y>=th-1)col=C.rockD;
       if(y<=1)col=snow?(y?C.snowS:C.snow):(y?C.moss:C.mossL);if(y===2&&!snow&&hash(x,9)<.4)col=C.mossD;dot(g,X(x),Y(cy+y),col);}
     if(!snow&&hash(x,4)<.35)dot(g,X(x),Y(cy-1),hash(x,6)<.5?C.grassL:C.mossH);}
   // the ledge waits empty but for its sign: the team pitches its own camp when it gets here
-  const s=sign(k==="c1"?"CAMP I":"CAMP II");g.drawImage(s,X(-122)-(s.width>>1),Y(cy-80));
-  rect(g,X(-122),Y(cy-80)+s.height,1,80-s.height,C.woodD);
+  // (the sign stands at the ledge's far end, before where the tent will go)
+  const sx=ART.ledge&&ART.ledgeWalk?ledgeL()+ART.ledgeWalk[0]+6:-122,s=sign(k==="c1"?"CAMP I":"CAMP II");
+  g.drawImage(s,X(sx)-6,Y(cy-92));rect(g,X(sx),Y(cy-92)+s.height,1,92-s.height,C.woodD);
   return FX.camps[k]={c,x0,y0};}
 // where things go on a camp ledge, from the ledge's walkable span: the tent at the outer end, the fire beside it,
 // where each climber kneels to work (the leader at the tent, the partner at the fire) and the tent's door
 function campSpots(){const L=ART.ledge,T=ART.tent,F=ART.fire&&ART.fire[0];
-  const walk0=L&&ART.ledgeWalk?30-L.width+ART.ledgeWalk[0]:-140,tb=T?boxOf(T):{x0:0,x1:70,y1:50},tw=tb.x1-tb.x0;
-  const fb=F&&F.complete&&F.naturalWidth?boxOf(F):{x0:4,x1:34},fw=fb.x1-fb.x0,tentL=walk0+3,tentR=tentL+tw,fireL=tentR+8;
-  return {tentX:tentL-tb.x0,tentR,fireX:fireL-fb.x0,fireC:fireL+(fw>>1),meWork:tentR-14,mateWork:fireL+fw+10,door:tentL+R0(tw*.32)};}
+  const walk0=L&&ART.ledgeWalk?ledgeL()+ART.ledgeWalk[0]:-140,tb=T?boxOf(T):{x0:0,x1:70,y1:50},tw=tb.x1-tb.x0;
+  // (the tent faces out of the screen, so its door is in the middle; the sign's post takes the first few pixels)
+  const fb=F&&F.complete&&F.naturalWidth?boxOf(F):{x0:4,x1:34},fw=fb.x1-fb.x0,tentL=walk0+12,tentR=tentL+tw,fireL=tentR+14;
+  return {tentX:tentL-tb.x0,tentR,fireX:fireL-fb.x0,fireC:fireL+(fw>>1),meWork:tentR+12,mateWork:fireL+fw+14,door:tentL+(tw>>1)};}
 // the tent, risen from the ground up to fraction p (being pitched or packed away)
 function drawTentRise(g,x,y,p){if(p<=0)return;if(!ART.tent){if(p>=1)drawTent(g,x,y);return;}
   const T=ART.tent,b=boxOf(T),h=b.y1+1-b.y0,v=Math.max(1,R0(h*p)),sy=b.y1+1-v;g.drawImage(T,0,sy,T.width,v,x,y-v,T.width,v);}
@@ -652,7 +656,10 @@ function updateCam(dt){const me=FX.A.me,mt=FX.A.mate,now=performance.now();
   if(now-FX.areaAt>250||!FX.area){FX.area=sceneArea();FX.areaAt=now;}
   const A=FX.area,px=FX.px,ax=A.x/px,ay=A.y/px,aw=A.w/px,ah=A.h/px;
   // the cliff's edge sits a little left of the open area's middle so the valley shows beside it
-  FX.ox=R0(ax+aw*(FX.W>=900?.42:.38));
+  // (at a camp the view eases over to centre the wide ledge, from its far end to the wall, in the open part of the
+  // screen, so the tent and fire are never under the cards)
+  const oxT=FX.camp?ax+aw/2-(ledgeL()+30)/2:ax+aw*(FX.W>=900?.42:.38);
+  FX.oxF=FX.oxF==null?oxT:lerp(FX.oxF,oxT,1-Math.exp(-dt*2.5));FX.ox=R0(FX.oxF);
   let fy=FX.focus==="summit"?TOPY-30:lerp(me.N.y,mt.N.y,.3);
   // camera y is the world y at the open area's vertical middle; keep the summit sky and the meadow in frame
   let y=clamp(fy,TOPY-120+(ah/2),60-(ah/2));
