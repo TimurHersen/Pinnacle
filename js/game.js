@@ -226,20 +226,13 @@ const inviteLink=code=>location.origin+location.pathname+"#t-"+code;
 function renderLobby(invite){
   if(typeof MUSIC!=="undefined")MUSIC.want(true); // the theme plays on the home screen only (js/music.js)
   $("#teambar").innerHTML="";$("#homeBtn").hidden=true;$("#hud").hidden=true;
-  const main=$("#main");main.className="lobby";main.scrollTop=0;
-  // a title screen: the wordmark and a retro menu that jumps to each section below (all real forms, not mock-ups)
+  const main=$("#main");main.className="lobby";main.scrollTop=0;main.hidden=true;
+  // the title screen (js/title.js) holds the menu; each menu item opens its own panel here, over the painting.
+  // The name card shows with every panel that needs it (data-for)
   main.innerHTML=`
-    <div class="card title"><img class="emblem" src="${asset("assets/emblem.png")}" alt=""><h2 class="wordmark">Pinnacle</h2>
-      <div class="slogan">TWO MINDS. ONE ROPE. HIGHER TOGETHER.</div>
-      <nav class="menu" aria-label="Main menu">
-        ${S.myTeams.length?`<button class="mbtn" data-go="secCont">Continue expedition</button>`:""}
-        <button class="mbtn" data-go="secNew" data-f="tname">New expedition</button>
-        <button class="mbtn" data-go="secJoin" data-f="jcode">Join team</button>
-        <button class="mbtn" data-go="secHow">How to play</button>
-        <button class="mbtn" data-go="secSet">Settings</button>
-      </nav></div>
-    ${invite?`<div class="card"><h3>You're invited</h3><p class="note">Join <strong>${esc(invite.name)}</strong>: add your name below, then press Join.</p></div>`:""}
-    <div class="card"><h3>Your name</h3>
+    <button class="linkbtn back" id="backBtn">◀ Back</button>
+    ${invite?`<div class="card" data-for="secJoin"><h3>You're invited</h3><p class="note">Join <strong>${esc(invite.name)}</strong>: add your name below, then press Join.</p></div>`:""}
+    <div class="card" data-for="secNew secJoin secCont"><h3>Your name</h3>
       <input type="text" id="myname" maxlength="24" placeholder="What your partner sees" value="${esc(S.myName)}" autocomplete="nickname">
     </div>
     ${S.myTeams.length?`<div class="card" id="secCont"><h3>Continue expedition</h3><div class="teams">${S.myTeams.map(x=>`<button class="teamrow" data-code="${esc(x.code)}"><b>${esc(x.name)}</b><span>${esc(x.code)}</span></button>`).join("")}</div></div>`:""}
@@ -272,9 +265,15 @@ function renderLobby(invite){
   $("#joinBtn").onclick=()=>joinTeam();
   $("#jcode").onkeydown=e=>{if(e.key==="Enter")joinTeam();};
   main.querySelectorAll(".teamrow").forEach(b=>b.onclick=()=>openTeam(b.dataset.code));
-  main.querySelectorAll(".mbtn").forEach(b=>b.onclick=()=>{const sec=$("#"+b.dataset.go);if(!sec)return;sfx("pop");
-    sec.scrollIntoView({behavior:RM.matches?"auto":"smooth",block:"start"});sec.classList.remove("flash");void sec.offsetWidth;sec.classList.add("flash");
-    if(b.dataset.f)setTimeout(()=>$("#"+b.dataset.f)?.focus({preventScroll:true}),350);});
+  const open=id=>{main.querySelectorAll(".card").forEach(c=>c.hidden=!(c.id===id||(c.dataset.for||"").split(" ").includes(id)));
+    main.hidden=false;main.scrollTop=0;homeMenu(false);
+    const f={secNew:"tname",secJoin:"jcode"}[id];if(f)setTimeout(()=>$("#"+f)?.focus({preventScroll:true}),60);};
+  const close=()=>{main.hidden=true;homeMenu(true);};
+  $("#backBtn").onclick=()=>{sfx("pop");close();};
+  main.onkeydown=e=>{if(e.key==="Escape")close();};
+  showHome([...(S.myTeams.length?[{id:"secCont",label:"Continue"}]:[]),{id:"secNew",label:"New expedition"},{id:"secJoin",label:"Join team"},
+    {id:"secHow",label:"How to play"},{id:"secSet",label:"Settings"}],open);
+  if(invite)open("secJoin");
   // settings mirror the bar's sound and fullscreen switches
   const setS=$("#setSnd"),setF=$("#setFs"),sync=()=>{setS.textContent=SND.on?"On":"Off";if(setF)setF.textContent=document.fullscreenElement?"On":"Off";};
   setS.onclick=()=>{$("#sndBtn").click();sync();};if(setF){setF.onclick=()=>$("#fsBtn").click();document.addEventListener("fullscreenchange",sync);}sync();
@@ -329,7 +328,7 @@ function beat(){if(S.code&&document.visibilityState==="visible")fb.put(`presence
 document.addEventListener("visibilitychange",beat);
 function updateOnline(){const now=Date.now();S.online=new Set(Object.entries(S.pres||{}).filter(([,v])=>now-v<60000).map(([k])=>k));if(S.team)renderBar();}
 function openTeam(code){
-  closeTeam();S.code=code;if(typeof MUSIC!=="undefined")MUSIC.want(false);try{history.replaceState(null,"","#t-"+code);}catch(e){}
+  closeTeam();S.code=code;hideHome();$("#main").hidden=false;if(typeof MUSIC!=="undefined")MUSIC.want(false);try{history.replaceState(null,"","#t-"+code);}catch(e){}
   const main=$("#main");main.className="";main.innerHTML=`<div class="panel"><p class="note">Clipping in…</p></div>`;
   let first=true;
   S.unsubTeam=fb.listen("teams/"+code,raw=>{

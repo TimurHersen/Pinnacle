@@ -34,7 +34,7 @@ button,input{font:inherit;color:inherit}
 .bar{position:fixed;z-index:6;top:0;left:0;right:0;display:flex;align-items:center;gap:12px;padding:calc(12px + env(safe-area-inset-top,0px)) var(--edge) 8px;pointer-events:none}
 .bar>*{pointer-events:auto}
 .bar .spacer{flex:1}
-/* the title card already carries the wordmark, so the bar's badge only shows once a climb is open */
+/* the title screen already carries the logo, so the bar's badge only shows once a climb is open */
 body:has(#main.lobby) .brand{display:none}
 .brand{margin:0;font:400 16px/1 var(--head);letter-spacing:.04em;text-transform:uppercase;padding:10px 12px 8px;color:var(--cream);flex:none;text-shadow:2px 2px 0 var(--goldD)}
 .bar .team{display:flex;align-items:center;gap:10px;min-width:0;padding:6px 8px 6px 12px}
@@ -51,7 +51,7 @@ body:has(#main.lobby) .brand{display:none}
 .ibtn svg{width:24px;height:24px}
 .ibtn[aria-pressed="false"] .on,.ibtn[aria-pressed="true"] .off{display:none}
 .linkbtn:hover,.ibtn:hover{background:var(--panel2)}
-.linkbtn:active,.ibtn:active,.btn:active,.mbtn:active{transform:translate(2px,2px);box-shadow:0 0 0 2px var(--navy),2px 2px 0 2px rgba(5,7,13,.75)}
+.linkbtn:active,.ibtn:active,.btn:active{transform:translate(2px,2px);box-shadow:0 0 0 2px var(--navy),2px 2px 0 2px rgba(5,7,13,.75)}
 
 /* the play column (left) and the HUD over the open scene */
 #main{position:fixed;z-index:4;top:calc(70px + env(safe-area-inset-top,0px));left:var(--edge);bottom:14px;width:var(--colW);overflow-y:auto;overscroll-behavior:contain;
@@ -168,18 +168,6 @@ input:focus{border-color:var(--gold);outline:none}
 
 /* lobby: the title screen and menu */
 #main.lobby{gap:16px}
-.title{text-align:center;justify-items:center;gap:8px;padding:22px 18px 20px;background:linear-gradient(#1a2440,var(--panel) 70%)}
-/* the generated peak emblem at exactly twice its pixel size, so every art pixel stays square */
-.title .emblem{width:192px;height:112px;image-rendering:pixelated;margin-bottom:-6px}
-.wordmark{margin:0;font:400 32px/1 var(--head);text-transform:uppercase;letter-spacing:.02em;color:var(--goldL);
-  text-shadow:0 2px 0 var(--gold),0 4px 0 var(--goldD),0 6px 0 #6e4310,3px 9px 0 var(--navy)}
-.slogan{font:600 15px/1.3 var(--body);letter-spacing:.06em;color:var(--cream);text-transform:uppercase;margin-top:6px}
-.menu{display:grid;gap:10px;width:100%;max-width:300px;margin-top:12px}
-.mbtn{font:600 15px/1.3 var(--body);letter-spacing:.06em;text-transform:uppercase;background:var(--navy);color:var(--cream);border:2px solid var(--cream);padding:13px 12px;cursor:pointer;box-shadow:var(--frame)}
-.mbtn:hover,.mbtn:focus-visible,.mbtn.on{background:var(--gold);color:#1b1408;outline:none}
-.mbtn:hover::before,.mbtn:focus-visible::before{content:"▶ "}
-.card.flash{animation:flash .9s steps(3) 1}
-@keyframes flash{50%{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold),4px 4px 0 2px var(--navy)}}
 .teams{display:grid;gap:6px}
 .teamrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:var(--navy);border:2px solid var(--line);color:var(--cream);cursor:pointer;text-align:left;width:100%}
 .teamrow:hover{border-color:var(--gold)}
@@ -252,7 +240,7 @@ input:focus{border-color:var(--gold);outline:none}
   .stat:nth-child(3),.stat .k{display:none}.stat{grid-template-columns:14px auto}.hud-r{flex:none}
   .brand{font-size:8px;padding:10px}.linkbtn{padding:10px}.ibtn{width:32px;height:32px}
   .bar:has(.team:not(:empty)) .brand,.bar .team .climbers,.chip .long{display:none}
-  .wordmark{font-size:24px}.terrain{font-size:16px}
+  .terrain{font-size:16px}
   .tart{aspect-ratio:96/18;object-fit:cover}
   .opts{grid-template-columns:1fr}
 }
@@ -319,3 +307,32 @@ body:has(#main.game2) .hud{left:var(--edge)}
   .qwrap{grid-template-columns:1fr}.qside{grid-template-columns:1fr 1fr}.qside .qrole,.qside .note,.qside .hint{grid-column:1/-1}
   .qopts{grid-template-columns:1fr}.radio2 .rlog{max-height:90px}.routes.bonus{grid-template-columns:1fr}
 }
+
+/* ---------- the title screen (js/title.js): the dusk painting, a pixel-art logo and a pixel-art menu ----------
+   --u is the size of one of the painting's pixels on screen, so every frame and label lines up with it */
+#menubg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:88% 60%;image-rendering:pixelated;display:none}
+body.home #menubg{display:block}
+body.home .scene canvas{visibility:hidden}
+#home{position:fixed;inset:0;z-index:3;pointer-events:none;--u:3px}
+#home[hidden]{display:none}
+#home canvas.pix{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
+.tlogo{position:absolute;left:50%;top:calc(env(safe-area-inset-top,0px) + 6*var(--u));transform:translateX(-50%);filter:drop-shadow(0 var(--u) 0 rgba(10,8,24,.4))}
+.pmenu{position:absolute;left:calc(16*var(--u));bottom:calc(14*var(--u) + env(safe-area-inset-bottom,0px));display:grid;gap:calc(5*var(--u));pointer-events:auto;transition:opacity .2s}
+#home .tlogo{transition:opacity .2s}#home.away .tlogo{opacity:0}
+.pbtn{--bc:#c9d3e6;--dk:#070b16;position:relative;display:grid;place-items:center;min-width:calc(84*var(--u));padding:calc(4*var(--u)) calc(8*var(--u)) calc(3*var(--u));
+  background:rgba(14,22,40,.9);border:0;margin:0;cursor:pointer;color:inherit;
+  box-shadow:var(--u) 0 0 var(--bc),calc(-1*var(--u)) 0 0 var(--bc),0 var(--u) 0 var(--bc),0 calc(-1*var(--u)) 0 var(--bc),
+    calc(2*var(--u)) 0 0 var(--dk),calc(-2*var(--u)) 0 0 var(--dk),0 calc(2*var(--u)) 0 var(--dk),0 calc(-2*var(--u)) 0 var(--dk),
+    var(--u) var(--u) 0 var(--dk),calc(-1*var(--u)) var(--u) 0 var(--dk),var(--u) calc(-1*var(--u)) 0 var(--dk),calc(-1*var(--u)) calc(-1*var(--u)) 0 var(--dk),
+    0 calc(3*var(--u)) 0 rgba(5,7,13,.45)}
+.pbtn:hover,.pbtn:focus-visible,.pbtn[aria-current="true"]{--bc:#ffd86a;background:rgba(60,36,14,.92);outline:none}
+/* a stepped pixel arrow points at the chosen item */
+.pbtn:hover::before,.pbtn:focus-visible::before,.pbtn[aria-current="true"]::before{content:"";position:absolute;left:calc(-8*var(--u));top:50%;width:calc(3*var(--u));height:calc(5*var(--u));transform:translateY(-50%);background:#ffd86a;
+  clip-path:polygon(0 0,33.4% 0,33.4% 20%,66.7% 20%,66.7% 40%,100% 40%,100% 60%,66.7% 60%,66.7% 80%,33.4% 80%,33.4% 100%,0 100%)}
+.pbtn:active{transform:translate(var(--u),var(--u))}
+#main[hidden]{display:none}
+#main.lobby .back{justify-self:start}
+@media (min-width:900px){#main.lobby{left:calc(50% - 120px);width:min(460px,calc(100% - 2*var(--edge)));bottom:auto;max-height:calc(100% - 100px)}}
+@media (max-width:899px){#home.away .pmenu{opacity:0;pointer-events:none}}
+@media (max-width:600px){.pmenu{left:50%;transform:translateX(-50%);bottom:auto;top:46%}.pbtn::before{display:none}}
+@media (prefers-reduced-motion:reduce){.pmenu{transition:none}}

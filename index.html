@@ -35,7 +35,7 @@ document.write('<link rel="stylesheet" href="css/style.css?'+V+'">');
 <script>
 // the scripts, in order, at this minute's version (written in, so they still load and run one after another)
 // (?test adds the test database first: see js/testdb.js)
-for(const s of [...(/[?&]test(=|&|$)/.test(location.search)?["testdb"]:[]),"content","quiz","game","audio","music","scene","main"])document.write('<script src="js/'+s+'.js?'+V+'"><\/script>');
+for(const s of [...(/[?&]test(=|&|$)/.test(location.search)?["testdb"]:[]),"content","quiz","game","audio","music","title","scene","main"])document.write('<script src="js/'+s+'.js?'+V+'"><\/script>');
 </script>
 </body>
 </html>
