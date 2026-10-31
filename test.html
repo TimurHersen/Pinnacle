@@ -53,6 +53,7 @@ input[type=text]{cursor:text;width:13em}
     <button class="bad" data-force="jerkB" title="Leader wrong, belayer right: fall and rope jerk">Leader wrong · jerk</button>
     <button class="bad" data-force="wrong">Both wrong</button>
     <button data-force="time">Time out</button></div>
+  <div class="grp"><span>Music</span><button id="themeBtn" aria-pressed="false">Preview theme</button></div>
   <div class="grp"><span>Radio</span><select id="talkAs" aria-label="Talk as"><option value="p1">P1</option><option value="p2" selected>P2</option></select>
     <input type="text" id="talkText" placeholder="Say something…" maxlength="60" aria-label="Radio message"><button id="talkBtn">Send</button></div>
   <div class="status" id="status" aria-live="polite"></div>
@@ -62,6 +63,9 @@ input[type=text]{cursor:text;width:13em}
   <div class="seat" id="seat2"><header><span>P2 · Yellow</span><button data-reload="2">Reload</button></header><div class="box"><iframe id="f2" title="Player 2"></iframe></div></div>
 </div>
 <script src="js/testdb.js"></script>
+<script>const LS={get:(k,d)=>d,set(){}}; // the sound engine reads its settings from here</script>
+<script src="js/audio.js"></script>
+<script src="js/music.js"></script>
 <script>
 // the shared database both frames play on (js/testdb.js), starting with a fresh two-player team at base camp
 const db=window.TESTDB=new TestDB();
@@ -136,6 +140,11 @@ function showStatus(t){const el=document.getElementById("status");if(!t){el.text
     `Hooks <b>${e.rope}</b> · chalk <b>${e.chalk}</b> · scout <b>${e.scout}</b> · anchors <b>${e.anchors}</b>`,
     res?`<span class="res">Last: ${res.headline}${res.jerk?" + rope jerk":""}</span>`:"",msg?`<span class="res">${msg}</span>`:""].filter(Boolean).join("<span>·</span>");}
 db.listen("teams/TEST01",j=>showStatus(JSON.parse(j)));
+
+/* the home screen's theme (js/music.js), to listen to without leaving the test page */
+{const b=document.getElementById("themeBtn");let on=false;
+  b.onclick=()=>{sndStart();if(SND.ctx&&SND.ctx.state==="suspended")SND.ctx.resume();on=!on;MUSIC.want(on);
+    b.classList.toggle("on",on);b.setAttribute("aria-pressed",on);b.textContent=on?"Stop theme":"Preview theme";};}
 
 fresh();load(1);load(2);layout();
 </script>

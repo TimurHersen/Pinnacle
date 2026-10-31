@@ -224,6 +224,7 @@ function readName(){const el=$("#myname");const v=((el?el.value:S.myName)||"").t
 function randCode(){const a="ABCDEFGHJKMNPQRSTUVWXYZ23456789";let s="";for(let i=0;i<6;i++)s+=a[Math.floor(Math.random()*a.length)];return s;}
 const inviteLink=code=>location.origin+location.pathname+"#t-"+code;
 function renderLobby(invite){
+  if(typeof MUSIC!=="undefined")MUSIC.want(true); // the theme plays on the home screen only (js/music.js)
   $("#teambar").innerHTML="";$("#homeBtn").hidden=true;$("#hud").hidden=true;
   const main=$("#main");main.className="lobby";main.scrollTop=0;
   // a title screen: the wordmark and a retro menu that jumps to each section below (all real forms, not mock-ups)
@@ -328,7 +329,7 @@ function beat(){if(S.code&&document.visibilityState==="visible")fb.put(`presence
 document.addEventListener("visibilitychange",beat);
 function updateOnline(){const now=Date.now();S.online=new Set(Object.entries(S.pres||{}).filter(([,v])=>now-v<60000).map(([k])=>k));if(S.team)renderBar();}
 function openTeam(code){
-  closeTeam();S.code=code;try{history.replaceState(null,"","#t-"+code);}catch(e){}
+  closeTeam();S.code=code;if(typeof MUSIC!=="undefined")MUSIC.want(false);try{history.replaceState(null,"","#t-"+code);}catch(e){}
   const main=$("#main");main.className="";main.innerHTML=`<div class="panel"><p class="note">Clipping in…</p></div>`;
   let first=true;
   S.unsubTeam=fb.listen("teams/"+code,raw=>{
