@@ -572,7 +572,7 @@ class Rope{
   draw(g,ox,oy){const p=this.path;if(!p||p.length<2)return;let s=0;
     const dab=(x,y,c)=>{g.fillStyle=c;g.fillRect(x,y,2,2);};
     for(let pass=0;pass<2;pass++){s=0;
-      for(let i=1;i<p.length;i++){const [x0,y0]=p[i-1],[x1,y1]=p[i],L=Math.hypot(x1-x0,y1-y0),sag=Math.min(8,L*.12),n=Math.max(2,Math.ceil(L));
+      for(let i=1;i<p.length;i++){const [x0,y0]=p[i-1],[x1,y1]=p[i],L=Math.hypot(x1-x0,y1-y0),sag=Math.min(8,L*.12)*(FX.time-(FX.ropeJerk??-9)<.5?0:1),n=Math.max(2,Math.ceil(L));
         const mx=(x0+x1)/2+sag*.4,my=(y0+y1)/2+sag;let lx=null,ly=null;
         for(let k=0;k<=n;k++){const t=k/n,x=R0((1-t)*(1-t)*x0+2*(1-t)*t*mx+t*t*x1)+ox,y=R0((1-t)*(1-t)*y0+2*(1-t)*t*my+t*t*y1)+oy;
           if(x===lx&&y===ly)continue;lx=x;ly=y;s++;
@@ -594,7 +594,7 @@ function drawParts(g,ox,oy,t){for(const p of FX.parts){const a=p.l/p.m,x=R0(p.x)
   else if(p.k==="smoke"){if(((x+y)&1)===0||a>.6)rect(g,x,y,a>.4?3:2,2,a>.5?"#d8d4cc":"#b8b4ac");}
   else rect(g,x,y,2,2,"#6e6a62");}
   for(const p of FX.pops){const k=p.t/1.1,s=textSprite(p.text,C.gold);if(k>.85&&Math.floor(t*16)%2)continue;
-    g.drawImage(s,R0(p.x)+ox-(s.width>>1),R0(p.y-k*14)+oy-(k<.12?R0((.12-k)*30):0));}}
+    g.drawImage(s,Math.max(4,Math.min(R0(p.x)+ox-(s.width>>1),FX.vw-s.width-4)),R0(p.y-k*14)+oy-(k<.12?R0((.12-k)*30):0));}}
 
 /* ---------- camps, base camp and the summit ---------- */
 // a plank sign with pixel text
@@ -732,7 +732,9 @@ function stepAmbient(dt){
 // (below the HUD when it shows, so the portraits and the altitude box never sit over the leader)
 function sceneArea(){const W=FX.W,H=FX.H,wide=W>=900,hud=$("#hud"),hb=hud&&!hud.hidden?hud.getBoundingClientRect().bottom+8:0,
     top=Math.max(wide?64:96,hb),m=$("#main");let a={x:0,y:top,w:W,h:H-top};
-  const r=m&&m.getBoundingClientRect();if(r&&r.width>0&&r.height>0){if(wide){a.x=Math.min(W-240,r.right+8);a.w=W-a.x;}else a.h=Math.max(150,r.top-top);}
+  // (beside the lobby's column on wide screens; above the bottom question panel in a climb and on phones)
+  const r=m&&m.getBoundingClientRect(),dock=m&&m.classList.contains("game2");
+  if(r&&r.width>0&&r.height>0){if(wide&&!dock){a.x=Math.min(W-240,r.right+8);a.w=W-a.x;}else a.h=Math.max(150,r.top-top);}
   return a;}
 function updateCam(dt){const me=FX.A.me,mt=FX.A.mate,now=performance.now();
   if(now-FX.areaAt>250||!FX.area){FX.area=sceneArea();FX.areaAt=now;}
@@ -906,6 +908,11 @@ function arrive(name,exp,to){const top=name==="summit";title(top?"SUMMIT!":name.
 async function runEvent(exp,o){
   const id=++FX.ch.main,A=FX.A,me=A.me,mate=A.mate,ok=()=>FX.ch.main===id;
   const to=idxOf(exp,typeof o.to==="number"?o.to:exp.pitch),plan=mateIdx(to);
+  // the rope jerk (the two locked in different answers): the rope snaps taut, both climbers are yanked, the view
+  // shakes, and only then does the pitch play out
+  if(o.jerk){FX.ropeJerk=FX.time;FX.shake=Math.max(FX.shake,1.2);sfx("boing");pop(me,"JERK!");
+    for(const r of [me,mate])if(r.mode==="climb")r.play([["crouch",280],["hang",1e9]]);else if(r.mode==="stand")r.play([["hop",220],["stand",650],["stand2",650]],1);
+    if(!(await wait(700)))return;}
   if(o.fall&&to<me.hi){title("WHOOPS!",`Down to ${fmt(to*HS/WK+ALT.base)} m`,"bad");
     const lower=wait(500).then(r=>r&&mate.hi>plan&&climbRig(mate,plan,240,id)); // the partner lowers off to meet them
     if(!(await fallRig(me,to,to,id,"main",false)))return;await lower;}

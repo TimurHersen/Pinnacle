@@ -249,10 +249,73 @@ input:focus{border-color:var(--gold);outline:none}
   .hud .who{padding:2px}.hud .who>div{display:none}.port{width:32px;height:32px}
   .hud .hearts{padding:6px}.hearts .px{width:18px;height:16px}
   .hud-r{min-width:0;padding:0 8px}.stat{padding:4px 0;gap:6px;grid-template-columns:16px auto 1fr}.stat .v{font-size:8px;line-height:1.4}.stat .px{width:14px;height:12px}
-  .stat:nth-child(3){display:none}
+  .stat:nth-child(3),.stat .k{display:none}.stat{grid-template-columns:14px auto}.hud-r{flex:none}
   .brand{font-size:8px;padding:10px}.linkbtn{padding:10px}.ibtn{width:32px;height:32px}
   .bar:has(.team:not(:empty)) .brand,.bar .team .climbers,.chip .long{display:none}
   .wordmark{font-size:24px}.terrain{font-size:16px}
   .tart{aspect-ratio:96/18;object-fit:cover}
   .opts{grid-template-columns:1fr}
+}
+
+/* ---------- the climb: the question interface docked along the bottom (as in the concept sheet), the rope radio
+   beside it; the HUD runs along the top over the whole width ---------- */
+#main.game2{top:auto;left:var(--edge);right:var(--edge);bottom:12px;width:auto;max-height:none;overflow:visible;display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:12px;align-items:end;padding:0}
+body:has(#main.game2) .hud{left:var(--edge)}
+.qpanel{padding:12px}
+.qwrap{display:grid;grid-template-columns:144px minmax(0,1fr) 220px;gap:14px;align-items:start}
+.qwrap.noside{grid-template-columns:144px minmax(0,1fr)}
+.qart img{width:144px;height:112px;image-rendering:pixelated;border:2px solid var(--line);display:block;background:#4479c6}
+.qmain{min-width:0;display:grid;gap:8px}
+.qhead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font:600 14px/1.3 var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.qtime{margin-left:auto;font:400 16px/1 var(--head);color:var(--cream);background:var(--navy);border:2px solid var(--line);padding:6px 8px}
+.qtime.low{color:var(--bad);border-color:var(--bad)}
+.qtitle{font:400 20px/1.2 var(--head);color:var(--cream);text-transform:uppercase}
+.qsub{margin:0;color:var(--muted);font-size:16px}
+.qtext{font:600 21px/1.25 var(--body);color:var(--ink);background:var(--navy);border:2px solid var(--line);padding:10px 12px}
+.qopts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.qopt{display:flex;align-items:center;gap:10px;text-align:left;padding:9px 10px;background:var(--panel2);border:2px solid var(--line);color:var(--ink);cursor:pointer;font-size:17px}
+.qopt b{font:400 13px/1 var(--head);color:var(--gold);flex:none;width:24px;height:24px;display:grid;place-items:center;border:2px solid var(--goldD);background:var(--navy)}
+.qopt:hover:not(:disabled):not(div){border-color:var(--cream)}
+.qopt.sel{border-color:var(--gold);background:#2a2412}
+.qopt.cut{opacity:.3;text-decoration:line-through;cursor:default}
+.qopt.right{border-color:var(--good);background:#16301a}
+.qopt.wrong{border-color:var(--bad);background:#3a1414}
+.qopt em{font:400 10px/1 var(--head);font-style:normal;padding:4px 5px;border:2px solid}
+.qopt em:first-of-type{margin-left:auto}
+.qopt em.lead{color:#fff;background:var(--red);border-color:var(--cream)}
+.qopt em.belay{color:var(--gold);border-color:var(--gold)}
+.qfoot{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.qfoot .wait{margin:0}
+.qrules{margin:0;padding-left:18px;color:var(--muted);font-size:16px;display:grid;gap:4px}
+.qrules b{color:var(--cream)}
+.qside{display:grid;gap:8px;align-content:start}
+.qrole{font:400 11px/1.4 var(--head);text-transform:uppercase;padding:8px;border:2px solid var(--line);background:var(--navy);color:var(--cream)}
+.qrole.lead{border-color:var(--red)}.qrole.belay{border-color:var(--gold)}
+.gbtn{display:grid;grid-template-columns:22px 1fr auto;align-items:center;gap:8px;padding:8px 10px;background:var(--navy);border:2px solid var(--cream);color:var(--cream);cursor:pointer;font:600 15px/1.2 var(--body);text-align:left;box-shadow:var(--frame)}
+.gbtn .px{width:20px;height:20px}
+.gbtn b{font:400 12px/1 var(--head);color:var(--gold)}
+.gbtn:hover:not(:disabled){background:var(--panel2)}
+.gbtn:disabled{opacity:.4;cursor:default;box-shadow:none}
+.hint{border:2px dashed var(--gold);padding:8px 10px;color:var(--cream);font-size:16px;background:#2a2412}
+.hint b{color:var(--gold)}
+.tier{font-size:13px;color:var(--gold);letter-spacing:2px}.tier i{font-style:normal;color:var(--line)}
+.jerk{font:400 12px/1 var(--head);color:#fff;background:var(--red);padding:6px 8px;border:2px solid var(--cream);animation:hl-pop .4s steps(4) both}
+.routes.bonus{grid-template-columns:repeat(3,1fr)}
+/* the rope radio */
+.radio2{padding:12px;display:grid;gap:8px}
+.radio2 .rlog{max-height:150px;min-height:56px;overflow:auto;display:grid;gap:6px;align-content:start;margin:0}
+.calls{display:flex;flex-wrap:wrap;gap:6px}
+.call{font:600 14px/1.2 var(--body);padding:5px 8px;background:var(--panel2);border:2px solid var(--line);color:var(--cream);cursor:pointer}
+.call:hover{border-color:var(--gold)}
+/* the HUD's gear row beside the hearts, and a lost heart cracking away */
+.hudgear{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.hud .gear{display:flex;gap:10px;padding:6px 10px;background:var(--panel);border:2px solid var(--cream);box-shadow:var(--frame);font:400 12px/1 var(--head);color:var(--cream)}
+.hud .gear span{display:flex;align-items:center;gap:4px}.hud .gear .px{width:18px;height:18px}
+.hearts .crack{display:inline-block;animation:crack .9s steps(6) forwards}
+@keyframes crack{30%{transform:translateY(-3px) rotate(-12deg)}100%{transform:translateY(8px) rotate(25deg);opacity:0}}
+@media (max-width:1100px){.qwrap{grid-template-columns:minmax(0,1fr) 200px}.qwrap.noside{grid-template-columns:1fr}.qart{display:none}}
+@media (max-width:899px){
+  #main.game2{left:0;right:0;bottom:0;grid-template-columns:1fr;max-height:58vh;overflow-y:auto;padding:10px;gap:10px;background:var(--panel);border-top:2px solid var(--cream)}
+  .qwrap{grid-template-columns:1fr}.qside{grid-template-columns:1fr 1fr}.qside .qrole,.qside .note,.qside .hint{grid-column:1/-1}
+  .qopts{grid-template-columns:1fr}.radio2 .rlog{max-height:90px}.routes.bonus{grid-template-columns:1fr}
 }

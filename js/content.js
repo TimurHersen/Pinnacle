@@ -150,7 +150,8 @@ const TERRAIN = {
  traverse:{name:"Traverse",dur:70,talk:[2,6],rule:"Split the list. Agree on the radio who takes what, then type as many as you can. Every unique answer counts; answers you both give cancel out."},
  overhang:{name:"Overhang",dur:50,rule:"The belayer sees the question and answer, and sends one word. The leader sees only the options."}
 };
-const SEG0 = ["slab","crevasse","chimney","traverse","overhang","slab"];
+// the first stage: five pitches from base camp to Camp I (the pitch types now only name and colour each pitch)
+const SEG0 = ["slab","crevasse","chimney","traverse","overhang"];
 const FORKS = [
  {camp:"Camp I", A:{name:"The Icefall",desc:"Direct and steep. Fewer pitches, more teamwork.",p:["chimney","overhang","crevasse","chimney","overhang"]},
                  B:{name:"Shoulder Ridge",desc:"Longer, gentler. More knowledge, less telepathy.",p:["slab","traverse","slab","crevasse","slab","traverse","chimney"]}},
