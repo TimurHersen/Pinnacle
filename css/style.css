@@ -320,7 +320,7 @@ body.home .scene canvas{visibility:hidden}
 #home{position:fixed;inset:0;z-index:3;pointer-events:none;--u:3px}
 #home[hidden]{display:none}
 #home canvas.pix{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
-.tlogo{position:absolute;left:50%;top:calc(env(safe-area-inset-top,0px) + 6*var(--u));transform:translateX(-50%);filter:drop-shadow(0 var(--u) 0 rgba(10,8,24,.4))}
+.tlogo{position:absolute;left:var(--lx,50%);top:calc(env(safe-area-inset-top,0px) + 6*var(--u));transform:translateX(-50%);filter:drop-shadow(0 var(--u) 0 rgba(10,8,24,.4))}
 .pmenu{position:absolute;left:calc(16*var(--u));bottom:calc(14*var(--u) + env(safe-area-inset-bottom,0px));display:grid;gap:calc(5*var(--u));pointer-events:auto;transition:opacity .2s}
 #home .tlogo{transition:opacity .2s}#home.away .tlogo{opacity:0}
 .pbtn{--bc:#c9d3e6;--dk:#070b16;position:relative;display:grid;place-items:center;min-width:calc(84*var(--u));padding:calc(4*var(--u)) calc(8*var(--u)) calc(3*var(--u));
@@ -338,5 +338,8 @@ body.home .scene canvas{visibility:hidden}
 #main.lobby .back{justify-self:start}
 @media (min-width:900px){#main.lobby{left:calc(50% - 120px);width:min(460px,calc(100% - 2*var(--edge)));bottom:auto;max-height:calc(100% - 100px)}}
 @media (max-width:899px){#home.away .pmenu{opacity:0;pointer-events:none}}
-@media (max-width:600px){.pmenu{left:50%;transform:translateX(-50%);bottom:auto;top:46%}.pbtn::before{display:none}}
+@media (max-width:600px) and (orientation:portrait){.pmenu{left:50%;transform:translateX(-50%);bottom:auto;top:46%}.pbtn::before{display:none}}
+/* short, wide screens: the menu and the logo side by side, both centred top to bottom (titleScale sets .side and --lx) */
+#home.side .tlogo{top:50%;transform:translate(-50%,-50%)}
+#home.side .pmenu{top:50%;bottom:auto;left:calc(16*var(--u));transform:translateY(-50%)}
 @media (prefers-reduced-motion:reduce){.pmenu{transition:none}}

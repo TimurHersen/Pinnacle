@@ -24,7 +24,7 @@ const PF=(()=>{const g={
 function pixCanvas(w,h){const c=document.createElement("canvas");c.width=w;c.height=h;c.className="pix";c.dataset.w=w;c.dataset.h=h;return c;}
 
 // the logo: emblem, wordmark, rope and slogan, as one pixel-art picture
-const SLOGAN="TWO MINDS. ONE ROPE. HIGHER TOGETHER.";
+const SLOGAN="SAME ROPE. SAME ANSWER.";
 async function drawLogo(){
   try{await Promise.race([document.fonts.load('24px "Press Start 2P"'),new Promise(r=>setTimeout(r,1500))]);}catch(e){}
   const word="PINNACLE",FS=24,WW=word.length*FS,sw=PF.width(SLOGAN),W=Math.max(WW+28,sw+4),H=98,c=pixCanvas(W,H),g=c.getContext("2d");
@@ -59,14 +59,29 @@ async function drawLogo(){
 // a menu button's label in the pixel font
 function labelCanvas(text){const w=PF.width(text),c=pixCanvas(w+1,6),g=c.getContext("2d");PF.draw(g,text,0,0,"#f4e6c4","#05080f");return c;}
 
-/* scaling: the painting covers the screen; the logo and menu use the nearest whole-pixel size to it, capped so
-   they always fit, and every pixel canvas is sized to match */
+/* layout: the logo and the menu are measured in the painting's pixels and given the largest whole-pixel size at
+   which they can't touch. Normally the logo sits at the top and the menu below it (stacked); on a short, wide
+   screen (a phone on its side) they sit side by side instead. Sizes below are in native pixels. */
+const MENU_GAP=5,BTN_H=13,TOP=6,BOTTOM=14,BETWEEN=10,EDGE=16;
 function titleScale(){
-  const W=innerWidth,H=innerHeight,p=Math.max(W/BG_W,H/BG_H);
-  const u=Math.max(2,Math.min(Math.round(p),Math.floor(W/200),Math.floor(H/150)));
-  const home=document.getElementById("home");if(!home)return;home.style.setProperty("--u",u+"px");
-  // (the logo may shrink below whole pixels on a narrow phone rather than spill off the sides)
-  home.querySelectorAll("canvas.pix").forEach(c=>{const k=c.closest(".tlogo")?Math.min(u,(W-24)/c.dataset.w):u;c.style.width=c.dataset.w*k+"px";c.style.height=c.dataset.h*k+"px";});}
+  const home=document.getElementById("home");if(!home)return;
+  const W=innerWidth,H=innerHeight,p=Math.max(W/BG_W,H/BG_H),narrow=W<600&&H>=W; // (narrow: a phone held upright)
+  const logo=home.querySelector(".tlogo canvas"),LW=+(logo?.dataset.w||220),LH=+(logo?.dataset.h||98);
+  const n=home.querySelectorAll(".pbtn").length||4,MH=n*BTN_H+(n-1)*MENU_GAP+3;
+  const MW=Math.max(84,...[...home.querySelectorAll(".pbtn canvas")].map(c=>+c.dataset.w))+16;
+  // stacked: logo, a gap, then the whole menu must fit the height; on wide screens the logo also stays under 60% wide
+  let u=Math.floor(Math.min(H/(TOP+LH+BETWEEN+MH+BOTTOM),narrow?W/(MW+8):W*.6/LW,Math.max(2,Math.round(p))));
+  let side=false,availW=W-24;
+  // side by side, the menu keeps a readable size and the logo shrinks into the space beside it if it must
+  let availH=Infinity;
+  if(u<2&&!narrow){side=true;u=Math.floor(Math.min(H/(MH+8),W/(EDGE+MW+BETWEEN+LW*.5+EDGE)));
+    u=Math.max(2,u);availW=W-(EDGE+MW+BETWEEN+EDGE)*u;availH=H-16;}
+  u=Math.max(2,u);
+  home.classList.toggle("side",side);home.style.setProperty("--u",u+"px");
+  // side by side, the logo is centred in the space to the right of the menu
+  home.style.setProperty("--lx",side?((EDGE+MW+BETWEEN)*u+(W-(EDGE+MW+BETWEEN)*u)/2)+"px":"50%");
+  // (the logo may shrink below whole pixels when even that is too wide, rather than spill off the sides)
+  home.querySelectorAll("canvas.pix").forEach(c=>{const k=c.closest(".tlogo")?Math.min(u,availW/c.dataset.w,availH/c.dataset.h):u;c.style.width=c.dataset.w*k+"px";c.style.height=c.dataset.h*k+"px";});}
 addEventListener("resize",()=>titleScale());
 
 // the title screen; items are [{id,label}], and onPick(id) opens that part of the menu
