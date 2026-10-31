@@ -5,6 +5,8 @@ $("#homeBtn").onclick=goLobby;
   else{fs.onclick=()=>document.fullscreenElement?document.exitFullscreen():root.requestFullscreen().catch(()=>{});
     document.addEventListener("fullscreenchange",()=>fs.setAttribute("aria-pressed",document.fullscreenElement?"true":"false"));}}
 (function boot(){
+  // test mode: a fixed test player, straight onto the test rope team
+  if(window.TEST){S.uid=TEST.as;S.myName=TEST.name;document.title=`Pinnacle test · ${TEST.as.toUpperCase()}`;openTeam(TEST.code);return;}
   S.uid=LS.get("pid",null);
   if(!S.uid){const a="abcdefghijkmnpqrstuvwxyz23456789";S.uid=Array.from(crypto.getRandomValues(new Uint8Array(12)),b=>a[b%32]).join("");LS.set("pid",S.uid);}
   S.myName=LS.get("name","");S.myTeams=LS.get("teams",[]);

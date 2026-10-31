@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pinnacle test mode</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pixelify+Sans:wght@400;600&display=swap">
+<style>
+/* Test mode: both players of one rope team side by side, on a shared in-memory database, with controls to jump
+   around the climb and force results. Nothing here touches the real Firebase teams. */
+:root{--bg:#0b1322;--panel:#16233d;--line:#2c3d5f;--cream:#f4e6c4;--ink:#c9d3e6;--muted:#8796b3;--gold:#f2c14e;--red:#e05a4a;--green:#7cc36a;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:500 15px/1.35 "Pixelify Sans",system-ui,sans-serif;display:flex;flex-direction:column}
+.ctl{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;padding:8px 12px;background:var(--panel);border-bottom:2px solid var(--line)}
+.ctl h1{font:400 11px/1 "Press Start 2P",monospace;color:var(--gold);margin:0 6px 0 0}
+.grp{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.grp>span{color:var(--muted);font-size:13px;margin-right:2px}
+button,select,input{font:inherit;color:var(--cream);background:#0f1a2e;border:2px solid var(--line);padding:3px 8px;cursor:pointer}
+button:hover{border-color:var(--cream)}button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+button.on{background:var(--gold);color:#1b1408;border-color:var(--gold)}
+button.good{border-color:var(--green)}button.bad{border-color:var(--red)}
+input[type=text]{cursor:text;width:13em}
+.status{width:100%;display:flex;flex-wrap:wrap;gap:4px 16px;font-size:13px;color:var(--muted)}
+.status b{color:var(--cream);font-weight:600}
+.status .res{color:var(--gold)}
+.stage{flex:1;display:flex;gap:8px;padding:8px;min-height:0}
+.seat{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
+.seat[hidden]{display:none}
+.seat header{display:flex;justify-content:space-between;align-items:center;font:400 9px/1 "Press Start 2P",monospace;color:var(--cream);padding:4px 2px 6px}
+.seat header button{font:500 12px/1 "Pixelify Sans",sans-serif;padding:2px 6px}
+.box{flex:1;position:relative;overflow:hidden;border:2px solid var(--line);background:#000;min-height:0}
+.box iframe{position:absolute;left:0;top:0;border:0;transform-origin:0 0;background:#000}
+</style>
+</head>
+<body>
+<div class="ctl">
+  <h1>Pinnacle test</h1>
+  <div class="grp"><span>View</span><button data-view="both" class="on">Both</button><button data-view="p1">P1</button><button data-view="p2">P2</button></div>
+  <div class="grp"><span>Screen</span><button data-size="desktop" class="on">Desktop</button><button data-size="phone">Phone</button></div>
+  <div class="grp"><span>Players</span><button data-players="2" class="on">Two</button><button data-players="1">Solo</button></div>
+  <div class="grp"><span>Timer</span><button data-secs="0" class="on">45 s</button><button data-secs="15">15 s</button><button data-secs="5">5 s</button></div>
+  <div class="grp"><span>Go to</span><button id="goBase">Base camp</button>
+    <select id="goPitch" aria-label="Go to pitch"><option value="">Pitch…</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select>
+    <button id="goCamp">Camp I</button><button id="goEnd">Stage end</button></div>
+  <div class="grp"><span>Gear</span>
+    <select id="hearts" aria-label="Hooks"><option value="">Hooks…</option><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option></select>
+    <button id="gearFull">Refill</button><button id="gearNone">Empty</button></div>
+  <div class="grp"><span>Answer</span><label><input type="checkbox" id="withHook"> hook</label>
+    <button class="good" data-force="both">Both right</button>
+    <button class="bad" data-force="jerkL" title="Leader right, belayer wrong: rope jerk">Leader right · jerk</button>
+    <button class="bad" data-force="jerkB" title="Leader wrong, belayer right: fall and rope jerk">Leader wrong · jerk</button>
+    <button class="bad" data-force="wrong">Both wrong</button>
+    <button data-force="time">Time out</button></div>
+  <div class="grp"><span>Radio</span><select id="talkAs" aria-label="Talk as"><option value="p1">P1</option><option value="p2" selected>P2</option></select>
+    <input type="text" id="talkText" placeholder="Say something…" maxlength="60" aria-label="Radio message"><button id="talkBtn">Send</button></div>
+  <div class="status" id="status" aria-live="polite"></div>
+</div>
+<div class="stage">
+  <div class="seat" id="seat1"><header><span>P1 · Red</span><button data-reload="1">Reload</button></header><div class="box"><iframe id="f1" title="Player 1"></iframe></div></div>
+  <div class="seat" id="seat2"><header><span>P2 · Yellow</span><button data-reload="2">Reload</button></header><div class="box"><iframe id="f2" title="Player 2"></iframe></div></div>
+</div>
+<script src="js/testdb.js"></script>
+<script>
+// the shared database both frames play on (js/testdb.js), starting with a fresh two-player team at base camp
+const db=window.TESTDB=new TestDB();
+const UI={view:"both",size:"desktop",players:2};
+const f1=document.getElementById("f1"),f2=document.getElementById("f2");
+const team=()=>JSON.parse(db.get("teams/TEST01"));
+const save=t=>db.put("teams/TEST01",JSON.stringify(t));
+const eng=()=>f1.contentWindow; // the game's own rules, borrowed from player 1's frame
+const v=Math.floor(Date.now()/6e4);
+function load(n){const f=n===1?f1:f2;f.src=`index.html?test&as=p${n}&tv=${v}-${Date.now()%1e5}`;}
+// a new team at base camp; round numbers keep counting up so no old answer can land in a new round
+function fresh(){const old=team(),t=testTeam(UI.players===2);t.round.id=(old?.round?.id||0)+1;db.put("answers/TEST01","null");save(t);}
+
+/* frames: drawn at a desktop or phone size and scaled down to fit their half of the window */
+function fit(){
+  const [W,H]=UI.size==="phone"?[390,844]:[1280,800];
+  for(const f of [f1,f2]){const box=f.parentElement,r=box.getBoundingClientRect();if(!r.width)continue;
+    const k=Math.min(r.width/W,r.height/H,1);f.style.width=W+"px";f.style.height=H+"px";f.style.transform=`scale(${k})`;
+    f.style.left=Math.max(0,(r.width-W*k)/2)+"px";}}
+addEventListener("resize",fit);
+function layout(){
+  document.getElementById("seat1").hidden=UI.view==="p2";
+  document.getElementById("seat2").hidden=UI.view==="p1"||UI.players===1;fit();}
+
+/* the controls */
+function pick(attr,val){document.querySelectorAll(`[data-${attr}]`).forEach(b=>b.classList.toggle("on",b.dataset[attr]===String(val)));}
+document.querySelectorAll("[data-view]").forEach(b=>b.onclick=()=>{UI.view=b.dataset.view;pick("view",UI.view);layout();});
+document.querySelectorAll("[data-size]").forEach(b=>b.onclick=()=>{UI.size=b.dataset.size;pick("size",UI.size);fit();});
+document.querySelectorAll("[data-secs]").forEach(b=>b.onclick=()=>{db.config.secs=+b.dataset.secs;pick("secs",db.config.secs);});
+document.querySelectorAll("[data-reload]").forEach(b=>b.onclick=()=>load(+b.dataset.reload));
+document.querySelectorAll("[data-players]").forEach(b=>b.onclick=()=>{UI.players=+b.dataset.players;pick("players",UI.players);
+  fresh();load(1);if(UI.players===2)load(2);else f2.src="about:blank";layout();});
+// jumps: rebuild the round with the game's own startPitch, so a jump is exactly what the game would do
+function jump(fn){const w=eng(),t=w.fixTeam(team());if(!t)return;fn(t,w);save(t);}
+document.getElementById("goBase").onclick=()=>{fresh();};
+document.getElementById("goPitch").onchange=e=>{const p=+e.target.value;e.target.value="";if(!p)return;
+  jump((t,w)=>{t.exp.pitch=p-1;t.exp.anchor=Math.min(t.exp.anchor,p-1);Object.assign(t,w.startPitch(t));});};
+document.getElementById("goCamp").onclick=()=>jump((t,w)=>{t.exp.pitch=w.total(t.exp);t.exp.anchor=t.exp.pitch;Object.assign(t,w.startPitch(t));});
+document.getElementById("goEnd").onclick=()=>jump((t,w)=>{t.exp.pitch=w.total(t.exp);t.exp.anchor=t.exp.pitch;
+  Object.assign(t.exp,{rope:4,chalk:1,scout:1,anchors:1});t.round={id:t.round.id+1,phase:"stage",bonus:"hook"};});
+document.getElementById("hearts").onchange=e=>{const n=e.target.value;e.target.value="";if(n!=="")jump(t=>{t.exp.rope=+n;});};
+document.getElementById("gearFull").onclick=()=>jump(t=>Object.assign(t.exp,{rope:3,chalk:1,scout:1,anchors:1}));
+document.getElementById("gearNone").onclick=()=>jump(t=>Object.assign(t.exp,{rope:0,chalk:0,scout:0,anchors:0}));
+
+/* forced answers: both players lock in the chosen way (from the hook choice the question starts if it hasn't) */
+function forceAnswers(kind){
+  const w=eng();let t=w.fixTeam(team());if(!t)return;const r=t.round;
+  if(r.phase!=="pre"&&r.phase!=="answer"){note("Go to a pitch first: answers can only be forced on a question.");return;}
+  if(r.phase==="pre"){const hook=document.getElementById("withHook").checked&&t.exp.rope>0;if(hook)t.exp.rope--;
+    t.round={...r,phase:"answer",hook,order:w.shuffled4(),startedAt:Date.now(),dur:db.config.secs||w.QUIZ_SECS||45};save(t);}
+  const R=t.round;
+  if(kind==="time"){R.startedAt=Date.now()-R.dur*1000-3000;save(t);return;}
+  const right=R.order.indexOf(0),wrong=(right+1)%4,lead=R.leader,bel=Object.keys(t.members).find(i=>i!==lead);
+  const pickOf={both:[right,right],jerkL:[right,wrong],jerkB:[wrong,right],wrong:[wrong,wrong]}[kind];
+  const put=(id,c)=>db.put(`answers/TEST01/${R.id}/${id}`,JSON.stringify({roundId:R.id,uid:id,at:Date.now(),choice:c}));
+  put(lead,pickOf[0]);if(bel)put(bel,pickOf[1]);}
+document.querySelectorAll("[data-force]").forEach(b=>b.onclick=()=>forceAnswers(b.dataset.force));
+
+/* the radio, as either player */
+function talk(){const i=document.getElementById("talkText"),text=i.value.trim().slice(0,60),who=document.getElementById("talkAs").value;
+  const t=team();if(!text||!t)return;
+  db.put(`answers/TEST01/${t.round.id}/_talk/${who}_${Date.now()}`,JSON.stringify({uid:who,text,at:Date.now()}));i.value="";}
+document.getElementById("talkBtn").onclick=talk;
+document.getElementById("talkText").onkeydown=e=>{if(e.key==="Enter")talk();};
+
+/* the status line: where the team is, live */
+let msg="";function note(s){msg=s;showStatus(team());setTimeout(()=>{if(msg===s){msg="";showStatus(team());}},4000);}
+function showStatus(t){const el=document.getElementById("status");if(!t){el.textContent="No test team.";return;}
+  const e=t.exp,r=t.round,res=r.result;
+  el.innerHTML=[`Phase <b>${r.phase}</b>`,`Pitch <b>${Math.min(e.pitch+1,5)}/5</b>${e.pitch>=5?" (at camp)":""}`,
+    r.leader?`Leader <b>${r.leader.toUpperCase()}</b>`:"",r.qid?`Question <b>${r.qid}</b>`:"",
+    `Hooks <b>${e.rope}</b> · chalk <b>${e.chalk}</b> · scout <b>${e.scout}</b> · anchors <b>${e.anchors}</b>`,
+    res?`<span class="res">Last: ${res.headline}${res.jerk?" + rope jerk":""}</span>`:"",msg?`<span class="res">${msg}</span>`:""].filter(Boolean).join("<span>·</span>");}
+db.listen("teams/TEST01",j=>showStatus(JSON.parse(j)));
+
+fresh();load(1);load(2);layout();
+</script>
+</body>
+</html>

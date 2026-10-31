@@ -16,8 +16,10 @@ function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTi
 const memberIds=t=>{const m=t.members||{};return Object.keys(m).sort((a,b)=>(m[a].joined||0)-(m[b].joined||0)||(a<b?-1:a>b?1:0));};
 function nameOf(id){if(id===S.uid)return "You";return S.names[id]||"Partner";}
 function partnerId(t){return memberIds(t).find(i=>i!==S.uid);}
-const LS={get(k,d){try{const v=localStorage.getItem("pinnacle."+k);return v==null?d:JSON.parse(v);}catch(e){return d;}},
-  set(k,v){try{localStorage.setItem("pinnacle."+k,JSON.stringify(v));}catch(e){}}};
+// in test mode each test player keeps its own settings, apart from the real game's
+const LS_PRE=window.TEST?`pinnacle.test.${TEST.as}.`:"pinnacle.";
+const LS={get(k,d){try{const v=localStorage.getItem(LS_PRE+k);return v==null?d:JSON.parse(v);}catch(e){return d;}},
+  set(k,v){try{localStorage.setItem(LS_PRE+k,JSON.stringify(v));}catch(e){}}};
 
 /* Firebase REST + streaming (EventSource) — no SDK needed */
 const fb={
@@ -49,6 +51,8 @@ const fb={
     es.addEventListener("patch",e=>apply(e,true));
     return ()=>es.close();}
 };
+// test mode (js/testdb.js): the same calls, answered by an in-memory database
+if(window.TESTFB)Object.assign(fb,window.TESTFB);
 /* Firebase drops empty arrays/objects and nulls; restore the shape the game expects */
 function fixTeam(t){
   if(!t||typeof t!=="object")return null;t=clone(t);
@@ -160,7 +164,7 @@ function climbOn(hook){
   const rid=S.team.round.id;
   guarded(t=>{if(t.round.id!==rid||t.round.phase!=="pre")return null;
     const h=!!hook&&t.exp.rope>0;if(h)t.exp.rope--;
-    return {...t,round:{...t.round,phase:"answer",hook:h,order:shuffled4(),startedAt:Date.now(),dur:QUIZ_SECS}};});
+    return {...t,round:{...t.round,phase:"answer",hook:h,order:shuffled4(),startedAt:Date.now(),dur:window.TEST?.secs()||QUIZ_SECS}};});
 }
 // chalk: two wrong options crumble away, for both climbers
 function useChalk(){
