@@ -156,8 +156,8 @@ const ART={},FIRE_N=6;
   const pixels=im=>{const [,g]=mk(im.width,im.height);g.drawImage(im,0,0);return {w:im.width,h:im.height,d:g.getImageData(0,0,im.width,im.height).data};},
     rgb=(p,x,y)=>{const i=(y*p.w+x)*4;return `rgb(${p.d[i]},${p.d[i+1]},${p.d[i+2]})`;},
     load=(src,fn)=>{const im=new Image();im.onload=()=>fn(im);im.src=src;};
-  load("assets/valley.png",im=>{ART.sky=rgb(pixels(im),im.width>>1,0);ART.valley=im;});
-  load("assets/pines.png",im=>{ART.pineBase=rgb(pixels(im),im.width>>1,im.height-1);ART.pines=im;});
+  load(asset("assets/valley.png"),im=>{ART.sky=rgb(pixels(im),im.width>>1,0);ART.valley=im;});
+  load(asset("assets/pines.png"),im=>{ART.pineBase=rgb(pixels(im),im.width>>1,im.height-1);ART.pines=im;});
   // high on the mountain the same art turns wintry: moss and grass (green-dominant pixels) become snow by brightness,
   // and the rock is cooled halfway to a blue-grey of its own brightness
   const wintry=d=>{for(let i=0;i<d.length;i+=4){if(!d[i+3])continue;const r=d[i],gr=d[i+1],b=d[i+2],l=r*.3+gr*.59+b*.11;
@@ -165,25 +165,25 @@ const ART={},FIRE_N=6;
     else{d[i]=R0(lerp(r,l*.86,.5));d[i+1]=R0(lerp(gr,l*.94,.5));d[i+2]=Math.min(255,R0(lerp(b,l*1.12,.5)));}}};
   // one granite texture for the whole wall: mossy low down, its wintry copy high up; rock chunks painted before it
   // arrived repaint with it
-  load("assets/cliff-low.png",im=>{ART.rockLo=pixels(im);const hi=pixels(im);wintry(hi.d);ART.rockHi=hi;FX.chunks.clear();});
+  load(asset("assets/cliff-low.png"),im=>{ART.rockLo=pixels(im);const hi=pixels(im);wintry(hi.d);ART.rockHi=hi;FX.chunks.clear();});
   // the walkable surface of a platform image: the first opaque row down its middle
   const surface=p=>{const x=p.w>>1;for(let y=0;y<p.h;y++)if(p.d[(y*p.w+x)*4+3]>40)return y;return 0;};
   // camp ledges: Camp I as drawn; Camp II with its grass and moss turned to snow and its rock cooled to blue-grey
   // (the ledge's walkable span: the columns whose top lies within a few pixels of the surface, where a tent can stand)
-  load("assets/ledge.png",im=>{const p=pixels(im);ART.ledge=im;ART.ledgeTop=surface(p);
+  load(asset("assets/ledge.png"),im=>{const p=pixels(im);ART.ledge=im;ART.ledgeTop=surface(p);
     const top=x=>{for(let y=0;y<p.h;y++)if(p.d[(y*p.w+x)*4+3]>40)return y;return p.h;};let a=0,b=p.w-1;
     while(a<p.w&&top(a)>ART.ledgeTop+4)a++;while(b>a&&top(b)>ART.ledgeTop+4)b--;ART.ledgeWalk=[a,b];wintry(p.d);
     const [c,g]=mk(p.w,p.h),id=g.createImageData(p.w,p.h);id.data.set(p.d);g.putImageData(id,0,0);ART.ledgeSnow=c;FX.camps={};});
-  load("assets/tent.png",im=>{ART.tent=im;FX.camps={};FX.base=null;});
+  load(asset("assets/tent.png"),im=>{ART.tent=im;FX.camps={};FX.base=null;});
   // the campfire's flicker loop; the unlit pile is the first frame's logs and stone ring (its lowest rows) alone
-  ART.fire=Array.from({length:FIRE_N},(_,i)=>{const im=new Image();im.src=`assets/fire/${i}.png`;
+  ART.fire=Array.from({length:FIRE_N},(_,i)=>{const im=new Image();im.src=asset(`assets/fire/${i}.png`);
     if(!i)im.onload=()=>{const b=boxOf(im),cut=b.y1-15,[c,g]=mk(im.width,im.height);g.drawImage(im,0,cut,im.width,im.height-cut,0,cut,im.width,im.height-cut);ART.firePile=c;};
     return im;});
-  load("assets/pine.png",im=>{ART.pine=im;FX.base=null;});
+  load(asset("assets/pine.png"),im=>{ART.pine=im;FX.base=null;});
   // the base-camp meadow: a grass-and-soil strip repeated along the valley floor, solid soil below it
   // (solid soil fills in from the strip's deepest row that is opaque all the way across, in that row's colour, so
   // the strip's ragged lower edge never shows the scenery behind it)
-  load("assets/ground.png",im=>{const p=pixels(im);ART.groundTop=surface(p);let y=p.h-1;
+  load(asset("assets/ground.png"),im=>{const p=pixels(im);ART.groundTop=surface(p);let y=p.h-1;
     const full=y=>{for(let x=0;x<p.w;x++)if(p.d[(y*p.w+x)*4+3]<250)return false;return true;};
     while(y>ART.groundTop&&!full(y))y--;ART.ground=im;ART.soilAt=y;ART.soil=rgb(p,p.w>>1,y);FX.base=null;});})();
 const valleyY=(h,climb)=>R0(h-ART.valley.height+climb*.05);
@@ -302,8 +302,8 @@ function boxOf(im){if(im.bb)return im.bb;const [,g]=mk(im.width,im.height);g.dra
   return im.bb={x0,y0,x1,y1};}
 function loadClimber(L){const who=CLIMBER_ART[L.name],A=L.art={clips:{},ready:0};let left=1;
   const img=src=>{left++;const im=new Image();im.onload=()=>{if(--left===0)A.ready=1;};im.src=src;return im;};
-  for(const [k,n] of Object.entries(CLIP_N))A.clips[k]=Array.from({length:n},(_,i)=>img(`assets/climbers/${who}/${k}/${i}.png`));
-  A.front=img(`assets/climbers/${who}/south.png`);if(--left===0)A.ready=1;}
+  for(const [k,n] of Object.entries(CLIP_N))A.clips[k]=Array.from({length:n},(_,i)=>img(asset(`assets/climbers/${who}/${k}/${i}.png`)));
+  A.front=img(asset(`assets/climbers/${who}/south.png`));if(--left===0)A.ready=1;}
 loadClimber(LOOK.me);loadClimber(LOOK.mate);
 function ik(rx,ry,tx,ty,a,b,bend){let dx=tx-rx,dy=ty-ry,d=Math.hypot(dx,dy)||1e-4;const m=a+b-.01;if(d>m){tx=rx+dx/d*m;ty=ry+dy/d*m;d=m;}
   const ang=Math.atan2(ty-ry,tx-rx),j=ang+bend*Math.acos(clamp((a*a+d*d-b*b)/(2*a*d),-1,1));return [rx+Math.cos(j)*a,ry+Math.sin(j)*a,tx,ty];}

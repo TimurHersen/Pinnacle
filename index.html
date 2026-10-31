@@ -7,7 +7,13 @@
 <meta name="description" content="A quiz climb for two: rope up with a partner and answer your way to the summit.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pixelify+Sans:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="css/style.css">
+<script>
+/* GitHub Pages lets browsers keep every file for ten minutes, so after an update a browser could go on running the
+   old game. The game's own files (styles, scripts and art) are fetched with a version that changes every minute
+   instead, so an update reaches everyone within a minute or so. */
+window.V="v="+Math.floor(Date.now()/6e4);
+document.write('<link rel="stylesheet" href="css/style.css?'+V+'">');
+</script>
 </head>
 <body>
 <div class="scene" id="scene">
@@ -26,10 +32,9 @@
 <div class="hud" id="hud" hidden></div>
 <div class="toast" id="toast" hidden></div>
 
-<script src="js/content.js"></script>
-<script src="js/game.js"></script>
-<script src="js/audio.js"></script>
-<script src="js/scene.js"></script>
-<script src="js/main.js"></script>
+<script>
+// the scripts, in order, at this minute's version (written in, so they still load and run one after another)
+for(const s of ["content","game","audio","scene","main"])document.write('<script src="js/'+s+'.js?'+V+'"><\/script>');
+</script>
 </body>
 </html>

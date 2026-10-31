@@ -7,6 +7,8 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const clone=o=>JSON.parse(JSON.stringify(o));
 const fmt=n=>Math.round(n).toLocaleString("en-US").replace(/,/g," ");
+// an art file's address at the page's version (see index.html), so new art is fetched fresh after an update
+const asset=p=>window.V?`${p}?${window.V}`:p;
 function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,2600);}
 const memberIds=t=>Object.keys(t.members||{}).sort();
 function nameOf(id){if(id===S.uid)return "You";return S.names[id]||"Partner";}
@@ -287,7 +289,7 @@ function renderLobby(invite){
   const main=$("#main");main.className="lobby";main.scrollTop=0;
   // a title screen: the wordmark and a retro menu that jumps to each section below (all real forms, not mock-ups)
   main.innerHTML=`
-    <div class="card title"><img class="emblem" src="assets/emblem.png" alt=""><h2 class="wordmark">Pinnacle</h2>
+    <div class="card title"><img class="emblem" src="${asset("assets/emblem.png")}" alt=""><h2 class="wordmark">Pinnacle</h2>
       <div class="slogan">TWO MINDS. ONE ROPE. HIGHER TOGETHER.</div>
       <nav class="menu" aria-label="Main menu">
         ${S.myTeams.length?`<button class="mbtn" data-go="secCont">Continue expedition</button>`:""}
