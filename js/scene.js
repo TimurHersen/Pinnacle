@@ -748,6 +748,8 @@ function updateCam(dt){const me=FX.A.me,mt=FX.A.mate,now=performance.now();
   // (a new camera, or a jump of half the screen or more such as the first frames on load, snaps rather than slides)
   FX.oxF=FX.oxF==null||!FX.cam||Math.abs(oxT-FX.oxF)>FX.vw*.5?oxT:lerp(FX.oxF,oxT,1-Math.exp(-dt*2.5));FX.ox=R0(FX.oxF);
   let fy=FX.focus==="summit"?TOPY-30:lerp(me.N.y,mt.N.y,.3);
+  // (a short open area, as on a phone, can't hold both: the higher climber's head always stays in view)
+  if(FX.focus!=="summit")fy=Math.min(fy,Math.min(me.N.y,mt.N.y)-40+ah/2);
   // camera y is the world y at the open area's vertical middle; keep the summit sky and the meadow in frame
   let y=clamp(fy,TOPY-120+(ah/2),60-(ah/2));
   if(FX.fxEl){const s=FX.fxEl.style,v=[A.x,A.y,A.w,A.h].map(n=>Math.round(n)+"px");if(s.width!==v[2]||s.height!==v[3]||s.top!==v[1]||s.left!==v[0]){s.left=v[0];s.top=v[1];s.width=v[2];s.height=v[3];}}

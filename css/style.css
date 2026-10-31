@@ -307,6 +307,45 @@ body:has(#main.game2) .hud{left:var(--edge)}
   .qwrap{grid-template-columns:1fr}.qside{grid-template-columns:1fr 1fr}.qside .qrole,.qside .note,.qside .hint{grid-column:1/-1}
   .qopts{grid-template-columns:1fr}.radio2 .rlog{max-height:90px}.routes.bonus{grid-template-columns:1fr}
 }
+/* phones in a climb: the HUD packs into one row under the bar, and the question sheet tightens up so the move to
+   make (start, clip, lock in, next pitch…) stays on screen, pinned to the bottom of the sheet while it scrolls */
+@media (max-width:899px){
+  body:has(#main.game2) .hud{top:calc(64px + env(safe-area-inset-top,0px));right:var(--edge);gap:4px}
+  .hud-l,.hudgear{flex-wrap:nowrap;gap:4px}
+  .hud .who{padding:2px}.port{width:28px;height:28px}
+  .hud .hearts{padding:5px 6px;gap:2px}.hearts .px{width:14px;height:12px}
+  .hud .gear{gap:6px;padding:5px 6px;font-size:9px}.hud .gear .px{width:13px;height:13px}
+  .hud-r{padding:0 6px}.stat{padding:3px 0;gap:4px}.stat .px{width:12px;height:10px}
+  #main.game2{max-height:60vh;padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px));gap:8px}
+  .qpanel{padding:4px 2px}
+  .qmain{gap:6px}
+  .qhead{font-size:12px;gap:6px}
+  .qtime{font-size:12px;padding:4px 6px}
+  .qtitle{font-size:16px}
+  .qsub,.qrules,.hint{font-size:14px}
+  .qrules{gap:2px}
+  .qtext{font-size:17px;padding:8px 10px}
+  .qopts{grid-template-columns:1fr 1fr;gap:6px}
+  .qopt{padding:7px 8px;gap:8px;font-size:15px;min-height:44px}
+  .qopt b{width:20px;height:20px;font-size:11px}
+  .qopt em{font-size:8px;padding:3px 4px}
+  .qwrap{gap:8px}.qside{gap:6px}
+  .qrole{font-size:9px;padding:6px 8px}
+  .qside .note{font-size:13px}
+  .gbtn{padding:6px 8px;font-size:14px}
+  .timer{margin:4px 0 0}
+  .wait{margin-top:6px;padding:8px 10px;font-size:14px}
+  .headline{font-size:13px;margin:2px 0 4px}
+  .outcome{padding:8px 10px;margin:0 0 4px;font-size:13px}.outcome .px{width:22px;height:22px}
+  .routes{margin:6px 0;gap:6px}.route{padding:8px 10px}
+  .lines{margin:4px 0 8px}.line{padding:5px 0}
+  .btn{padding:10px 12px}
+  .qmain>.actions,.qmain>.qfoot{position:sticky;bottom:-8px;z-index:1;background:var(--panel);padding:6px 0 8px;margin-bottom:-8px;box-shadow:0 -10px 8px -6px var(--panel)}
+  .qmain>.btn{position:sticky;bottom:2px;z-index:1;box-shadow:var(--frame),0 0 0 8px var(--panel)}
+  .radio2{padding:8px}.radio2 .rlog{max-height:64px;min-height:0}
+  .calls{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}.call{flex:none}
+}
+@media (max-width:340px){.qopts{grid-template-columns:1fr}}
 
 /* ---------- the title screen (js/title.js): the dusk painting, a pixel-art logo and a pixel-art menu ----------
    --u is the size of one of the painting's pixels on screen, so every frame and label lines up with it */
