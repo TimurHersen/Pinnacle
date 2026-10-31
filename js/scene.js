@@ -199,9 +199,14 @@ const ART={},FIRE_N=6;
   raw.forEach(im=>im.onload=()=>{if(--fireLeft)return;
     const ps=raw.map(pixels),base=ps[0],bb=boxOf(raw[0]),floor=bb.y1-9;
     for(const p of ps)for(let y=floor;y<p.h;y++)for(let x=0;x<p.w;x++){const i=(y*p.w+x)*4;if(base.d[i+3]<=40)p.d[i+3]=0;}
-    // (flame pixels: bright orange and yellow, the white-hot core, and the blue at the flames' root)
-    const pile={w:base.w,h:base.h,d:base.d.slice()},d=pile.d;for(let j=0;j<d.length;j+=4){const r=d[j],gr=d[j+1],b=d[j+2];
-      if((r>200&&gr>90&&r-b>80)||(r>215&&gr>200&&b>170)||(b>r+30&&b>110))d[j+3]=0;}
+    // the unlit pile keeps only the wood: brown pixels (not flame-bright), plus the dark outline pixels touching them,
+    // so neither the flames nor their outlines are left standing over the logs
+    const pile={w:base.w,h:base.h,d:base.d.slice()},d=pile.d,W=pile.w,wood=new Uint8Array(W*pile.h);
+    for(let j=0,k=0;j<d.length;j+=4,k++){const r=d[j],gr=d[j+1],b=d[j+2],flame=(r>200&&gr>90&&r-b>80)||(r>215&&gr>200&&b>170)||(b>r+30&&b>110);
+      const lum=r*.3+gr*.59+b*.11;if(d[j+3]>40&&!flame&&lum>=48&&r>=gr&&gr>=b-6&&gr>r*.42&&r-b>12&&r<200)wood[k]=1;}
+    for(let k=0;k<wood.length;k++){if(wood[k])continue;const j=k*4,x=k%W,lum=d[j]*.3+d[j+1]*.59+d[j+2]*.11;let near=0;
+      if(d[j+3]>40&&lum<70)for(let dy=-1;dy<=1&&!near;dy++)for(let dx=-1;dx<=1;dx++){const n=k+dy*W+dx;if(x+dx>=0&&x+dx<W&&n>=0&&n<wood.length&&wood[n]){near=1;break;}}
+      if(!near)d[j+3]=0;}
     ART.firePile=canvasOf(pile);ART.fire=ps.map(canvasOf);});
   load(asset("assets/pine.png"),im=>{ART.pine=im;FX.base=null;});
   // the dust poof: the generated cloud and its burst-and-fade frames
@@ -642,12 +647,13 @@ function drawTentRise(g,x,y,n,at){if(n<=0)return;if(!ART.tent){if(n>=5)drawTent(
 function tentPieceAt(i,x,y){const [x0,x1,y0,y1]=tentPieces()[i],top=y-(boxOf(ART.tent).y1+1);return {x:x+((x0+x1)>>1),y:top+y1,w:x1-x0};}
 // the campfire at stage f: 1 its stones, 2 its logs too, 3 burning (the generated flicker loop); until the art
 // loads, the small painted fire stands in
-const fireLit=cp=>cp&&cp.fire>=3;
+const fireLit=cp=>cp&&cp.fire>=3,FIRE_SINK=2;
 function drawFire(g,x,y,f,t,at){if(f<=0)return;const F=ART.fire,ok=F&&ART.firePile;
   if(!ok){g.drawImage(sprites().fire[f>=3?Math.floor(t*8)%3:0],x+12,y-11);return;}
   const d=at?dropOf(at):0;
-  if(f>=3){const im=F[Math.floor(t*9)%FIRE_N];g.drawImage(im,x,y-boxOf(im).y1-1+(d>>1));return;}
-  const P=ART.firePile,pb=boxOf(P),base=y-pb.y1-1,cut=pb.y1-6;
+  // (the fire's flat bottom sits FIRE_SINK pixels down into the grass, so it rests on the ground, not on top of it)
+  if(f>=3){const im=F[Math.floor(t*9)%FIRE_N];g.drawImage(im,x,y-boxOf(im).y1-1+FIRE_SINK+(d>>1));return;}
+  const P=ART.firePile,pb=boxOf(P),base=y-pb.y1-1+FIRE_SINK,cut=pb.y1-6;
   if(f>=2)g.drawImage(P,x,base+d);else g.drawImage(P,0,cut,P.width,P.height-cut,x,base+cut+d,P.width,P.height-cut);}
 // dust poofs: the generated cloud bursting and fading over about half a second, its foot at (x,y); until it loads,
 // three cream puffs shrinking away
