@@ -359,7 +359,7 @@ body.home #menubg{display:block}
 .tfx{position:absolute;image-rendering:pixelated;image-rendering:crisp-edges;pointer-events:none;display:none}
 body.home .tfx{display:block}
 .tfx.light{mix-blend-mode:screen}
-body.home .scene canvas{visibility:hidden}
+body.home #topo{visibility:hidden} /* (the game's own scene; the painting and its animation layers stay) */
 #home{position:fixed;inset:0;z-index:3;pointer-events:none;--u:3px}
 #home[hidden]{display:none}
 #home canvas.pix{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
