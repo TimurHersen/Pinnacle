@@ -316,7 +316,13 @@ const idxOf=(exp,p)=>Math.round(-WY(altOf(exp,p))/HS);
 function restSpot(i,m){if(i<=0)return {x:m?-74:-26,y:0};
   if(i===IDX_C1||i===IDX_C2)return {x:m?-54:-16,y:-i*HS};
   if(i>=IDX_TOP){const x=m?SX+48:SX+12;return {x,y:R0(peakTop(x))+2};}return null;}
-function mateIdx(li){if(li<=0||li===IDX_C1||li===IDX_C2||li>=IDX_TOP)return li;return Math.max(li>IDX_C2?IDX_C2:li>IDX_C1?IDX_C1:0,li-7);}
+// where the partner climbs to: the belay stance. That's just below the team's last anchor (so a fall onto the anchor
+// never comes down through them) and never closer than eight holds to the leader; with no anchor above the meadow or
+// the camp ledge they belay from there (a climber hanging lower than LOW holds up would have their boots in the ground)
+const LOW=5;
+function mateIdx(li){if(li<=0||li===IDX_C1||li===IDX_C2||li>=IDX_TOP)return li;
+  const base=li>IDX_C2?IDX_C2:li>IDX_C1?IDX_C1:0,an=FX.exp?idxOf(FX.exp,FX.exp.anchor||0):0,f=Math.min(li-8,an-4);
+  return f-base>=LOW+1?f:base;}
 
 /* ---------- climbers: side-view explorer sprites ----------
    Human proportions (head about a sixth of the body), seen side-on facing the wall, after the concept sheet.
@@ -340,9 +346,13 @@ const LOOK={
 /* ---------- climber art (PixelLab): east-facing animation frames, mirrored to face west ----------
    Each climber has a climb clip, an idle (breathing) clip, a cheer clip and a front view for the HUD portrait.
    Until every frame has loaded, the painted sprites below stand in. */
-const CLIMBER_ART={me:"lumberjack",mate:"woman"},CLIP_N={climb:8,idle:4,cheer:8,walk:6,work:6};
+// (fall: tipping back off the wall and flailing, its third frame doubles as hanging back in the harness on the rope;
+// belay: braced, paying out rope at the waist; yank: dragged a stumbling step forward by a sudden pull on the rope)
+const CLIMBER_ART={me:"lumberjack",mate:"woman"},CLIP_N={climb:8,idle:4,cheer:8,walk:6,work:6,fall:6,belay:6,yank:6};
 const ART_POSE={hang:["climb",0],chalk:["climb",0],shake1:["climb",0],shake2:["climb",1],reachR:["climb",2],jump:["climb",3],
-  pull:["climb",4],crouch:["climb",5],reachL:["climb",6],mantle:["climb",7],fall1:["climb",3],fall2:["climb",7],look:["idle",1],hop:["idle",3]};
+  pull:["climb",4],crouch:["climb",5],reachL:["climb",6],mantle:["climb",7],look:["idle",1],hop:["idle",3],
+  yank1:["yank",1],yank2:["yank",2],yank3:["yank",3],yank4:["yank",4],yank5:["yank",5]};
+const HANG_ART=["fall",2]; // hanging back in the harness
 // the box round a frame's opaque pixels, measured once
 function boxOf(im){if(im.bb)return im.bb;const [,g]=mk(im.width,im.height);g.drawImage(im,0,0);
   const d=g.getImageData(0,0,im.width,im.height).data;let x0=1e9,y0=1e9,x1=-1,y1=-1;
@@ -494,7 +504,17 @@ class Rig{
   walkTo(x,speed=30){const d=Math.abs(x-this.N.x)/speed;if(d<.05){this.mode="stand";return 0;}
     this.mode="walk";this.dir=x>this.N.x?1:-1;this.slide(x,this.N.y,d);this.gx=x;return d*1000;}
   work(dir){this.mode="work";this.mv=null;this.dir=dir;}
-  startFall(ax,ay,len){this.mode="fall";this.mv=null;this.fall={ax,ay,len,caught:0};this.v.y=-35;this.v.x=(Math.random()-.5)*20;this.play([["fall1",110],["fall2",110]],0);}
+  // off the wall: pushed out into the air (push, px/s away from the rock) with a little hop. With a rope anchor the
+  // rope catches the climber len from it and they swing on it; with a floor instead they land on their feet there
+  startFall(ax,ay,len,push=40,floor=null){this.mode="fall";this.mv=null;this.fall={ax,ay,len,caught:0,floor,t0:FX.time};
+    this.v.y=-28;this.v.x=-push;this.play([["fall1",110],["fall2",110]],0);}
+  // the belayer on the ground is dragged a stumbling step toward the climber, then braces again
+  yank(){if(this.mode!=="stand")return this.jolt(5);const k=this.dir;this.slide(this.N.x+7*k,this.N.y,.12);
+    setTimeout(()=>{if(this.mode==="stand"&&!this.mv)this.slide(this.N.x-4*k,this.N.y,.45);},260);
+    // (the first half of the stumble only: further on, the clip carries the body so far forward it would jump back)
+    this.play([["yank1",60],["yank2",80],["yank3",180],["yank2",140],["yank1",120],["stand",650],["stand2",650]],5);this.calm();}
+  // a jolt on the wall: the body is snapped down a few pixels and springs back (see draw)
+  jolt(a=6){this.joltT=FX.time;this.joltA=a;}
   // where the hands are in the world this frame (for chalk puffs)
   pin(){const P0=POSES[this.pose]||POSES.stand,hp=this.pelvis(),k=this.dir;
     this.h[0].x=hp.x+P0.hn[0]*k;this.h[0].y=hp.y+P0.hn[1];this.h[1].x=hp.x+P0.hf[0]*k;this.h[1].y=hp.y+P0.hf[1];}
@@ -503,9 +523,12 @@ class Rig{
     if(c){c.t+=dt*1000;while(c.t>=c.frames[c.i][1]){c.t-=c.frames[c.i][1];if(c.i<c.frames.length-1)c.i++;else if(c.loop>=0)c.i=c.loop;else{c.t=0;break;}}
       const np=c.frames[c.i][0];if(np!==this.pose){if((np==="pull"||np==="hang")&&this.mode==="climb"&&this.pose!=="chalk"&&!this.pose.startsWith("shake")){sfx("grab");puff(this.h[0].x,this.h[0].y);}this.pose=np;}}
     if(this.mode==="fall"){const F=this.fall;this.v.y+=450*dt;this.N.x+=this.v.x*dt;this.N.y+=this.v.y*dt;
-      const dx=this.N.x-F.ax,dy=this.N.y-F.ay,d=Math.hypot(dx,dy);
-      if(d>F.len){const nx=dx/d,ny=dy/d,vr=this.v.x*nx+this.v.y*ny;this.N.x=F.ax+nx*F.len;this.N.y=F.ay+ny*F.len;
-        if(vr>0){this.v.x-=nx*vr*1.4;this.v.y-=ny*vr*1.4;if(!F.caught){F.caught=1;if(this.onCatch)this.onCatch(vr);}}}
+      // a floor (the meadow or a camp ledge): land on it, feet first, with a thud and a puff of dust
+      if(F.floor!=null&&this.N.y>=F.floor){this.land(this.N.x,F.floor+LEG);this.dizzy=1.4;FX.shake=Math.max(FX.shake,.8);sfx("thud");pebbles(this);return;}
+      if(F.ax!=null){const dx=this.N.x-F.ax,dy=this.N.y-F.ay,d=Math.hypot(dx,dy);
+        if(d>F.len){const nx=dx/d,ny=dy/d,vr=this.v.x*nx+this.v.y*ny;this.N.x=F.ax+nx*F.len;this.N.y=F.ay+ny*F.len;
+          // the rope comes taut: the fall stops with a bounce, the rope twangs and the belayer feels it
+          if(vr>0){this.v.x-=nx*vr*1.4;this.v.y-=ny*vr*1.4;if(!F.caught){F.caught=1;F.tc=FX.time;caught(this,vr);}}}}
       const dm=Math.pow(.5,dt);this.v.x*=dm;this.v.y*=dm;}
     else if(this.mv){const m=this.mv;if(m.wait>0)m.wait-=dt;else{m.t+=dt;const k=Math.min(1,m.t/m.d);this.N.x=lerp(m.x0,m.x1,k);this.N.y=lerp(m.y0,m.y1,k);if(k>=1)this.mv=null;}}
     if(this.mode==="walk"&&!this.mv){this.mode="stand";this.standLoop();}
@@ -528,19 +551,30 @@ class Rig{
   // with the other hand, so a run of moves loops the whole clip smoothly. Hanging still holds the frame the last
   // move ended on (a shake-out flicks to the next one); a fall flails through the arms-up frames.
   artFrame(t){
+    // jolted on the wall (the rope jerked): snapped back off the rock, arms out, for a moment before grabbing on again
+    if(this.mode==="climb"&&FX.time-(this.joltT??-9)<.3)return ["fall",1];
     // (while a move off a ledge or a fall waits to start, the body keeps the frame it had, so it never dips first)
     if(this.mode==="climb"&&this.mv&&this.mv.wait>0&&this.lastArt)return this.lastArt;
     if(this.mode==="climb"){const half=CLIP_N.climb>>1,base=(this.hi&1)*half,m=this.mv;
       if(m&&m.wait<=0)return ["climb",(base+Math.min(half-1,Math.floor(m.t/m.d*half)))%CLIP_N.climb];
       return ["climb",(base+half-1+(this.pose==="shake2"?1:0))%CLIP_N.climb];}
-    if(this.mode==="fall")return ["climb",[3,7][Math.floor(t*9)%2]];
+    // a fall: tipping back off the wall (two frames), then flailing on a loop; once the rope has caught them, they
+    // hang back in the harness
+    if(this.mode==="fall"){const F=this.fall,ft=FX.time-(F?F.t0:0);if(F&&F.caught)return HANG_ART;
+      return ["fall",ft<.1?1:ft<.2?2:3+Math.floor((ft-.2)*11)%3];}
+    // on the ground or a ledge with the partner climbing above: braced, paying out the rope
+    if(this.mode==="stand"&&(this.pose==="stand"||this.pose==="stand2"||this.pose==="look")&&this.cheer<=0){const o=FX.A&&(this===FX.A.me?FX.A.mate:FX.A.me);
+      if(o&&(o.mode==="climb"||o.mode==="fall")&&o.N.y<this.N.y-30)return ["belay",Math.floor(t*5+this.ph)%CLIP_N.belay];}
     if(this.mode==="walk")return ["walk",Math.floor(t*9+this.ph)%CLIP_N.walk];
     if(this.mode==="work")return ["work",Math.floor(t*7+this.ph)%CLIP_N.work];
     const m=ART_POSE[this.pose];if(m)return m;
     if(this.pose.startsWith("cheer"))return ["cheer",Math.floor(t*12+this.ph)%CLIP_N.cheer];
     return ["idle",Math.floor(t*4+this.ph)%CLIP_N.idle];}
   draw(g,t,ox,oy){if(this.hidden)return; // asleep in the tent
-    const x=R0(this.N.x)+ox,y=R0(this.N.y)+oy,A=this.L.art;
+    // a jolt (the rope jerked) snaps the body down and lets it spring back over a third of a second
+    // (and pulls it out from the wall a little, the way the rope tugs)
+    const jt=FX.time-(this.joltT??-9),jd=jt<.35?this.joltA*Math.exp(-jt*9):0,jo=R0(jd*Math.cos(jt*28)),jx=-R0(jd*.7);
+    const x=R0(this.N.x)+ox+jx,y=R0(this.N.y)+oy+jo,A=this.L.art;
     if(A&&A.ready){const [k,i]=this.lastArt=this.artFrame(t),fr=A.clips[k],b=boxOf(fr[0]),W=fr[0].width,flip=this.dir<0,key=`${k}|${i}|${flip}`;
       let img=this.cache.get(key);
       if(!img){if(flip){const [c,cg]=mk(W,fr[i].height);cg.translate(W,0);cg.scale(-1,1);cg.drawImage(fr[i],0,0);img=c;}else img=fr[i];this.cache.set(key,img);}
@@ -569,15 +603,19 @@ class Rope{
   update(path){this.path=path;}
   // a 2px kernmantle rope: every pixel along the sagging curve gets a 2x2 dab, dark on the lower right, and a twisted
   // sheath pattern (a light fleck every few pixels, a dark one between) so it reads as a braided cord, not a line
+  // When it snaps taut (a rope jerk or a fall caught on it) the sag goes, it flashes pale for an instant and twangs:
+  // each span vibrates side to side, fading out over about half a second
   draw(g,ox,oy){const p=this.path;if(!p||p.length<2)return;let s=0;
     const dab=(x,y,c)=>{g.fillStyle=c;g.fillRect(x,y,2,2);};
+    const jk=FX.time-(FX.ropeJerk??-9),taut=jk<.6,tw=taut?3.4*(1-jk/.6)**2*Math.cos(jk*48):0,flash=jk<.09;
     for(let pass=0;pass<2;pass++){s=0;
-      for(let i=1;i<p.length;i++){const [x0,y0]=p[i-1],[x1,y1]=p[i],L=Math.hypot(x1-x0,y1-y0),sag=Math.min(8,L*.12)*(FX.time-(FX.ropeJerk??-9)<.5?0:1),n=Math.max(2,Math.ceil(L));
-        const mx=(x0+x1)/2+sag*.4,my=(y0+y1)/2+sag;let lx=null,ly=null;
-        for(let k=0;k<=n;k++){const t=k/n,x=R0((1-t)*(1-t)*x0+2*(1-t)*t*mx+t*t*x1)+ox,y=R0((1-t)*(1-t)*y0+2*(1-t)*t*my+t*t*y1)+oy;
+      for(let i=1;i<p.length;i++){const [x0,y0]=p[i-1],[x1,y1]=p[i],L=Math.hypot(x1-x0,y1-y0),sag=taut?0:Math.min(8,L*.12),n=Math.max(2,Math.ceil(L));
+        const mx=(x0+x1)/2+sag*.4,my=(y0+y1)/2+sag,nx=-(y1-y0)/(L||1),ny=(x1-x0)/(L||1);let lx=null,ly=null;
+        for(let k=0;k<=n;k++){const t=k/n,w=tw*Math.sin(Math.PI*t),
+            x=R0((1-t)*(1-t)*x0+2*(1-t)*t*mx+t*t*x1+nx*w)+ox,y=R0((1-t)*(1-t)*y0+2*(1-t)*t*my+t*t*y1+ny*w)+oy;
           if(x===lx&&y===ly)continue;lx=x;ly=y;s++;
           if(pass===0)dab(x+1,y+1,ROPE.d);
-          else{dab(x,y,ROPE.m);const q=s%4;if(q===0)dot(g,x,y,ROPE.l);else if(q===2)dot(g,x+1,y+1,ROPE.s);}}}}}
+          else{dab(x,y,flash?ROPE.l:ROPE.m);const q=s%4;if(q===0)dot(g,x,y,ROPE.l);else if(q===2)dot(g,x+1,y+1,ROPE.s);}}}}}
 }
 /* ---------- particles and pop-up words ---------- */
 function emit(p){if(FX.parts.length<300&&!RM.matches)FX.parts.push(p);}
@@ -714,7 +752,6 @@ function ensureScene(){
   const btn=$("#sndBtn");if(btn){const sync=()=>btn.setAttribute("aria-pressed",SND.on?"true":"false");sync();
     btn.onclick=()=>{SND.on=!SND.on;LS.set("sound",SND.on);sync();if(SND.on)sndStart();if(SND.out)SND.out.gain.value=SND.on?.55:0;};}
   const me=new Rig(LOOK.me,i=>holdXY(FX.exp.choice,i),i=>restSpot(i,0)),mate=new Rig(LOOK.mate,i=>holdXY(FX.exp.choice,i),i=>restSpot(i,1));
-  me.onCatch=v=>{FX.shake=Math.max(FX.shake,clamp(v/120,.35,1.3));if(mate.mode==="climb")mate.play([["crouch",260],["hang",1e9]]);else if(mate.mode==="stand")mate.land(mate.gx,mate.gy);sfx("boing");pop(me,"WHOA!");};
   FX.A={me,mate};FX.fxEl=$("#fx");
   if(!FX.raf)FX.raf=requestAnimationFrame(frame);
   if(!FX.pre){FX.pre=1;prefetch();}
@@ -880,7 +917,11 @@ async function climbRig(r,to,ms,id,ch="main"){
   const ok=()=>FX.ch[ch]===id,lead=r===FX.A.me;
   if(FX.camp&&to!==FX.camp.ix&&!(await leaveCamp(ch)))return false;
   if(to<r.hi)return downRig(r,to,ms,id,ch);
-  if(r.mode==="stand"){if(to<=r.hi)return ok();r.reachFrom(r.hi+3,.4);if(!(await wait(440,ch)))return false;}
+  // from the meadow or a ledge: walk over to the foot of the rock, then reach up onto it, high enough that the boots
+  // clear the ground
+  if(r.mode==="stand"){if(to<=r.hi)return ok();const first=Math.min(to,r.hi+LOW),hp=r.hangAt(first);
+    if(Math.abs(hp.x-4-r.N.x)>6){const d=r.walkTo(hp.x-4,40);if(!(await wait(d,ch)))return false;}
+    r.reachFrom(first,.4);if(!(await wait(440,ch)))return false;}
   while(r.hi<to){
     // on long runs the leader throws the odd dyno: both hands let go and catch two holds higher
     if(lead&&to-r.hi>=4&&ms<=330&&++r.cnt%5===0){r.dyno(ms*1.4/1000);sfx("hup");pop(r,"HUP!");if(!(await wait(ms*1.7,ch)))return false;continue;}
@@ -890,19 +931,34 @@ async function climbRig(r,to,ms,id,ch="main"){
     r.land(rs.x,rs.y);r.hi=to;sfx("thud");if(!(await wait(520,ch)))return false;}
   return ok();
 }
-async function downRig(r,to,ms,id,ch){const ok=()=>FX.ch[ch]===id,rs=r.rest(to),stop=rs?to+2:to;
+async function downRig(r,to,ms,id,ch){const ok=()=>FX.ch[ch]===id,rs=r.rest(to),stop=rs?to+LOW:to;
   if(r.mode==="stand")r.grab(Math.max(r.hi,stop+1));
   while(r.hi>stop){r.stepDown(ms/1000*.9);if(!(await wait(ms,ch)))return false;}
   if(rs){r.land(rs.x,rs.y);r.hi=to;if(!(await wait(520,ch)))return false;}
   return ok();}
-async function fallRig(r,anchor,back,id,ch,caught){
-  const rs=r.rest(anchor),[ax,ay]=rs?[rs.x,rs.y-40]:r.hold(anchor),near=r===FX.A.me;
-  pebbles(r);if(near)sfx("whistle");r.startFall(ax,ay+(caught?8:0),caught?Math.hypot(r.N.x-ax,r.N.y-ay-8)+12:30);
-  if(!(await wait(caught?1500:1900,ch)))return false;
-  if(!caught){r.dizzy=1.6;FX.shake=Math.max(FX.shake,.6);}
+// the rope catches a falling climber: it snaps taut and twangs, the view jolts and the partner is dragged by it
+function caught(r,vr){FX.ropeJerk=FX.time;FX.shake=Math.max(FX.shake,clamp(vr/120,.4,1.3));sfx("boing");
+  const o=r===FX.A.me?FX.A.mate:FX.A.me;o.yank();if(r===FX.A.me)pop(r,"WHOA!");}
+// a fall. Slipping with a hook clipped, the climber drops a body length, the rope catches them and they swing back
+// to the rock. Without one they fall to the anchor: past a bolt on the wall the rope catches them below it, and
+// they hang and swing a moment before climbing back to it; down to the meadow or a camp they land on their feet
+async function fallRig(r,anchor,back,id,ch,hook){
+  const rs=r.rest(anchor),near=r===FX.A.me;pebbles(r);if(near)sfx("whistle");
+  // (well out from the wall over the meadow, so the fall clears a partner on the rock below; only a little over a
+  // camp ledge, so it lands on it)
+  if(rs&&!hook){r.startFall(null,null,0,anchor?14:62,rs.y-LEG);
+    // (on the feet again: a moment dazed, then back to where they stand at camp)
+    while(r.mode==="fall"){if(!(await wait(60,ch)))return false;}
+    if(!(await wait(700,ch)))return false;const d=r.walkTo(rs.x,34);if(d&&!(await wait(d,ch)))return false;
+    r.hi=anchor;return ok();}
+  // (caught below an anchor, the rope holds them a little out from the wall, so they hang clear of a partner below)
+  const [hx,ay]=r.hold(anchor),ax=hook?hx:hx-24;
+  r.startFall(ax,ay+(hook?8:0),hook?Math.hypot(r.N.x-ax,r.N.y-ay-8)+16:30,hook?22:60);
+  if(!(await wait(hook?1300:2100,ch)))return false;
   r.reachFrom(clamp(Math.round(-(r.N.y+HANG[1])/HS),2,IDX_TOP-1),.3);
-  if(!(await wait(caught?360:900,ch)))return false;
+  if(!(await wait(hook?360:600,ch)))return false;
   return climbRig(r,back,260,id,ch);
+  function ok(){return FX.ch[ch]===id;}
 }
 // reaching the summit is a celebration; reaching a camp is quieter: a title, then the team gets to work
 function arrive(name,exp,to){const top=name==="summit";title(top?"SUMMIT!":name.toUpperCase(),`${fmt(to*HS/WK+ALT.base)} m`,"camp");
@@ -910,13 +966,15 @@ function arrive(name,exp,to){const top=name==="summit";title(top?"SUMMIT!":name.
 async function runEvent(exp,o){
   const id=++FX.ch.main,A=FX.A,me=A.me,mate=A.mate,ok=()=>FX.ch.main===id;
   const to=idxOf(exp,typeof o.to==="number"?o.to:exp.pitch),plan=mateIdx(to);
-  // the rope jerk (the two locked in different answers): the rope snaps taut, both climbers are yanked, the view
-  // shakes, and only then does the pitch play out
-  if(o.jerk){FX.ropeJerk=FX.time;FX.shake=Math.max(FX.shake,1.2);sfx("boing");pop(me,"JERK!");
-    for(const r of [me,mate])if(r.mode==="climb")r.play([["crouch",280],["hang",1e9]]);else if(r.mode==="stand")r.play([["hop",220],["stand",650],["stand2",650]],1);
-    if(!(await wait(700)))return;}
+  // the rope jerk (the two locked in different answers): the rope snaps taut and twangs, the leader is jolted off
+  // their holds for a moment (grit rains down), the belayer is dragged a step, the view shakes; then the pitch plays
+  if(o.jerk){FX.ropeJerk=FX.time;FX.shake=Math.max(FX.shake,1.4);sfx("boing");pebbles(me);pop(me,"JERK!");
+    if(me.mode==="climb")me.jolt(8);else me.yank();mate.yank();
+    if(!(await wait(950)))return;}
   if(o.fall&&to<me.hi){title("WHOOPS!",`Down to ${fmt(to*HS/WK+ALT.base)} m`,"bad");
-    const lower=wait(500).then(r=>r&&mate.hi>plan&&climbRig(mate,plan,240,id)); // the partner lowers off to meet them
+    // the partner lowers off to meet them: alongside, when the rope catches the fall on the wall; but when it goes
+    // all the way down to the meadow or a camp they hold still until the leader has landed, so nobody falls through them
+    const lower=me.rest(to)?Promise.resolve(true):wait(150).then(r=>r&&mate.hi>plan&&climbRig(mate,plan,190,id));
     if(!(await fallRig(me,to,to,id,"main",false)))return;await lower;}
   else if(o.fall){caption("Slip! The rope holds");if(!(await fallRig(me,me.hi-1,me.hi,id,"main",true)))return;}
   else if(to>me.hi){const ms=stepMsFor(to-me.hi),follow=wait(700).then(r=>r&&climbRig(mate,plan,ms,id));
