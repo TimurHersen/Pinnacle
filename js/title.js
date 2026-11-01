@@ -112,30 +112,38 @@ function hideHome(){HOME_N++;TFX.stop();document.body.classList.remove("home");c
    painted fire, a column of smoke drifting off it and, every few seconds, two birds crossing the sky. ---------- */
 const TFX=(()=>{
   const FIRE={x:285,y:190,top:180},BG_POS=[.88,.6]; // the painted fire's core; BG_POS matches #menubg's object-position
-  let light=null,air=null,lg=null,ag=null,raf=0,last=0,t=0,stars=[],tent=[],sparks=[],smoke=[],birds=[],nextBird=3,nextSmoke=0;
+  let light=null,air=null,lg=null,ag=null,raf=0,last=0,t=0,stars=[],lightMap=null,glow=.8,nextGlow=0,sparks=[],smoke=[],birds=[],nextBird=3,nextSmoke=0;
   const rnd=(a,b)=>a+Math.random()*(b-a);
   function layer(cls){const c=document.createElement("canvas");c.width=BG_W;c.height=BG_H;c.className="tfx "+cls;document.querySelector(".scene").appendChild(c);return c;}
   // lay both layers over the painting exactly as object-fit:cover places it
   function place(){if(!light)return;const W=innerWidth,H=innerHeight,s=Math.max(W/BG_W,H/BG_H),w=BG_W*s,h=BG_H*s,x=(W-w)*BG_POS[0],y=(H-h)*BG_POS[1];
     for(const c of [light,air])Object.assign(c.style,{left:x+"px",top:y+"px",width:w+"px",height:h+"px"});}
-  // read the painting once: where the night sky is (for stars) and which pixels are the tent (for its firelight)
+  // read the painting once: where the night sky is (for stars) and how the firelight falls on the camp
   function survey(img){const c=document.createElement("canvas");c.width=BG_W;c.height=BG_H;const g=c.getContext("2d");g.drawImage(img,0,0);
     const d=g.getImageData(0,0,BG_W,BG_H).data,px=(x,y)=>{const i=(y*BG_W+x)*4;return [d[i],d[i+1],d[i+2]];};
     stars=[];for(let tries=0;stars.length<22&&tries<600;tries++){const x=(Math.random()*290)|0,y=(Math.random()*26)|0,[r,gg,b]=px(x,y);
       if(b>=r*.8&&r+gg+b<330)stars.push({x,y,ph:rnd(0,6.3),sp:rnd(.6,1.8),big:Math.random()<.2});}
-    tent=[];for(let y=150;y<210;y++)for(let x=250;x<350;x++){const [r,gg,b]=px(x,y);if(r>190&&gg>80&&gg<160&&b<70)tent.push(x,y);}}
+    // the firelight, worked out once: light falls off with distance from the fire, and surfaces that are already
+    // bright in the painting (the tent, logs, the climbers) catch more of it than dark grass. It's stepped into four
+    // levels with an ordered dither between them, like hand-shaded pixel art, and only its brightness flickers
+    const BAYER=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5],LEV=["#2a1406","#4a2309","#6e360f","#94501a"];
+    const tentAt=new Set();for(let y=150;y<210;y++)for(let x=250;x<350;x++){const [r,gg,b]=px(x,y);if(r>190&&gg>80&&gg<160&&b<70)tentAt.add(y*BG_W+x);}
+    lightMap=document.createElement("canvas");lightMap.width=BG_W;lightMap.height=BG_H;const lm=lightMap.getContext("2d");
+    for(let y=FIRE.y-46;y<Math.min(BG_H,FIRE.y+26);y++)for(let x=FIRE.x-84;x<FIRE.x+84;x++){
+      const dx=(x-FIRE.x)/84,dy=(y-FIRE.y+4)/42,dd=dx*dx+dy*dy;if(dd>=1)continue;
+      const [r,gg,b]=px(x,y),lum=(r*.3+gg*.59+b*.11)/255,fall=(1-Math.sqrt(dd))**1.6;
+      let w=fall*(.3+.9*lum)+(tentAt.has(y*BG_W+x)?.18*fall+.06:0);
+      w+=(BAYER[(y&3)*4+(x&3)]/16-.5)*.1;const lv=w>.62?3:w>.4?2:w>.22?1:w>.1?0:-1;
+      if(lv>=0){lm.fillStyle=LEV[lv];lm.fillRect(x,y,1,1);}}}
   // a repeatable 0..1 noise from two numbers (so the flame's shape holds for a frame, then changes)
   const nz=(i,s)=>{const v=Math.sin(i*12.9898+s*78.233)*43758.5453;return v-Math.floor(v);};
   function draw(dt){
     t+=dt;lg.clearRect(0,0,BG_W,BG_H);ag.clearRect(0,0,BG_W,BG_H);
     // with reduced motion only the fire itself moves (the flame, its light and the stars); nothing drifts or flies
     const calm=RM.matches;
-    // firelight: a slow breathing glow with a quick flicker on top, reaching both climbers, dithered at the edges
-    const f=.6+.25*Math.sin(t*1.9)+.15*Math.sin(t*11+Math.sin(t*4.3)*2);
-    for(let y=FIRE.y-44;y<FIRE.y+22;y++)for(let x=FIRE.x-70;x<FIRE.x+70;x++){
-      const dx=(x-FIRE.x)/70,dy=(y-FIRE.y+4)/34,r=dx*dx+dy*dy;if(r>=1)continue;const k=(1-r)*(.45+.55*f);
-      if(k<.12||(((x+y)&1)&&k<.5))continue;lg.fillStyle=k>.75?"#7a3c10":k>.5?"#55280c":k>.3?"#3a1a08":"#221006";lg.fillRect(x,y,1,1);}
-    lg.globalAlpha=.1+.3*f;lg.fillStyle="#ff9a3a";for(let i=0;i<tent.length;i+=2)lg.fillRect(tent[i],tent[i+1],1,1);lg.globalAlpha=1;
+    // firelight: the light map at a brightness that wanders unevenly between a few levels, as a real fire does
+    if((nextGlow-=dt)<=0){nextGlow=rnd(.07,.16);glow=Math.max(.5,Math.min(1,glow+(Math.random()<.5?-1:1)*rnd(.08,.18)));}
+    if(lightMap){lg.globalAlpha=glow;lg.drawImage(lightMap,0,0);lg.globalAlpha=1;}
     // the flame: drawn over the painted one, taller in the middle, every column changing height ten times a second
     const fs=Math.floor(t*10),fb=FIRE.y+4;
     for(let i=-6;i<=6;i++){const h=Math.round((6+12*(1-(i/7)**2))*(.65+.35*nz(i,fs)));
