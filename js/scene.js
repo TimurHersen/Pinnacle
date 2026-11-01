@@ -314,7 +314,7 @@ const holdXY=(ch,i)=>{const y=R0(-i*HS+(hash(i,5)-.5)*3);return [R0(laneX(ch,y)+
 const boltXY=(ch,i)=>[R0(laneX(ch,-i*HS)+15),-i*HS+6];
 const idxOf=(exp,p)=>Math.round(-WY(altOf(exp,p))/HS);
 function restSpot(i,m){if(i<=0)return {x:m?-74:-26,y:0};
-  if(i===IDX_C1||i===IDX_C2)return {x:m?-54:-16,y:-i*HS};
+  if(i===IDX_C1||i===IDX_C2)return {x:m?-60:-26,y:-i*HS}; // (the edge spot stays clear of the rock face at x -9)
   if(i>=IDX_TOP){const x=m?SX+48:SX+12;return {x,y:R0(peakTop(x))+2};}return null;}
 // where the partner belays from while the leader is at li. The two swap leads each pitch, so a partner who has just led
 // stays at the stance they reached (cur), well below the new leader; they only move down when a fall leaves them above
@@ -502,7 +502,7 @@ class Rig{
   // (ease, optional, shapes the move: it maps the time 0..1 to how far along the body is)
   slide(x,y,d,wait=0,ease=null){this.mv={x0:this.N.x,y0:this.N.y,x1:x,y1:y,t:0,d:Math.max(d,.001),wait,ease};}
   calm(){this.idleAt=FX.time+2.6+Math.random()*2.6;}
-  standAt(x,y){this.mode="stand";this.fall=null;this.mv=null;this.gx=x;this.gy=y;this.N.x=x;this.N.y=y-LEG;this.standLoop();this.calm();this.pin();}
+  standAt(x,y){this.mantling=false;this.mode="stand";this.fall=null;this.mv=null;this.gx=x;this.gy=y;this.N.x=x;this.N.y=y-LEG;this.standLoop();this.calm();this.pin();}
   grab(i){this.mode="climb";this.fall=null;this.mv=null;this.hi=i;const p=this.hangAt(i);this.N.x=p.x;this.N.y=p.y;this.play([["hang",1e9]]);this.calm();this.pin();}
   // one move up the wall: the free hand reaches for the next hold while the body stays put, then the climber pulls
   // up onto it in one quick, eased heave (the climb clip plays across both halves, see artFrame)
@@ -514,7 +514,7 @@ class Rig{
     this.play([["pull",ms*.5],[n%2?"reachL":"reachR",ms*.5],["hang",1e9]]);this.calm();}
   reachFrom(i,d){const ms=d*1000,first=this.mode==="fall"?"pull":"hop";this.mode="climb";this.fall=null;this.hi=i;const p=this.hangAt(i);
     this.slide(p.x,p.y,d*.6,d*.4);this.play([[first,ms*.4],["jump",ms*.6],["hang",1e9]]);this.calm();}
-  topOut(x,y,d){this.slide(x,y-LEG,d);this.play([["mantle",d*600],["hop",1e9]]);}
+  topOut(x,y,d){this.mantling=true;this.slide(x,y-LEG,d,0,k=>k*k*(3-2*k));this.play([["mantle",d*600],["hop",1e9]]);}
   land(x,y){this.standAt(x,y);this.play([["hop",160],["stand",650],["stand2",650]],1);}
   // on a ledge: walk to x at a steady pace (facing the way they go; standing again on arrival), or kneel to work
   // facing dir; both return how long the walk takes in ms
@@ -604,8 +604,11 @@ class Rig{
       // LEG below the hips, the body centred on them (each clip anchored by its first frame, so it moves within it)
       // (on the wall the boots, not the reaching hand, set where the body sits: the toes go a few pixels into the
       // rock at their own height, so the climber hugs the face; a falling climber keeps the hand anchor)
-      if(k==="climb"&&this.mode==="climb"&&FX.exp){const f=feetOf(fr[0]),top=y+HANG[1]-1-b.y0,wy=R0(this.N.y+HANG[1]-1-b.y0+f.y);
-        g.drawImage(img,R0(laneX(FX.exp.choice,wy)+8)+(x-R0(this.N.x))+3-f.x,top);}
+      // (but out on the overhang under a camp ledge the rock at the boots lies well in from the hands, so there the
+      // hands set it, as they do for the rope and the holds)
+      const f=k==="climb"&&this.mode==="climb"&&FX.exp?feetOf(fr[0]):null,wy=f&&R0(this.N.y+HANG[1]-1-b.y0+f.y);
+      if(f&&!this.mantling&&Math.abs(laneX(FX.exp.choice,wy)-laneX(FX.exp.choice,R0(this.N.y+HANG[1])))<6)
+        g.drawImage(img,R0(laneX(FX.exp.choice,wy)+8)+(x-R0(this.N.x))+3-f.x,y+HANG[1]-1-b.y0);
       else if(k==="climb")g.drawImage(img,x+HANG[0]+2-b.x1,y+HANG[1]-1-b.y0);
       else g.drawImage(img,x-(flip?W-1-((b.x0+b.x1)>>1):(b.x0+b.x1)>>1),y+LEG-b.y1);}
     else{
@@ -685,10 +688,10 @@ function campLayer(k,cy){if(FX.camps[k])return FX.camps[k];
 function campSpots(){const L=ART.ledge,T=ART.tent,F=ART.fire&&ART.fire[0];
   const walk0=L&&ART.ledgeWalk?ledgeL()+ART.ledgeWalk[0]:-140,tb=T?boxOf(T):{x0:0,x1:70,y1:50},tw=tb.x1-tb.x0;
   // (the tent faces out of the screen, so its door is in the middle; the sign's post takes the first few pixels)
-  // (the leader kneels in front of the tent's near corner pegging it out, clear of the fire; the partner kneels on
-  // the fire's far side, between it and the wall)
+  // (one kneels at the tent's far corner pegging it out, well clear of the fire; the fire sits against the wall,
+  // so its builder kneels on the near side of it, facing it)
   const fb=F?boxOf(F):{x0:4,x1:34},fw=fb.x1-fb.x0,tentL=walk0+12,tentR=tentL+tw,fireL=tentR+22;
-  return {tentX:tentL-tb.x0,tentR,fireX:fireL-fb.x0,fireC:fireL+(fw>>1),meWork:tentR-30,mateWork:fireL+fw+12,door:tentL+(tw>>1)};}
+  return {tentX:tentL-tb.x0,tentR,fireX:fireL-fb.x0,fireC:fireL+(fw>>1),meWork:tentL+22,mateWork:fireL-10,door:tentL+(tw>>1)};}
 // Camp props appear the cartoon way: piece by piece, each popping in with a dust poof and a little drop-and-settle.
 // The tent comes in five pieces (bottom left and right, middle left and right, then the top with its poles); the
 // fire in three stages (its stones, then its logs, then the flames). Packing up pops them away again.
@@ -832,7 +835,7 @@ function frame(now){
     // the rope runs through the clipped bolts between the two only while the leader is on the wall (once the leader
     // has topped out onto a ledge they belay from there), and only bolts that lie between them on the way up
     if(A.me.mode==="climb")for(let i=A.mate.hi+1;i<A.me.hi;i++)if(i%4===2){const b=boltXY(ch,i);if(b[1]<pm.y-6&&b[1]>pl.y+6)path.push(b);}
-    path.push([pl.x,pl.y]);if(A.me.hidden&&A.mate.hidden)path.length=0; // (coiled away while they sleep)
+    path.push([pl.x,pl.y]);if(FX.camp)path.length=0; // (coiled away while camp is up)
     FX.pins=path;FX.rope.update(path);}
   stepParts(dt);stepAmbient(dt);updateCam(dt);
   if(FX.visible&&!document.hidden)paint(t);
@@ -906,12 +909,14 @@ function placeTeam(exp,li){FX.exp=exp;FX.camp=null;FX.night=0;FX.leaving=null;FX
   place(FX.A.me,li);place(FX.A.mate,mateIdx(li));}
 /* ---------- camp: pitched on arrival, slept in through the night, packed away in the morning ---------- */
 const campOf=ix=>ix===IDX_C1?"c1":ix===IDX_C2?"c2":null;
-// the team has both arrived on the ledge: the leader walks to the tent spot and pitches it while the partner builds
-// the fire and lights it; dusk falls, and they walk to the door and turn in for the night
-async function makeCamp(ix,ch="main"){const k=campOf(ix);if(!k)return true;const A=FX.A,me=A.me,mate=A.mate,S=campSpots(),cy=-ix*HS;
+// the team has both arrived on the ledge: the one further in walks to the tent spot and pitches it while the one by
+// the wall builds the fire and lights it (so neither walks through the other); dusk falls, and they walk to the door
+// and turn in for the night
+async function makeCamp(ix,ch="main"){const k=campOf(ix);if(!k)return true;const A=FX.A,S=campSpots(),cy=-ix*HS;
+  const [me,mate]=A.me.N.x<=A.mate.N.x?[A.me,A.mate]:[A.mate,A.me]; // (here "me" pitches the tent, "mate" lights the fire)
   FX.camp={k,ix,cy,tent:0,tentAt:[],fire:0,fireAt:0,sleep:false};FX.leaving=null;const cp=FX.camp;
   const walk=Math.max(me.walkTo(S.meWork),mate.walkTo(S.mateWork));if(!(await wait(walk+150,ch)))return false;
-  me.work(-1);mate.work(-1);
+  me.work(1);mate.work(1);
   // the leader's tent pieces and the partner's fire stages pop in on one beat, each in a poof; the flames come
   // last with a big poof and a burst of sparks
   const pieceIn=i=>{cp.tent=i+1;cp.tentAt[i]=FX.time;if(ART.tent){const p=tentPieceAt(i,S.tentX,cy);poof(p.x,p.y);}},
@@ -924,19 +929,20 @@ async function makeCamp(ix,ch="main"){const k=campOf(ix);if(!k)return true;const
   if(!(await play(2400,p=>{FX.night=smooth(p);},ch)))return false;
   const w2=Math.max(me.walkTo(S.door),mate.walkTo(S.door+6));if(!(await wait(w2+100,ch)))return false;
   me.hidden=mate.hidden=true;FX.camp.sleep=true;return true;}
-// the next pitch starts from camp: dawn breaks, the team comes out, the leader packs the tent away as the fire dies,
-// and both walk back to the foot of the wall. Both climbers' moves wait on the same morning.
+// the next pitch starts from camp: dawn breaks, the team comes out, the partner packs the tent away from its far
+// corner as the fire dies while the leader waits by the door, and both walk back toward the wall, the leader ahead,
+// so nobody passes anybody. Both climbers' moves wait on the same morning.
 function leaveCamp(ch="main"){if(!FX.camp)return Promise.resolve(true);if(FX.leaving)return FX.leaving;
   return FX.leaving=(async()=>{const A=FX.A,me=A.me,mate=A.mate,cp=FX.camp,S=campSpots(),ix=cp.ix;
-    me.hidden=mate.hidden=false;cp.sleep=false;me.standAt(S.door,cp.cy);mate.standAt(S.door+6,cp.cy);me.hi=mate.hi=ix;
+    me.hidden=mate.hidden=false;cp.sleep=false;me.standAt(S.door+8,cp.cy);mate.standAt(S.door,cp.cy);me.hi=mate.hi=ix;
     if(!(await play(1800,p=>{FX.night=1-smooth(p);},ch)))return false;
-    const w=Math.max(me.walkTo(S.meWork),mate.walkTo(mate.rest(ix).x));if(!(await wait(w+100,ch)))return false;
+    const w=mate.walkTo(S.meWork);if(!(await wait(w+100,ch)))return false;
     // the fire is out by morning (just its logs); the tent and then the fire pop away piece by piece, top first
-    me.work(-1);cp.fire=2;cp.fireAt=0;cp.tentAt=null;
+    mate.work(1);cp.fire=2;cp.fireAt=0;cp.tentAt=null;
     const pieceOut=i=>{cp.tent=i;if(ART.tent){const p=tentPieceAt(i,S.tentX,cp.cy);poof(p.x,p.y);}},fireOut=()=>{cp.fire=0;poof(S.fireC,cp.cy);};
     for(const [ms,f,a] of [[350,pieceOut,4],[300,pieceOut,3],[300,pieceOut,2],[300,pieceOut,1],[300,pieceOut,0],[300,fireOut]]){
       if(!(await wait(ms,ch)))return false;f(a);}
-    me.standAt(me.N.x,cp.cy);const w3=Math.max(me.walkTo(me.rest(ix).x),mate.walkTo(mate.rest(ix).x));
+    mate.standAt(mate.N.x,cp.cy);const w3=Math.max(me.walkTo(me.rest(ix).x),mate.walkTo(mate.rest(ix).x));
     if(!(await wait(w3+100,ch)))return false;
     me.standAt(me.rest(ix).x,cp.cy);mate.standAt(mate.rest(ix).x,cp.cy);FX.camp=null;FX.night=0;return true;})();}
 async function climbRig(r,to,ms,id,ch="main"){
@@ -950,13 +956,21 @@ async function climbRig(r,to,ms,id,ch="main"){
   if(r.mode==="stand"){if(to<=r.hi)return ok();const first=Math.min(to,r.hi+LOW),hp=r.hangAt(first);
     if(Math.abs(hp.x-4-r.N.x)>6){const d=r.walkTo(hp.x-4,40);if(!(await wait(d,ch)))return false;}
     r.reachFrom(first,.4);if(!(await wait(440,ch)))return false;}
-  while(r.hi<to){
+  // (onto a ledge the last move is the pull over its tip, not a move up to the ledge level, which lies back by the wall)
+  const last=r.rest(to)?to-1:to;
+  while(r.hi<last){
     // on long runs the leader throws the odd dyno: both hands let go and catch two holds higher
     if(lead&&to-r.hi>=4&&ms<=330&&++r.cnt%5===0){r.dyno(ms*1.4/1000);sfx("hup");if(!(await wait(ms*1.7,ch)))return false;continue;}
     r.stepUp(ms/1000*.92);if(!(await wait(ms,ch)))return false;}
+  // onto a ledge: the route comes up under its outer tip, so they pull straight up over the tip and walk in: to the
+  // spot by the wall, or, if their partner already stands there, to the one short of it (so nobody passes anybody)
   const rs=r.rest(to);
-  if(rs&&r.mode==="climb"){r.topOut(rs.x,rs.y,.34);if(!(await wait(340,ch)))return false;
-    r.land(rs.x,rs.y);r.hi=to;sfx("thud");if(!(await wait(520,ch)))return false;}
+  if(rs&&r.mode==="climb"){const o=r===FX.A.me?FX.A.mate:FX.A.me,there=o.mode==="stand"&&o.hi===to,spot=restSpot(to,there?1:0);
+    const ey=to>=IDX_TOP?R0(peakTop(r.N.x))+2:spot.y; // (the summit slopes: stand on it where they come up)
+    r.topOut(r.N.x,ey,.45);if(!(await wait(450,ch)))return false;
+    r.land(r.N.x,ey);r.hi=to;sfx("thud");if(!(await wait(300,ch)))return false;
+    if(to<IDX_TOP&&Math.abs(r.N.x-spot.x)>3){const d=r.walkTo(spot.x,36);if(!(await wait(d,ch)))return false;}
+    if(!(await wait(220,ch)))return false;}
   return ok();
 }
 async function downRig(r,to,ms,id,ch){const ok=()=>FX.ch[ch]===id,rs=r.rest(to),stop=rs?to+LOW:to;
