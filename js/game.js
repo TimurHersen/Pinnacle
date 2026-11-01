@@ -63,6 +63,9 @@ function fixTeam(t){
   e.used=Object.values(e.used||{});
   for(const k of ["pitch","anchor","rope","chalk","scout","anchors"])e[k]=e[k]||0;
   t.round=t.round||{id:0,phase:"ready"};t.round.id=t.round.id||0;t.round.votes=t.round.votes||{};
+  // a team that finished the stage-one prototype picks its route at Camp I; a camp vote is {route, bonus}
+  if(t.round.phase==="stage")t.round={id:t.round.id+1,phase:"camp",stage:0,votes:{}};
+  for(const [k,v] of Object.entries(t.round.votes))if(!v||typeof v!=="object")delete t.round.votes[k];
   for(const k of ["order","cut"])if(t.round[k])t.round[k]=Object.values(t.round[k]);
   return t;
 }
@@ -81,16 +84,21 @@ function needsChoice(exp){const L=lens(exp);
   if(exp.pitch===L[0]&&!exp.choice[0])return 0;
   if(L[1]&&exp.pitch===L[0]+L[1]&&!exp.choice[1])return 1;
   return -1;}
+// where a pitch sits: its stage (0 up to Camp I, 1 up to Camp II, 2 up to the summit), its place in it and the
+// stage's length
+function stageOf(exp,p){const L=lens(exp);if(p<L[0]||!L[1])return {s:0,i:p,n:L[0]};
+  if(p<L[0]+L[1]||!L[2])return {s:1,i:p-L[0],n:L[1]};return {s:2,i:p-L[0]-L[1],n:L[2]};}
+const STAGE_TO=["Camp I","Camp II","the summit"];
 function nextStop(exp){const L=lens(exp);if(exp.pitch<L[0])return L[0];
   if(L[1]&&exp.pitch<L[0]+L[1])return L[0]+L[1];return total(exp);}
 // an expedition: the pitch reached, the anchor a fall without a hook drops you to, and the team's gear (rope = hooks)
 function newExp(n,prev){return {v:2,n,choice:[null,null],pitch:0,anchor:0,rope:3,chalk:1,scout:1,anchors:1,used:prev?prev.used.slice(-40):[]};}
 
 /* ============================== QUESTION PICK ============================== */
-// the pitch's question: from this mountain's pool at the pitch's difficulty (easy at the foot of the wall, hard just
-// below camp), one the team hasn't had lately
-const tierFor=p=>p<2?1:p<4?2:3;
-function pickQuiz(p,used){const pool=QUIZ.filter(q=>q.tier===tierFor(p));let fresh=pool.filter(q=>!used.includes(q.id));
+// the pitch's question: from this mountain's pool at the pitch's difficulty (set by the route: easy at the foot of
+// the wall, hardest on the summit push), one the team hasn't had lately
+function tierAt(exp,p){const T=[...SEG0_TIERS,...(exp.choice[0]?FORKS[0][exp.choice[0]].tiers:[]),...(exp.choice[1]?FORKS[1][exp.choice[1]].tiers:[])];return T[p]||3;}
+function pickQuiz(tier,used){const pool=QUIZ.filter(q=>q.tier===tier);let fresh=pool.filter(q=>!used.includes(q.id));
   if(!fresh.length)fresh=pool;return fresh[Math.floor(Math.random()*fresh.length)];}
 const quizById=id=>QUIZ.find(q=>q.id===id);
 // the four options in a fresh order for a round: order[i] is the option shown in slot i (option 0 is the right one)
@@ -114,19 +122,22 @@ function applyOutcome(t,o){
   const exp=clone(t.exp),r=t.round,before=exp.pitch,beforeAlt=altOf(exp,before),q=quizById(r.qid);let moveText="";
   if(o.fall){
     if(r.hook){o.caught=true;o.tone="warn";moveText="Your hook held: you keep your height.";}
-    else{exp.pitch=exp.anchor;const where=exp.anchor===0?"base camp":"your anchor";
+    else{exp.pitch=exp.anchor;const L=lens(exp),where=exp.anchor===0?"base camp":exp.anchor===L[0]?"Camp I":L[1]&&exp.anchor===L[0]+L[1]?"Camp II":"your anchor";
       moveText=exp.pitch<before?`No hook clipped: fell ${Math.round(beforeAlt-altOf(exp,exp.pitch))} m to ${where}.`:`No hook clipped, but you were at ${where}.`;}}
   else{exp.pitch=Math.min(exp.pitch+1,total(exp));moveText=`Up ${Math.round(altOf(exp,exp.pitch)-beforeAlt)} m to ${fmt(altOf(exp,exp.pitch))} m.`;}
   if(o.jerk){if(exp.rope>0){exp.rope--;o.jerkCost=1;moveText+=" The rope jerk cost a hook.";}else moveText+=" The rope jerked.";}
-  let arrived=null;if(exp.pitch>before&&exp.pitch>=total(exp)){arrived="Camp I";exp.anchor=exp.pitch;}
+  // reaching a camp or the top: a camp also becomes the anchor, so no fall ever drops the team below it
+  let arrived=null;if(exp.pitch>before){const L=lens(exp);
+    arrived=exp.pitch===L[0]?"Camp I":L[1]&&exp.pitch===L[0]+L[1]?"Camp II":exp.choice[1]&&exp.pitch>=total(exp)?"summit":null;
+    if(arrived)exp.anchor=exp.pitch;}
   const stats=clone(t.stats||{});stats.rounds=(stats.rounds||0)+1;if(o.jerk)stats.jerks=(stats.jerks||0)+1;
   if(o.correct&&!o.jerk&&o.bel!==null)stats.synced=(stats.synced||0)+1;if(o.fall&&!o.caught)stats.falls=(stats.falls||0)+1;
   // this expedition's own tally, for the end of the stage
-  const run=exp.run={...(exp.run||{})};if(o.jerk)run.jerks=(run.jerks||0)+1;
+  const run=exp.run={...(exp.run||{})};if(o.jerk)run.jerks=(run.jerks||0)+1;run.q=(run.q||0)+1;if(o.correct)run.right=(run.right||0)+1;
   if(o.correct&&!o.jerk&&o.bel!==null)run.synced=(run.synced||0)+1;if(o.fall)run[o.caught?"slips":"falls"]=(run[o.caught?"slips":"falls"]||0)+1;
   const log=(t.log||[]).slice(-39);
   log.push({at:Date.now(),text:`P${before+1} ${q.cat}: ${o.headline}`});
-  if(arrived)log.push({at:Date.now(),text:"Reached Camp I."});
+  if(arrived)log.push({at:Date.now(),text:arrived==="summit"?`Stood on the summit, ${fmt(ALT.top)} m!`:`Reached ${arrived}.`});
   return {...t,exp,stats,log,round:{...r,phase:"reveal",result:{...o,moveText,arrived,from:before,to:exp.pitch},resolvedAt:Date.now()}};}
 
 
@@ -143,11 +154,13 @@ async function guarded(fn){
   finally{S.acting=false;}
 }
 // the next pitch: its question is drawn and its category shown, and the leader decides whether to clip a hook
-// before seeing it (both talk it over). At the top of the stage the team is at camp instead.
+// before seeing it (both talk it over). At the top of a stage the team makes camp and picks the route on; at the
+// top of the last one they're on the summit.
 function startPitch(t){
-  const ids=memberIds(t),id=(t.round?.id||0)+1,exp=t.exp;
-  if(exp.pitch>=total(exp))return {...t,round:{id,phase:"camp",votes:{}}};
-  const q=pickQuiz(exp.pitch,exp.used);exp.used=[...exp.used,q.id].slice(-60);
+  const ids=memberIds(t),id=(t.round?.id||0)+1,exp=t.exp,nc=needsChoice(exp);
+  if(nc>=0)return {...t,round:{id,phase:"camp",stage:nc,votes:{}}};
+  if(exp.pitch>=total(exp))return {...t,round:{id,phase:"summit"}};
+  const q=pickQuiz(tierAt(exp,exp.pitch),exp.used);exp.used=[...exp.used,q.id].slice(-60);
   return {...t,exp,round:{id,phase:"pre",qid:q.id,leader:ids[id%ids.length]}};}
 function advance(withAnchor){
   const rid=S.team.round.id;
@@ -179,24 +192,28 @@ function useScout(){
   guarded(t=>{const r=t.round;if(r.id!==rid||r.phase!=="answer"||r.scout||t.exp.scout<=0)return null;
     t.exp.scout--;return {...t,round:{...r,scout:true}};});
 }
-// at camp: everything is restocked, and the team picks one extra piece of gear (the leader confirms the vote)
+// at camp: everything is restocked, and the team picks the route on and one extra piece of gear (each votes, the
+// leader confirms); then the next stage starts straight away
 const BONUS={hook:{name:"Extra hook",desc:"A fourth hook for the next stage."},chalk:{name:"Extra chalk",desc:"A second 50/50."},scout:{name:"Extra scout",desc:"A second hint for the belayer."}};
-function campPick(k){
+function campPick(route,k){
   const rid=S.team.round.id;
-  guarded(t=>{if(t.round.id!==rid||t.round.phase!=="camp"||!BONUS[k])return null;
+  guarded(t=>{const s=t.round.stage??needsChoice(t.exp);
+    if(t.round.id!==rid||t.round.phase!=="camp"||!BONUS[k]||!FORKS[s]?.[route])return null;
     Object.assign(t.exp,{rope:3,chalk:1,scout:1,anchors:1});
     if(k==="hook")t.exp.rope=4;else t.exp[k]++;
-    t.log=t.log.slice(-39);t.log.push({at:Date.now(),text:`Rested at Camp I. Gear restocked, plus ${BONUS[k].name.toLowerCase()}.`});
-    return {...t,round:{id:rid+1,phase:"stage",bonus:k}};});
+    t.exp.choice[s]=route;
+    t.log=t.log.slice(-39);t.log.push({at:Date.now(),text:`Rested at ${FORKS[s].camp}. Gear restocked, plus ${BONUS[k].name.toLowerCase()}. On via ${FORKS[s][route].name}.`});
+    return startPitch(t);});
+}
+// a camp vote is two picks: the route and the bonus
+async function campVote(part,val){
+  try{await fb.patch(`teams/${S.code}/round/votes/${S.uid}`,{[part]:val});}catch(e){toast("Couldn't save your vote.");}
 }
 function newExpedition(){
   const rid=S.team.round.id;
   guarded(t=>{if(t.round.id!==rid)return null;
     t.exp=newExp((t.exp?.n||1)+1,t.exp);t.log=t.log.slice(-39);t.log.push({at:Date.now(),text:`Expedition ${t.exp.n} begins at base camp.`});
     return {...t,round:{id:rid+1,phase:"ready"}};});
-}
-async function vote(choice){
-  try{await fb.patch(`teams/${S.code}/round/votes`,{[S.uid]:choice});}catch(e){toast("Couldn't save your vote.");}
 }
 async function submit(payload){
   const r=S.team.round;if(r.phase!=="answer")return;
@@ -247,13 +264,13 @@ function renderLobby(invite){
       <div class="err" id="createErr"></div>
     </div>
     <div class="card" id="secHow"><h3>How to play</h3>
-      <p class="note">You and your partner climb ${esc(MOUNTAIN.name)} together, one question per pitch, from base camp ${fmt(ALT.base)} m to Camp I ${fmt(ALT.c1)} m.</p>
+      <p class="note">You and your partner climb ${esc(MOUNTAIN.name)} together, one question per pitch, from base camp ${fmt(ALT.base)} m to the summit at ${fmt(ALT.top)} m.</p>
       <ul class="qrules">
         <li><b>The rope lock.</b> Each pitch is a question with four answers. You both lock in an answer in secret, and they're shown together.</li>
         <li><b>The leader decides.</b> Leader and belayer swap every pitch. The leader's answer is the one that counts. If you disagree, the rope jerks and costs a hook.</li>
         <li><b>Hooks.</b> Clip one before you see the question, and a wrong answer only slips you. Without one, you fall back to your anchor.</li>
         <li><b>Gear.</b> Chalk wipes out two wrong answers. The route scout gives the belayer a hint. An anchor locks in your height.</li>
-        <li><b>Camps</b> restock your gear and let you pick one extra piece.</li>
+        <li><b>Camps</b> restock your gear. There you pick the route on, short and hard or long and gentler, and one extra piece of gear.</li>
         <li><b>The rope radio</b> lets you talk when you're apart. Side by side, just talk.</li></ul></div>
     <div class="card" id="secSet"><h3>Settings</h3>
       <div class="setrow">Sound <button class="btn ghost" id="setSnd"></button></div>
@@ -438,7 +455,7 @@ function leaderOf(t){const r=t.round,ids=memberIds(t);return ["pre","answer","re
 const lookOf=(t,id)=>memberIds(t).indexOf(id)>0?LOOK.mate:LOOK.me;
 const ptag=(t,id)=>"P"+(memberIds(t).indexOf(id)+1);
 function renderHud(t){
-  const e=t.exp,alt=altOf(e,e.pitch),ids=memberIds(t),lead=leaderOf(t),tot=total(e);
+  const e=t.exp,alt=altOf(e,e.pitch),ids=memberIds(t),lead=leaderOf(t),so=stageOf(e,e.pitch);
   // a heart that was lost since the last render cracks away (a rope jerk or a clipped hook)
   const lost=S.prevRope!=null&&S.prevRope>e.rope&&S.prevN===e.n?S.prevRope:e.rope;S.prevRope=e.rope;S.prevN=e.n;
   const n=Math.max(3,e.rope,lost);
@@ -450,7 +467,7 @@ function renderHud(t){
   const html=`<div class="hud-l">${who}<div class="hudgear">${hearts}${gear}</div></div>
    <div class="hud-r"><div class="stat">${ICON.mtn}<span class="k">Alt</span><span class="v">${fmt(alt)} m</span></div>
      <div class="stat">${ICON.rope}<span class="k">Rope</span><span class="v">${fmt(alt-altOf(e,e.anchor))} m</span></div>
-     <div class="stat">${ICON.flag}<span class="k">Pitch</span><span class="v">${Math.min(e.pitch+1,tot)}/${tot}</span></div></div>`;
+     <div class="stat">${ICON.flag}<span class="k">Pitch</span><span class="v">${Math.min(so.i+1,so.n)}/${so.n}</span></div></div>`;
   if(S.hudHtml!==html){S.hudHtml=html;$("#hud").innerHTML=html;}
 }
 function remaining(r){return Math.max(0,(r.startedAt+r.dur*1000-Date.now())/1000);}
@@ -463,14 +480,16 @@ function pitchArt(){if(PITCH_ART)return PITCH_ART;const R=ART.rocks&&ART.rocks[0
   for(let y=0;y<56;y++)for(let x=0;x<72;x++){if(x<44+((hash(y>>2,9)*5)|0))continue;const i=(y*72+x)*4,j=(((y+30)%T.h)*T.w+(x%T.w))*4;d[i]=T.d[j];d[i+1]=T.d[j+1];d[i+2]=T.d[j+2];d[i+3]=255;}
   g.putImageData(id,0,0);const fr=A.clips.climb[2],b=boxOf(fr),w=b.x1-b.x0+1;g.drawImage(fr,b.x0,b.y0,w,54,48-w,3,w,54);
   return PITCH_ART=c.toDataURL();}
-const tierMarks=k=>`<span class="tier" aria-label="difficulty ${k} of 3">${"▲".repeat(k)}<i>${"▲".repeat(3-k)}</i></span>`;
+const tierMarks=k=>`<span class="tier" aria-label="difficulty ${k} of 4">${"▲".repeat(k)}<i>${"▲".repeat(4-k)}</i></span>`;
+// "Stage 2 · Pitch 3/5": where a pitch sits on the whole climb
+const pitchLabel=(e,p)=>{const so=stageOf(e,p);return `Stage ${so.s+1} · Pitch ${Math.min(so.i+1,so.n)}/${so.n}`;};
 
 function renderPanel(t){
   const r=t.round,e=t.exp,panel=$("#panel"),mine=S.answers[S.uid];
   const key=[r.id,r.phase,!!mine,memberIds(t).length,r.phase==="camp"?JSON.stringify(r.votes||{}):"",r.resolvedAt||"",String(r.cut),!!r.scout,e.chalk,e.scout,e.rope,Object.values(S.names).join(",")].join("|");
   if(key===S.panelKey){updateDynamic(t);return;}
   if(S.panelKey&&S.panelKey.split("|")[0]!==String(r.id))S.local={};S.panelKey=key;S.local=S.local||{};
-  panel.innerHTML=r.phase==="ready"?readyView(t):r.phase==="pre"?preView(t):r.phase==="answer"?answerView(t,mine):r.phase==="reveal"?revealView(t):r.phase==="camp"?campView(t):stageView(t);
+  panel.innerHTML=r.phase==="ready"?readyView(t):r.phase==="pre"?preView(t):r.phase==="answer"?answerView(t,mine):r.phase==="reveal"?revealView(t):r.phase==="camp"?campView(t):summitView(t);
   wirePanel(t);updateDynamic(t);
 }
 function frameQ(t,main,side){return `<div class="qwrap${side?"":" noside"}"><div class="qart"><img src="${pitchArt()}" alt=""></div><div class="qmain">${main}</div>${side?`<div class="qside">${side}</div>`:""}</div>`;}
@@ -479,7 +498,7 @@ function readyView(t){
   const solo=memberIds(t).length<2;
   return frameQ(t,`<div class="qhead"><span>Expedition ${t.exp.n} · ${esc(MOUNTAIN.theme)}</span></div>
    <div class="qtitle">${esc(MOUNTAIN.name)}</div>
-   <p class="qsub">${esc(MOUNTAIN.stage)}: base camp ${fmt(ALT.base)} m to Camp I ${fmt(ALT.c1)} m, ${total(t.exp)} pitches.</p>
+   <p class="qsub">Base camp ${fmt(ALT.base)} m to the summit ${fmt(ALT.top)} m in three stages, resting at Camp I and Camp II. At each camp you pick the route on.</p>
    <ul class="qrules"><li>One question per pitch. You both lock in an answer in secret.</li>
      <li>The leader's answer counts. Disagree and the rope jerks: it costs a hook.</li>
      <li>Clip a hook before a question, and a wrong answer only slips you.</li>
@@ -489,7 +508,7 @@ function readyView(t){
 }
 function preView(t){
   const r=t.round,q=quizById(r.qid),e=t.exp,ids=memberIds(t),solo=ids.length<2,lead=r.leader===S.uid||solo;
-  return frameQ(t,`<div class="qhead"><span>Pitch ${e.pitch+1} / ${total(e)} · ${fmt(altOf(e,e.pitch))} m</span>${tierMarks(q.tier)}</div>
+  return frameQ(t,`<div class="qhead"><span>${pitchLabel(e,e.pitch)} · ${fmt(altOf(e,e.pitch))} m</span>${tierMarks(q.tier)}</div>
    <div class="qtitle">${esc(q.cat)}</div>
    <p class="qsub">${lead?"Clip a hook before you see the question? If you get it wrong, the hook holds you.":`${esc(nameOf(r.leader))} decides whether to clip a hook. Talk it over on the radio.`}</p>
    ${lead?`<div class="actions"><button class="btn rope" id="hookBtn" ${e.rope>0?"":"disabled"}>Clip a hook (${e.rope} left)</button><button class="btn" id="noHookBtn">Climb without</button></div>`:`<div class="wait">Waiting for your leader…</div>`}`,
@@ -500,7 +519,7 @@ function answerView(t,mine){
   const sel=mine?mine.choice:S.local.choice;
   const opts=r.order.map((k,i)=>`<button class="qopt ${cut.includes(i)?"cut":""} ${sel===i?"sel":""}" data-i="${i}" ${cut.includes(i)||mine?"disabled":""}><b>${LETTERS[i]}</b><span>${esc(q.o[k])}</span></button>`).join("");
   const seeHint=r.scout&&(!lead||solo);
-  return frameQ(t,`<div class="qhead"><span>Pitch ${e.pitch+1} / ${total(e)} · ${esc(q.cat)}</span>${r.hook?`<span class="chip0">Hook clipped</span>`:""}<span class="qtime" id="qtime"></span></div>
+  return frameQ(t,`<div class="qhead"><span>${pitchLabel(e,e.pitch)} · ${esc(q.cat)}</span>${r.hook?`<span class="chip0">Hook clipped</span>`:""}<span class="qtime" id="qtime"></span></div>
    <div class="qtext">${esc(q.q)}</div><div class="qopts">${opts}</div>
    <div class="qfoot">${mine?`<div class="wait">Locked in: <strong>${mine.choice==null?"no answer":LETTERS[mine.choice]}</strong></div>`:`<button class="btn rope" id="lockBtn" ${sel==null?"disabled":""}>Lock in</button>`}<span class="note" id="partnerTxt"></span></div>
    <div class="timer"><i id="timerBar"></i></div>`,
@@ -511,33 +530,40 @@ function answerView(t,mine){
 }
 function revealView(t){
   const r=t.round,o=r.result||{},q=quizById(r.qid),e=t.exp,ids=memberIds(t),bel=ids.find(i=>i!==r.leader);
-  const atCamp=e.pitch>=total(e),canAnchor=!atCamp&&o.move>0&&e.anchors>0&&e.anchor!==e.pitch;
+  const atCamp=needsChoice(e)>=0,atTop=!atCamp&&e.pitch>=total(e),canAnchor=!atCamp&&!atTop&&o.move>0&&e.anchors>0&&e.anchor!==e.pitch;
   const opts=r.order.map((k,i)=>{const tags=(i===o.lead?`<em class="lead">${ptag(t,r.leader)}</em>`:"")+(bel&&i===o.bel?`<em class="belay">${ptag(t,bel)}</em>`:"");
     return `<div class="qopt ${i===o.right?"right":i===o.lead?"wrong":""}"><b>${LETTERS[i]}</b><span>${esc(q.o[k])}</span>${tags}</div>`;}).join("");
-  const oc=o.arrived?["good",ICON.tent,"Camp I reached!"]:o.fall&&o.caught?["warn",ICON.hook,"Your hook held"]:o.fall?["bad",ICON.anchor,"Off the wall"]:["good",ICON.up,"Climbed a pitch"];
-  return frameQ(t,`<div class="qhead"><span>Pitch ${o.from+1} · ${esc(q.cat)}</span>${o.jerk?`<span class="jerk">ROPE JERK!</span>`:""}</div>
+  const oc=o.arrived==="summit"?["good",ICON.flag,"Summit reached!"]:o.arrived?["good",ICON.tent,`${o.arrived} reached!`]:o.fall&&o.caught?["warn",ICON.hook,"Your hook held"]:o.fall?["bad",ICON.anchor,"Off the wall"]:["good",ICON.up,"Climbed a pitch"];
+  return frameQ(t,`<div class="qhead"><span>${pitchLabel(e,o.from)} · ${esc(q.cat)}</span>${o.jerk?`<span class="jerk">ROPE JERK!</span>`:""}</div>
    <div class="qtext">${esc(q.q)}</div><div class="qopts">${opts}</div>
    <div class="headline ${o.tone||"good"}">${esc(o.headline)}</div>
    <div class="outcome ${oc[0]}">${oc[1]}<span>${esc(o.moveText||"")}</span></div>
-   <div class="actions">${atCamp?`<button class="btn rope" id="nextBtn">Make camp</button>`:`<button class="btn rope" id="nextBtn">Next pitch</button>${canAnchor?`<button class="btn ghost" id="anchorBtn" title="A fall without a hook will drop you no lower than this">Place anchor (${e.anchors} left)</button>`:""}`}</div>`);
+   <div class="actions">${atCamp?`<button class="btn rope" id="nextBtn">Make camp</button>`:atTop?`<button class="btn rope" id="nextBtn">Stand on top</button>`:`<button class="btn rope" id="nextBtn">Next pitch</button>${canAnchor?`<button class="btn ghost" id="anchorBtn" title="A fall without a hook will drop you no lower than this">Place anchor (${e.anchors} left)</button>`:""}`}</div>`);
 }
+// at camp: two rows of cards, the route on and the bonus gear; each climber's picks are shown under the cards
 function campView(t){
-  const votes=t.round.votes||{},ids=memberIds(t),solo=ids.length<2,lead=solo||leaderOf(t)===S.uid,my=votes[S.uid];
-  const card=k=>`<button class="route ${my===k?"sel":""}" data-k="${k}"><h4>${BONUS[k].name}</h4><span>${BONUS[k].desc}</span><span class="votes">${ids.filter(i=>votes[i]===k).map(i=>esc(nameOf(i))).join(", ")||"&nbsp;"}</span></button>`;
-  return frameQ(t,`<div class="qhead"><span>Camp I · ${fmt(ALT.c1)} m</span></div>
-   <div class="qtitle">Rest at camp</div>
-   <p class="qsub">Your gear is restocked: 3 hooks, chalk, a route scout and an anchor. Pick one extra piece together${solo?"":`, then ${lead?"you make":"your partner makes"} the call`}.</p>
-   <div class="routes bonus">${card("hook")}${card("chalk")}${card("scout")}</div>
-   ${lead?`<button class="btn rope" id="campBtn" ${my?"":"disabled"}>${my?`Take the ${BONUS[my].name.toLowerCase()}`:"Pick one to continue"}</button>`:`<p class="note">Waiting for your partner to decide.</p>`}`);
+  const r=t.round,s=r.stage??needsChoice(t.exp),F=FORKS[s],votes=r.votes||{},ids=memberIds(t),solo=ids.length<2,lead=solo||leaderOf(t)===S.uid,my=votes[S.uid]||{};
+  const who=(part,k)=>ids.filter(i=>votes[i]?.[part]===k).map(i=>esc(nameOf(i))).join(", ")||"&nbsp;";
+  const route=k=>`<button class="route ${my.route===k?"sel":""}" data-part="route" data-k="${k}"><h4>${F[k].name}</h4><span>${F[k].desc}</span>
+    <span class="rmeta">${F[k].p.length} pitches ${tierMarks(Math.round(F[k].tiers.reduce((a,b)=>a+b,0)/F[k].tiers.length))}</span><span class="votes">${who("route",k)}</span></button>`;
+  const bonus=k=>`<button class="route ${my.bonus===k?"sel":""}" data-part="bonus" data-k="${k}"><h4>${BONUS[k].name}</h4><span>${BONUS[k].desc}</span><span class="votes">${who("bonus",k)}</span></button>`;
+  const ready=my.route&&my.bonus;
+  return frameQ(t,`<div class="qhead"><span>${F.camp} · ${fmt(s?ALT.c2:ALT.c1)} m</span></div>
+   <div class="qtitle">Rest at ${F.camp}</div>
+   <p class="qsub">Your gear is restocked: 3 hooks, chalk, a route scout and an anchor. Pick the way to ${F.next} and one extra piece of gear together${solo?"":`, then ${lead?"you make":"your partner makes"} the call`}.</p>
+   <div class="clabel">Route to ${F.next}</div><div class="routes">${route("A")}${route("B")}</div>
+   <div class="clabel">Extra gear</div><div class="routes bonus">${bonus("hook")}${bonus("chalk")}${bonus("scout")}</div>
+   ${lead?`<button class="btn rope" id="campBtn" ${ready?"":"disabled"}>${ready?`Climb on via ${F[my.route].name}`:"Pick a route and a piece of gear"}</button>`:`<p class="note">Waiting for your partner to decide.</p>`}`);
 }
-function stageView(t){const st=t.exp.run||{};
-  return frameQ(t,`<div class="qhead"><span>Camp I · ${fmt(ALT.c1)} m</span></div>
-   <div class="qtitle">Stage complete!</div>
-   <p class="qsub">You made it to Camp I with ${BONUS[t.round.bonus]?.name.toLowerCase()||"your gear"} in the pack. This prototype ends here: the climb to Camp II and the summit comes next.</p>
-   <div class="lines">${memberIds(t).length>1?`<div class="line"><span class="who">In sync</span><span class="what">${st.synced||0} moves</span><span></span></div>
-     <div class="line"><span class="who">Rope jerks</span><span class="what">${st.jerks||0}</span><span></span></div>`:""}
-     <div class="line"><span class="who">Hooks that held</span><span class="what">${st.slips||0}</span><span></span></div>
-     <div class="line"><span class="who">Falls</span><span class="what">${st.falls||0}</span><span></span></div></div>
+// the end of the expedition: the summit, and how the team climbed
+function summitView(t){const e=t.exp,st=e.run||{},two=memberIds(t).length>1;
+  const via=[FORKS[0][e.choice[0]]?.name,FORKS[1][e.choice[1]]?.name].filter(Boolean).join(" and ");
+  const line=(k,v)=>`<div class="line"><span class="who">${k}</span><span class="what">${v}</span><span></span></div>`;
+  return frameQ(t,`<div class="qhead"><span>Summit · ${fmt(ALT.top)} m</span></div>
+   <div class="qtitle">Top of ${esc(MOUNTAIN.name)}!</div>
+   <p class="qsub">You stood on the summit together${via?`, by way of ${esc(via)}`:""}. Expedition ${e.n} is complete.</p>
+   <div class="lines">${line("Questions",`${st.right||0} right of ${st.q||0}`)}${two?line("In sync",`${st.synced||0} moves`)+line("Rope jerks",st.jerks||0):""}
+     ${line("Hooks held",st.slips||0)}${line("Falls",st.falls||0)}</div>
    <button class="btn rope" id="newExpBtn">Climb again</button>`);
 }
 
@@ -571,8 +597,8 @@ function wirePanel(t){
   P.querySelector("#hookBtn")?.addEventListener("click",()=>{sfx("grab");climbOn(true);});
   P.querySelector("#noHookBtn")?.addEventListener("click",()=>climbOn(false));
   P.querySelector("#newExpBtn")?.addEventListener("click",newExpedition);
-  P.querySelectorAll(".route").forEach(b=>b.addEventListener("click",()=>vote(b.dataset.k)));
-  P.querySelector("#campBtn")?.addEventListener("click",()=>{const v=(t.round.votes||{})[S.uid];if(v)campPick(v);});
+  P.querySelectorAll(".route[data-part]").forEach(b=>b.addEventListener("click",()=>{sfx("pop");campVote(b.dataset.part,b.dataset.k);}));
+  P.querySelector("#campBtn")?.addEventListener("click",()=>{const v=(t.round.votes||{})[S.uid];if(v?.route&&v?.bonus)campPick(v.route,v.bonus);});
   if(r.phase!=="answer")return;
   P.querySelector("#chalkBtn")?.addEventListener("click",useChalk);
   P.querySelector("#scoutBtn")?.addEventListener("click",useScout);

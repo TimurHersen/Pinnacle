@@ -42,8 +42,9 @@ input[type=text]{cursor:text;width:13em}
   <div class="grp"><span>Players</span><button data-players="2" class="on">Two</button><button data-players="1">Solo</button></div>
   <div class="grp"><span>Timer</span><button data-secs="0" class="on">45 s</button><button data-secs="15">15 s</button><button data-secs="5">5 s</button></div>
   <div class="grp"><span>Go to</span><button id="goBase">Base camp</button>
-    <select id="goPitch" aria-label="Go to pitch"><option value="">Pitch…</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select>
-    <button id="goCamp">Camp I</button><button id="goEnd">Stage end</button></div>
+    <select id="goPitch" aria-label="Go to pitch"><option value="">Pitch…</option></select>
+    <button id="goCamp">Camp I</button><button id="goCamp2">Camp II</button><button id="goTop" title="The last pitch before the summit">Last pitch</button><button id="goSummit">Summit</button>
+    <select id="routes" aria-label="Routes the jumps use past Camp I" title="Routes the jumps use past Camp I"><option value="AA">Icefall · Couloir</option><option value="AB">Icefall · North Ridge</option><option value="BA">Shoulder · Couloir</option><option value="BB">Shoulder · North Ridge</option></select></div>
   <div class="grp"><span>Gear</span>
     <select id="hearts" aria-label="Hooks"><option value="">Hooks…</option><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option></select>
     <button id="gearFull">Refill</button><button id="gearNone">Empty</button></div>
@@ -101,11 +102,26 @@ document.querySelectorAll("[data-players]").forEach(b=>b.onclick=()=>{UI.players
 // jumps: rebuild the round with the game's own startPitch, so a jump is exactly what the game would do
 function jump(fn){const w=eng(),t=w.fixTeam(team());if(!t)return;fn(t,w);save(t);}
 document.getElementById("goBase").onclick=()=>{fresh();};
-document.getElementById("goPitch").onchange=e=>{const p=+e.target.value;e.target.value="";if(!p)return;
-  jump((t,w)=>{t.exp.pitch=p-1;t.exp.anchor=Math.min(t.exp.anchor,p-1);Object.assign(t,w.startPitch(t));});};
-document.getElementById("goCamp").onclick=()=>jump((t,w)=>{t.exp.pitch=w.total(t.exp);t.exp.anchor=t.exp.pitch;Object.assign(t,w.startPitch(t));});
-document.getElementById("goEnd").onclick=()=>jump((t,w)=>{t.exp.pitch=w.total(t.exp);t.exp.anchor=t.exp.pitch;
-  Object.assign(t.exp,{rope:4,chalk:1,scout:1,anchors:1});t.round={id:t.round.id+1,phase:"stage",bonus:"hook"};});
+// past Camp I the jumps follow the route plan: A is the short, hard route of a stage, B the long, gentler one
+const plan=()=>document.getElementById("routes").value.split("");
+// where the camps fall on the planned climb (L0: Camp I, L0+L1: Camp II, top: the summit)
+function stops(w){const [a,b]=plan(),L=w.lens({choice:[a,b]});return {a,b,L0:L[0],c2:L[0]+L[1],top:L[0]+L[1]+L[2]};}
+// put the team on the climb at pitch index p, with the planned route chosen for every stage it's in; at a camp the
+// route on isn't chosen yet, so the team picks it there as in the game
+function setPitch(t,w,p,atCamp){const s=stops(w);
+  t.exp.choice=[p>s.L0||(p===s.L0&&!atCamp)?s.a:null,p>s.c2||(p===s.c2&&!atCamp)?s.b:null];
+  t.exp.pitch=p;t.exp.anchor=p>=s.c2?s.c2:p>=s.L0?s.L0:0;Object.assign(t,w.startPitch(t));}
+const pitchSel=document.getElementById("goPitch");
+// the pitch list follows the plan: "S2 P3" is the third pitch of stage two
+function pitchOptions(){const w=eng();if(!w.lens)return;const s=stops(w);let html='<option value="">Pitch…</option>';
+  for(let p=0;p<s.top;p++){const st=p<s.L0?[1,p]:p<s.c2?[2,p-s.L0]:[3,p-s.c2];html+=`<option value="${p}">S${st[0]} P${st[1]+1}</option>`;}
+  pitchSel.innerHTML=html;}
+pitchSel.onfocus=pitchSel.onmousedown=pitchOptions;document.getElementById("routes").onchange=pitchOptions;
+pitchSel.onchange=e=>{const v=e.target.value;e.target.value="";if(v==="")return;jump((t,w)=>setPitch(t,w,+v,false));};
+document.getElementById("goCamp").onclick=()=>jump((t,w)=>setPitch(t,w,stops(w).L0,true));
+document.getElementById("goCamp2").onclick=()=>jump((t,w)=>setPitch(t,w,stops(w).c2,true));
+document.getElementById("goTop").onclick=()=>jump((t,w)=>setPitch(t,w,stops(w).top-1,false));
+document.getElementById("goSummit").onclick=()=>jump((t,w)=>setPitch(t,w,stops(w).top,false));
 document.getElementById("hearts").onchange=e=>{const n=e.target.value;e.target.value="";if(n!=="")jump(t=>{t.exp.rope=+n;});};
 document.getElementById("gearFull").onclick=()=>jump(t=>Object.assign(t.exp,{rope:3,chalk:1,scout:1,anchors:1}));
 document.getElementById("gearNone").onclick=()=>jump(t=>Object.assign(t.exp,{rope:0,chalk:0,scout:0,anchors:0}));
@@ -135,7 +151,7 @@ document.getElementById("talkText").onkeydown=e=>{if(e.key==="Enter")talk();};
 let msg="";function note(s){msg=s;showStatus(team());setTimeout(()=>{if(msg===s){msg="";showStatus(team());}},4000);}
 function showStatus(t){const el=document.getElementById("status");if(!t){el.textContent="No test team.";return;}
   const e=t.exp,r=t.round,res=r.result;
-  el.innerHTML=[`Phase <b>${r.phase}</b>`,`Pitch <b>${Math.min(e.pitch+1,5)}/5</b>${e.pitch>=5?" (at camp)":""}`,
+  el.innerHTML=[`Phase <b>${r.phase}</b>`,(()=>{const w=eng(),so=w.stageOf?w.stageOf(e,e.pitch):null;return so?`Stage <b>${so.s+1}</b> · pitch <b>${Math.min(so.i+1,so.n)}/${so.n}</b>`:`Pitch <b>${e.pitch+1}</b>`;})(),(e.choice||[]).some(Boolean)?`Routes <b>${(e.choice||[]).map(c=>c||"–").join(" · ")}</b>`:"",
     r.leader?`Leader <b>${r.leader.toUpperCase()}</b>`:"",r.qid?`Question <b>${r.qid}</b>`:"",
     `Hooks <b>${e.rope}</b> · chalk <b>${e.chalk}</b> · scout <b>${e.scout}</b> · anchors <b>${e.anchors}</b>`,
     res?`<span class="res">Last: ${res.headline}${res.jerk?" + rope jerk":""}</span>`:"",msg?`<span class="res">${msg}</span>`:""].filter(Boolean).join("<span>·</span>");}

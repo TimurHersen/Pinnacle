@@ -969,4 +969,6 @@ function drawTopo(t){
   if(st.res&&st.res!==prev.res&&r.result)runEvent(exp,r.result);
   else if(st.pitch!==prev.pitch){const id=++FX.ch.main,to=idxOf(exp,st.pitch);climbRig(FX.A.me,to,300,id).then(k=>k&&climbRig(FX.A.mate,mateIdx(to),300,id));}
   if(st.phase==="summit"&&prev.phase!=="summit")runSummit(t);
+  // morning: once the route on is picked, the team packs up camp before the next pitch
+  else if(prev.phase==="camp"&&st.phase!=="camp"&&FX.camp)leaveCamp();
 }

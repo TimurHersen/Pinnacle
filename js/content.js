@@ -150,13 +150,18 @@ const TERRAIN = {
  traverse:{name:"Traverse",dur:70,talk:[2,6],rule:"Split the list. Agree on the radio who takes what, then type as many as you can. Every unique answer counts; answers you both give cancel out."},
  overhang:{name:"Overhang",dur:50,rule:"The belayer sees the question and answer, and sends one word. The leader sees only the options."}
 };
-// the first stage: five pitches from base camp to Camp I (the pitch types now only name and colour each pitch)
+// the first stage: five pitches from base camp to Camp I (the pitch types now only name and colour each pitch),
+// and the question difficulty (tier, see js/quiz.js) of each
 const SEG0 = ["slab","crevasse","chimney","traverse","overhang"];
+const SEG0_TIERS = [1,1,2,2,3];
+// at each camp the team picks the route on: short and hard, or long and gentler
 const FORKS = [
- {camp:"Camp I", A:{name:"The Icefall",desc:"Direct and steep. Fewer pitches, more teamwork.",p:["chimney","overhang","crevasse","chimney","overhang"]},
-                 B:{name:"Shoulder Ridge",desc:"Longer, gentler. More knowledge, less telepathy.",p:["slab","traverse","slab","crevasse","slab","traverse","chimney"]}},
- {camp:"Camp II",A:{name:"Summit Couloir",desc:"Four hard pitches straight to the top.",p:["overhang","chimney","crevasse","chimney"]},
-                 B:{name:"North Ridge",desc:"Six pitches along the exposed ridge.",p:["slab","traverse","crevasse","slab","overhang","chimney"]}}
+ {camp:"Camp I", next:"Camp II",
+  A:{name:"The Icefall",desc:"Direct and steep: five pitches, mostly hard questions.",p:["chimney","overhang","crevasse","chimney","overhang"],tiers:[2,3,3,3,4]},
+  B:{name:"Shoulder Ridge",desc:"Longer and gentler: seven pitches, mostly easier questions.",p:["slab","traverse","slab","crevasse","slab","traverse","chimney"],tiers:[2,2,2,3,2,3,3]}},
+ {camp:"Camp II",next:"the summit",
+  A:{name:"Summit Couloir",desc:"Four pitches straight up, every one a summit question.",p:["overhang","chimney","crevasse","chimney"],tiers:[4,4,4,4]},
+  B:{name:"North Ridge",desc:"Six pitches along the exposed ridge, hard but fairer.",p:["slab","traverse","crevasse","slab","overhang","chimney"],tiers:[3,3,4,3,4,4]}}
 ];
 const ALT = {base:1800,c1:2600,c2:3400,top:4100};
 
