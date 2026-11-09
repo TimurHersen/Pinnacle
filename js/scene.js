@@ -66,7 +66,7 @@ function textSprite(text,col=C.cream,out=INK){const key=text+"|"+col+"|"+out;let
   for(let y=0;y<h;y++)for(let x=0;x<w;x++)if(on[y*w+x])dot(og,x,y,col);
   if(FX.text.size>200)FX.text.clear();FX.text.set(key,o);return o;}
 // signs are baked into cached layers, so those repaint once the face has loaded
-if(document.fonts)document.fonts.load(`8px ${PXFONT}`).then(()=>{FX.text.clear();FX.base=null;FX.camps={};},()=>{});
+if(document.fonts)document.fonts.load(`8px ${PXFONT}`).then(()=>{FX.text.clear();},()=>{});
 
 /* ---------- small sprites ---------- */
 const SP={};
@@ -93,8 +93,6 @@ function sprites(){if(SP.tent)return SP;
       :["...y.......","...yy......","..yooy..y..","..yoooyoy..",".yooyyoy...",".yooyyooy..","..yoyyyoy.."];
     g.drawImage(gridSprite(rows,P),0,0);rect(g,1,7,9,1,C.woodL);rect(g,0,8,11,1,C.wood);rect(g,1,9,9,1,C.woodD);
     for(const x of [0,3,7,10])dot(g,x,10,"#8a8a86");return c;});
-  SP.flag=[0,1].map(f=>gridSprite(f?["kk.......","kRrrrr...","kRrrrrrr.","kRrrrrr..","kRrr.....","k........","k........","k........","k........","k........","k........","kk......."]
-    :["kk.......","kRrrr....","kRrrrrr..","kRrrrrrr.","kRrrrr...","k........","k........","k........","k........","k........","k........","kk......."],P));
   SP.bird=[gridSprite(["k...k",".k.k.","..k.."],P),gridSprite([".....","kkkkk","..k.."],P)];
   return SP;}
 // a pine: stepped tiers, lit on the left, with a dark rim, on a short trunk
@@ -380,6 +378,8 @@ function loadClimber(L){const who=CLIMBER_ART[L.name],A=L.art={clips:{},ready:0}
   for(const [k,n] of Object.entries(CLIP_N))A.clips[k]=Array.from({length:n},(_,i)=>img(asset(`assets/climbers/${who}/${k}/${i}.png`)));
   A.front=img(asset(`assets/climbers/${who}/south.png`));if(--left===0)A.ready=1;}
 loadClimber(LOOK.me);loadClimber(LOOK.mate);
+// all of the climb's pictures are in (until then the scene draws simple stand-ins; the loading screen waits for this)
+const artReady=()=>!!(ART.valley&&ART.pines&&ART.rockLo&&ART.ledge&&ART.tent&&ART.fire&&ART.pine&&ART.ground&&LOOK.me.art.ready&&LOOK.mate.art.ready);
 function ik(rx,ry,tx,ty,a,b,bend){let dx=tx-rx,dy=ty-ry,d=Math.hypot(dx,dy)||1e-4;const m=a+b-.01;if(d>m){tx=rx+dx/d*m;ty=ry+dy/d*m;d=m;}
   const ang=Math.atan2(ty-ry,tx-rx),j=ang+bend*Math.acos(clamp((a*a+d*d-b*b)/(2*a*d),-1,1));return [rx+Math.cos(j)*a,ry+Math.sin(j)*a,tx,ty];}
 // sprite box and the hips' place in it; HANG is where the near hand sits (from the hips) when hanging on a hold
@@ -671,10 +671,35 @@ function drawParts(g,ox,oy,t){for(const p of FX.parts){const a=p.l/p.m,x=R0(p.x)
     g.drawImage(s,Math.max(4,Math.min(R0(p.x)+ox-(s.width>>1),FX.vw-s.width-4)),R0(p.y-k*14)+oy-(k<.12?R0((.12-k)*30):0));}}
 
 /* ---------- camps, base camp and the summit ---------- */
-// a plank sign with pixel text
-function sign(text){const s=textSprite(text,C.cream,null),[c,g]=mk(s.width+6,s.height+4);
-  rect(g,0,0,c.width,c.height,INK);rect(g,1,1,c.width-2,c.height-2,C.wood);rect(g,1,1,c.width-2,1,C.woodL);rect(g,1,c.height-2,c.width-2,1,C.woodD);
-  g.drawImage(s,3,1);return c;}
+// a wooden signpost: a small hand-cut board (notched corners, a lit top edge, grain, a nail at each end) lettered
+// in the title screen's 5-pixel font, on a square post that pokes up behind it. `post` is how far the board's right
+// end is from the post, `h` the post's height from the ground to the top of the board; snow caps both when asked.
+// Returns the picture and where the post's foot is in it.
+function signpost(text,h,o={}){const key=text+"|"+h+"|"+(o.snow?1:0)+"|"+(o.post??"");let S=(FX.signs||(FX.signs=new Map())).get(key);if(S)return S;
+  const tw=PF.width(text),bw=tw+9,bh=11,top=3,post=o.post==null?bw>>1:bw-o.post,[c,g]=mk(bw+2,top+h+1);
+  // the post: three pixels of wood between dark edges, lit on the left
+  rect(g,post-2,1,5,top+h,INK);rect(g,post-1,2,1,top+h-1,C.woodL);rect(g,post,2,1,top+h-1,C.wood);rect(g,post+1,2,1,top+h-1,C.woodD);
+  // the board
+  const B=(x,y)=>x>=0&&y>=0&&x<bw&&y<bh&&!((x===0||x===bw-1)&&(y===0||y===bh-1));
+  for(let y=0;y<bh;y++)for(let x=0;x<bw;x++){if(!B(x,y))continue;
+    const edge=!B(x-1,y)||!B(x+1,y)||!B(x,y-1)||!B(x,y+1);
+    let col=edge?INK:y===1?C.woodL:y===bh-2?C.woodD:C.wood;
+    if(!edge&&(y===2||y===bh-3)&&hash(x*7+y,text.length)<.3)col=y===2?C.woodL:C.woodD; // grain
+    dot(g,1+x,top+y,col);}
+  for(const nx of [2,bw-3])dot(g,1+nx,top+5,C.metalD);
+  PF.draw(g,text,1+((bw-tw)>>1)+(tw%2?0:0),top+3,C.cream,"#3a2412");
+  if(o.snow){for(let x=1;x<bw-1;x++){const d=hash(x,31)<.35?1:0;dot(g,1+x,top-1+d,C.snow);if(!d)dot(g,1+x,top,C.snowS);}
+    rect(g,post-1,0,3,2,C.snow);dot(g,post+1,1,C.snowS);}
+  S={c,fx:post,w:c.width,h:c.height};if(FX.signs.size>40)FX.signs.clear();FX.signs.set(key,S);return S;}
+// (stood with the post's foot at x, on the ground at y)
+function drawSign(g,S,x,y){g.drawImage(S.c,x-S.fx,y-S.h+1);}
+// a pennant on the breeze: w by h pixels, four frames of a wave running along it, lit where it lifts
+function pennant(w,h,col,key){const K="pen"+key;if(FX[K])return FX[K];const hi=tone(col,.3),lo=tone(col,-.3);
+  return FX[K]=[0,1,2,3].map(f=>{const [c,g]=mk(w,h+4);
+    for(let x=0;x<w;x++){const k=x/(w-1),ph=x/2.6-f*1.57,dy=Math.round(Math.sin(ph)*1.3*k),half=Math.max(1,Math.round((h/2)*(1-k*.8)));
+      for(let y=-half;y<half;y++){const yy=2+(h>>1)+y+dy,edge=y===-half||y===half-1||x===w-1;
+        dot(g,x,yy,edge?INK:Math.cos(ph)>.35?hi:Math.cos(ph)<-.5?lo:col);}}
+    return c;});}
 // a tent standing on the ground at y: the generated one once it has loaded, the painted one until then
 function drawTent(g,x,y){if(ART.tent)g.drawImage(ART.tent,x,y-boxOf(ART.tent).y1-1);else g.drawImage(sprites().tent,x,y-12);}
 // a camp shelf jutting from the cliff: the generated ledge (grassy for Camp I, snowy for Camp II) with its walkable
@@ -691,8 +716,8 @@ function campLayer(k,cy){if(FX.camps[k])return FX.camps[k];
     if(!snow&&hash(x,4)<.35)dot(g,X(x),Y(cy-1),hash(x,6)<.5?C.grassL:C.mossH);}
   // the ledge waits empty but for its sign: the team pitches its own camp when it gets here
   // (the sign stands at the ledge's far end, before where the tent will go)
-  const sx=ART.ledge&&ART.ledgeWalk?ledgeL()+ART.ledgeWalk[0]+6:-122,s=sign(k==="c1"?"CAMP I":"CAMP II");
-  g.drawImage(s,X(sx)-6,Y(cy-92));rect(g,X(sx),Y(cy-92)+s.height,1,92-s.height,C.woodD);
+  const sx=ART.ledge&&ART.ledgeWalk?ledgeL()+ART.ledgeWalk[0]+6:-122;
+  drawSign(g,signpost(k==="c1"?"CAMP I":"CAMP II",26,{snow}),X(sx),Y(cy));
   return FX.camps[k]={c,x0,y0};}
 // where things go on a camp ledge, from the ledge's walkable span: the tent at the outer end, the fire beside it,
 // where each climber kneels to work (the leader at the tent, the partner at the fire) and the tent's door
@@ -741,6 +766,7 @@ function drawCamp(g,k,cy,t,ox,oy){const L=campLayer(k,cy);g.drawImage(L.c,L.x0+o
   drawTentRise(g,S.tentX+ox,cy+oy,C2.tent,C2.tentAt);
   drawFire(g,S.fireX+ox,cy+oy,C2.fire||0,t,C2.fireAt);if(fireLit(C2))embers(S.fireC,cy-12,1);}
 // the base-camp meadow and the near pines, painted once per view width
+const BASE_SIGN_X=-98;
 function baseLayer(){const ox=FX.ox,w=FX.vw;if(FX.base&&FX.base.ox===ox&&FX.base.w===w)return FX.base;
   const x0=-ox-8,x1=w-ox+8,y0=-90,y1=120,[c,g]=mk(x1-x0,y1-y0),X=x=>x-x0,Y=y=>y-y0;
   // distant pines first, then the meadow, then the big pines in front of the cliff foot
@@ -754,9 +780,9 @@ function baseLayer(){const ox=FX.ox,w=FX.vw;if(FX.base&&FX.base.ox===ox&&FX.base
     for(let y=top;y<y1;y++){let col=y<=0?C.grassL:y<4?C.grass:y<7?(hash(x,y)<.5?C.grass:C.dirt):y<40?(hash(x,y)<.08?C.dirtD:C.dirt):C.dirtD;
       if(y>=1&&y<4&&hash(x*3,y)<.12)col=C.mossH;dot(g,X(x),Y(y),col);}
     if(hash(x,8)<.18)dot(g,X(x),Y(-2),C.grassL);}
-  // the sign raised behind the tent, the tent, then (drawn each frame) the fire beside the climbers
-  const s=sign("BASE CAMP");g.drawImage(s,X(-160)-(s.width>>1),Y(-80));rect(g,X(-160),Y(-80)+s.height,1,80-s.height,C.woodD);
+  // the tent, the camp's signpost at its corner, then (drawn each frame) the fire beside the climbers
   drawTent(g,X(-196),Y(0));
+  drawSign(g,signpost("BASE CAMP",57,{post:7}),X(BASE_SIGN_X),Y(0));
   return FX.base={c,x0,y0,ox,w};}
 // the big pines in front of the cliff foot: the generated pine (every other one mirrored) once it has loaded
 function drawFrontPines(g,ox,oy){
@@ -764,11 +790,14 @@ function drawFrontPines(g,ox,oy){
       if(f){g.save();g.translate(dx+P.width,dy);g.scale(-1,1);g.drawImage(P,0,0);g.restore();}else g.drawImage(P,dx,dy);});return;}
   for(const [x,h] of [[-214,64],[-6,46],[14,58]]){const s=FX.pines?.[h]||(FX.pines=FX.pines||{},FX.pines[h]=pineSprite(h,h*13,{l:C.pineL,m:C.pine,d:C.pineD,h:C.pineH}));
   g.drawImage(s,x+ox-(s.width>>1),2-h+oy);}}
-// a tall flag on the tip, and a sign on a post down the left ridge
-function drawSummit(g,t,ox,oy){const fx=SX-18,fy=R0(peakTop(fx))+1;rect(g,fx+ox,fy-30+oy,1,30,INK);g.drawImage(sprites().flag[Math.floor(t*3)%2],fx+ox,fy-30+oy);
+// a tall flag on the tip (a red pennant on a pole, in a little cairn), and a signpost down the left ridge
+function drawSummit(g,t,ox,oy){const fx=SX-18,fy=R0(peakTop(fx))+1,F=pennant(15,9,C.red,"summit");
+  rect(g,fx+ox-1,fy-36+oy,3,37,INK);rect(g,fx+ox,fy-35+oy,1,35,C.metal);dot(g,fx+ox,fy-37+oy,INK);
+  g.drawImage(F[RM.matches?0:Math.floor(t*6)%4],fx+2+ox,fy-37+oy);
+  for(const [dx,dy,w,col] of [[-4,-2,4,C.metalD],[1,-3,5,C.metal],[-2,-5,4,"#9aa2b0"],[-5,0,11,INK]])rect(g,fx+dx+ox,fy+dy+oy,w,dy===0?1:2,col);
   // the sign's post stands on the ridge just in from the cliff edge (which leans right near the top), and its board
   // reaches out left over the drop so it never hides the flag
-  const sx=Math.max(SX-62,edgeL(TOPY)+6),sy=R0(peakTop(sx)),s=sign("SUMMIT");rect(g,sx+ox,sy-14+oy,1,14,C.woodD);g.drawImage(s,sx+ox-s.width+6,sy-14-s.height+oy);}
+  const sx=Math.max(SX-62,edgeL(TOPY)+6),sy=R0(peakTop(sx));drawSign(g,signpost("SUMMIT",18,{snow:true,post:6}),sx+ox,sy+oy);}
 const fireAmt=k=>!FX.lit[k]?0:FX.litAt[k]?clamp((FX.time-FX.litAt[k])/1.2,0,1):1;
 function quickdraws(g,ox,oy){const p=FX.pins;if(!p.length)return;for(let i=1;i<p.length-1;i++){const x=R0(p[i][0])+ox,y=R0(p[i][1])+oy;rect(g,x,y,1,3,C.gold);rect(g,x-1,y+3,3,3,C.metal);dot(g,x,y+4,C.navy);}}
 
@@ -806,7 +835,7 @@ function stepAmbient(dt){
 // the part of the window the cards and bar leave open, in CSS px: the camera frames the climb inside it
 // (below the HUD when it shows, so the portraits and the altitude box never sit over the leader)
 function sceneArea(){const W=FX.W,H=FX.H,wide=W>=900,hud=$("#hud"),hb=hud&&!hud.hidden?hud.getBoundingClientRect().bottom+8:0,
-    top=Math.max(wide?64:96,hb),m=$("#main");let a={x:0,y:top,w:W,h:H-top};
+    top=Math.max(64,hb),m=$("#main");let a={x:0,y:top,w:W,h:H-top};
   // (beside the lobby's column on wide screens; above the bottom question panel in a climb and on phones)
   const r=m&&m.getBoundingClientRect(),dock=m&&m.classList.contains("game2");
   // (a phone on its side has the panel as a column down the left edge instead: the climb is framed beside it)
@@ -875,16 +904,16 @@ function paint(t){
   for(const b of FX.birds)for(let i=0;i<b.n;i++)g.drawImage(SP.bird?SP.bird[Math.floor(b.t*5+i)%2]:sprites().bird[0],R0(b.x-i*7),R0(b.y*h+(i%2?3:-1)*i));
   if(art)drawPines(g,w,h,climb);
   else for(const L of FX.layers){const y=R0(climb*L.par);if(y<h)g.drawImage(L.c,0,y);}
-  if(vy1>-120){const B=baseLayer();g.drawImage(B.c,B.x0+ox,B.y0+oy);drawFire(g,-118+ox,oy,1,t);embers(-100,-10,1);}
+  if(vy1>-120){const B=baseLayer();g.drawImage(B.c,B.x0+ox,B.y0+oy);drawFire(g,-118+ox,oy,3,t);embers(-100,-10,1);}
   const [c1,c2]=chunkRange(vy0,vy1);for(let ci=c1;ci<=c2;ci++)g.drawImage(chunk(ci),-40+ox,-(ci+1)*CHK+oy);
   if(vy1>-120)drawFrontPines(g,ox,oy);
   for(const [kk,ix] of [["c1",IDX_C1],["c2",IDX_C2]]){const y=-ix*HS;if(y>vy0-70&&y<vy1+30)drawCamp(g,kk,y,t,ox,oy);}
   if(vy0<TOPY+60)drawSummit(g,t,ox,oy);
-  // the next pitch's goal: a little flag at the route with a wooden plaque beside it on the rock, so its pixel
-  // lettering reads against the busy granite
-  if(FX.label){const i=FX.label.i,[hx,hy]=holdXY(FX.exp.choice,i),x=hx+6+ox,y=hy+oy,txt=FX.label.text;
-    const s=(FX.signs||(FX.signs=new Map())).get(txt)||(FX.signs.size>20&&FX.signs.clear(),FX.signs.set(txt,sign(txt)).get(txt));
-    g.drawImage(sprites().flag[Math.floor(t*3)%2],x,y-12);g.drawImage(s,x+8,y-14);}
+  // the next pitch's goal: a little gold pennant pinned to the rock at the route, with the pitch's number beside it
+  // (outlined, so it reads against the busy granite)
+  if(FX.label){const i=FX.label.i,[hx,hy]=holdXY(FX.exp.choice,i),x=hx+6+ox,y=hy+oy,txt=FX.label.text,F=pennant(9,7,C.gold,"goal");
+    rect(g,x-1,y-12,3,13,INK);rect(g,x,y-11,1,11,C.metal);g.drawImage(F[RM.matches?0:Math.floor(t*6)%4],x+2,y-13);
+    for(const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1],[1,1]])PF.draw(g,txt,x+13+dx,y-9+dy,INK);PF.draw(g,txt,x+13,y-9,C.cream);}
   // (the climbers keep the camera's fraction of a pixel, so the one it follows holds still on screen rather than
   // flickering a pixel up and down as their rounding and the camera's take turns)
   FX.sub=oyF-R0(oyF);
@@ -1027,6 +1056,8 @@ function arrive(name,exp,to){const top=name==="summit";title(top?"SUMMIT!":name.
 async function runEvent(exp,o){
   const id=++FX.ch.main,A=FX.A,me=A.me,mate=A.mate,ok=()=>FX.ch.main===id;
   const to=idxOf(exp,typeof o.to==="number"?o.to:exp.pitch),plan=mateIdx(to,mate.hi);
+  // a beat before it plays out (the panel holds its result back for the same moment): the leader chalks up
+  puff(me.N.x+5,me.N.y-38);sfx("chalk");if(!(await wait(SUSPENSE_MS)))return;
   // the rope jerk (the two locked in different answers): the rope snaps taut and twangs, the leader is jolted off
   // their holds for a moment (grit rains down), the belayer is dragged a step, the view shakes; then the pitch plays
   if(o.jerk){FX.ropeJerk=FX.time;FX.shake=Math.max(FX.shake,1.4);sfx("boing");pebbles(me);pop(me,"JERK!");
@@ -1080,8 +1111,8 @@ function drawTopo(t){
   const reached=Math.max(idxOf(exp,exp.pitch),idxOf(exp,exp.anchor));
   for(const [k,ix] of [["c1",IDX_C1],["c2",IDX_C2]]){const on=reached>=ix;if(on&&!FX.lit[k]&&FX.mode==="game")FX.litAt[k]=FX.time+1.6;FX.lit[k]=on;}
   FX.focus=r.phase==="summit"?"summit":"me";
-  const tot=total(exp),ter=route(exp)[exp.pitch];
-  FX.label=r.phase!=="summit"&&exp.pitch<tot&&needsChoice(exp)<0&&ter?{i:idxOf(exp,exp.pitch+1),text:`P${exp.pitch+1} ${TERRAIN[ter].name.toUpperCase()}`}:null;
+  const tot=total(exp);
+  FX.label=r.phase!=="summit"&&exp.pitch<tot&&needsChoice(exp)<0?{i:idxOf(exp,exp.pitch+1),text:`P${stageOf(exp,exp.pitch).i+1}`}:null;
   const st={n:exp.n,pitch:exp.pitch,res:r.phase==="reveal"?r.resolvedAt:null,phase:r.phase,gear:exp.rope};
   const prev=FX.state;FX.state=st;
   if(FX.mode!=="game"||!prev||prev.n!==st.n){FX.mode="game";FX.litAt={};snap(exp,t);return;}

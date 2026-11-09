@@ -22,6 +22,10 @@ function sfx(kind){const c=SND.ctx;if(!c||!SND.on||c.state!=="running")return;co
   else if(kind==="thud"){osc("sine",130,60,.22,.005,.18);hiss(500,1,.1,.08);}
   else if(kind==="crackle")hiss(2200+Math.random()*1800,4,.04+Math.random()*.05,.03);
   else if(kind==="pop")osc("sine",520,940,.06,.005,.1);
+  else if(kind==="tick")osc("square",880,0,.03,.002,.05); // a count before the clock starts, and its last seconds
+  // the result: two bright notes up for a right answer, a low slide down for a wrong one
+  else if(kind==="right"){osc("triangle",660,0,.1,.005,.12);osc("triangle",990,0,.1,.005,.22,.1);osc("sine",1320,0,.04,.005,.3,.1);}
+  else if(kind==="wrong"){osc("sawtooth",220,130,.06,.01,.3);osc("triangle",165,98,.12,.01,.38,.04);}
   else if(kind==="tug"){osc("triangle",260,170,.13,.004,.14);hiss(1300,2,.07,.06);} // a message arrives on the rope radio
   else if(kind==="restock"){[660,880,1100].forEach((f,i)=>osc("triangle",f,0,.08,.005,.12,i*.07));hiss(4200,3,.06,.12,.05);}
   else if(kind==="fanfare"||kind==="summit"){const n=kind==="summit"?[523,659,784,1047,880,1047,1319]:[392,494,587,784];

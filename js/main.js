@@ -1,5 +1,6 @@
 /* ============================== BOOT ============================== */
-$("#homeBtn").onclick=goLobby;
+$("#homeBtn").onclick=()=>S.team?openMenu():goLobby(); // (in a climb: the menu, with the way out in it)
+$("#radioBtn").onclick=()=>toggleRadio();
 {const fs=$("#fsBtn"),root=document.documentElement; // real fullscreen where the browser allows it
   if(!root.requestFullscreen)fs.hidden=true;
   else{fs.onclick=()=>document.fullscreenElement?document.exitFullscreen():root.requestFullscreen().catch(()=>{});
@@ -17,3 +18,8 @@ $("#homeBtn").onclick=goLobby;
     else if(t)renderLobby({code:m[1],name:t.name});
     else toast("That invite link's rope team doesn't exist.");}).catch(()=>toast("Couldn't reach the mountain. Check your connection."));
 })();
+// the loading screen lifts once the first picture can be shown whole: the title painting with its logo, or (opened
+// straight onto a climb) the climb's art; after eight seconds it lifts anyway
+{const t0=Date.now(),boot=$("#boot"),ready=()=>{if(document.body.classList.contains("home")){const bg=$("#menubg");return !!(bg&&bg.complete&&bg.naturalWidth&&$("#home .tlogo canvas"));}
+    return S.code?artReady():false;};
+  const iv=setInterval(()=>{if(!ready()&&Date.now()-t0<8000)return;clearInterval(iv);if(boot){boot.classList.add("out");setTimeout(()=>boot.remove(),400);}},80);}

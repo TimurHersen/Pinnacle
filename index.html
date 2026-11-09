@@ -6,6 +6,17 @@
 <meta name="theme-color" content="#020b12">
 <title>Pinnacle</title>
 <meta name="description" content="A quiz climb for two: rope up with a partner and answer your way to the summit.">
+<!-- how a shared link (an invite, say) shows up in a chat: a title, a line and a picture -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Pinnacle">
+<meta property="og:description" content="A quiz climb for two: rope up with a partner and answer your way to the summit.">
+<meta property="og:url" content="https://timurhersen.github.io/Pinnacle/">
+<meta property="og:image" content="https://timurhersen.github.io/Pinnacle/assets/social.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pixelify+Sans:wght@400;500;600;700&display=swap">
 <script>
@@ -13,10 +24,24 @@
    old game. The game's own files (styles, scripts and art) are fetched with a version that changes every minute
    instead, so an update reaches everyone within a minute or so. */
 window.V="v="+Math.floor(Date.now()/6e4);
+/* The art (everything under assets/) changes rarely and is most of the download, so it keeps one version, which
+   browsers may hold on to: raise the number whenever a picture is changed or added. */
+window.AV="art=2";
 document.write('<link rel="stylesheet" href="css/style.css?'+V+'">');
 </script>
+<style>
+/* the loading screen: up before anything else is in (so its few styles live here), gone once the first picture
+   can be shown whole (js/main.js) */
+#boot{position:fixed;inset:0;z-index:100;display:grid;place-content:center;justify-items:center;gap:18px;background:#020b12;transition:opacity .3s steps(4)}
+#boot.out{opacity:0;pointer-events:none}
+#boot img{width:96px;height:auto;image-rendering:pixelated}
+#boot i{display:block;width:96px;height:8px;border:2px solid #dfeaee;background:linear-gradient(90deg,#f1c677 0 40%,transparent 0) 0 0/250% 100% no-repeat;animation:boot 1.1s steps(8) infinite}
+@keyframes boot{from{background-position:160% 0}to{background-position:-60% 0}}
+@media (prefers-reduced-motion:reduce){#boot i{animation:none}}
+</style>
 </head>
 <body>
+<div id="boot" role="status" aria-label="Loading Pinnacle"><img src="assets/emblem.png?art=2" alt=""><i></i></div>
 <div class="scene" id="scene">
   <canvas id="topo" role="img" aria-label="A rope team climbing a granite cliff from base camp to the summit"></canvas>
   <div class="fx" id="fx" aria-hidden="true"></div>
@@ -25,12 +50,16 @@ document.write('<link rel="stylesheet" href="css/style.css?'+V+'">');
   <h1 class="brand">Pinnacle</h1>
   <div class="team" id="teambar"></div>
   <div class="spacer"></div>
+  <button class="ibtn" id="radioBtn" type="button" title="Rope radio" aria-label="Rope radio" aria-pressed="false" hidden><svg viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><path fill-rule="evenodd" d="M3 0h1v3H3zM2 3h7v9H2zM3 4v2h5V4zM3 7v1h1V7zM5 7v1h1V7zM7 7v1h1V7zM3 9v2h5V9z" fill="currentColor"/></svg></button>
   <button class="linkbtn" id="homeBtn" hidden>Menu</button>
   <button class="ibtn" id="sndBtn" type="button" title="Sound" aria-label="Sound"><svg viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><path d="M1 4h2v4H1zM3 4h1V3h1V2h1v8H5V9H4V8H3z" fill="currentColor"/><path class="on" d="M8 4h1v4H8zM10 2h1v8h-1z" fill="currentColor"/><path class="off" d="M8 4h1v1H8zM9 5h1v2H9zM8 7h1v1H8zM10 4h1v1h-1zM10 7h1v1h-1z" fill="currentColor"/></svg></button>
   <button class="ibtn" id="fsBtn" type="button" title="Fullscreen" aria-label="Fullscreen" aria-pressed="false"><svg viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><path class="off" d="M1 1h4v1H2v3H1zM7 1h4v4h-1V2H7zM1 7h1v3h3v1H1zM10 7h1v4H7v-1h3z" fill="currentColor"/><path class="on" d="M4 1h1v4H1V4h3zM7 1h1v3h3v1H7zM1 7h4v4H4V8H1zM7 7h4v1H8v3H7z" fill="currentColor"/></svg></button>
 </header>
 <main id="main" class="lobby"></main>
 <div class="hud" id="hud" hidden></div>
+<div class="rbubble" id="rbubble" hidden></div>
+<div class="conn" id="conn" role="status" hidden>Reconnecting…</div>
+<div class="overlay" id="menu" hidden></div>
 <div class="toast" id="toast" hidden></div>
 
 <script>

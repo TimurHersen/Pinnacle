@@ -1,4 +1,6 @@
-/* ---------- the home screen's theme: an original tune, played live through the sound engine (audio.js) ----------
+/* ---------- the theme: an original tune, played live through the sound engine (audio.js) ----------
+   On the home screen it plays in full. During a climb only its quiet bed plays (pad, a thinned-out arpeggio and the
+   bass, no tune, no echo), low enough to sit under the wind and the talk.
    "Base Camp" in D major at a calm 84 BPM: a four-bar dawn intro (pad, arpeggio and bass alone), then a 16-bar loop.
    Section A states the climbing motif over D–Bm–G–A, section B reaches up to the high B (the summit note) over
    G–A–F#m–Bm and turns back home on A. Soft, rounded voices rather than buzzy chip squares: a mellow lead with an
@@ -17,7 +19,8 @@ const MUSIC=(()=>{
   const LOOP=[...["D","Bm","G","A","D","F#m","G","A"].map((c,i)=>({c,mel:A[i],shaker:0})),
               ...["G","A","F#m","Bm","Em","A","D","A"].map((c,i)=>({c,mel:B[i],shaker:1}))];
   const hz=m=>440*Math.pow(2,(m-69)/12);
-  let bus=null,echo=null,mellow=null,timer=null,want=false,playing=false,bar=0,t0=0,intro=true;
+  let bus=null,echo=null,mellow=null,timer=null,want=false,playing=false,bar=0,t0=0,intro=true,calm=false,on=LS.get("music",true);
+  const level=()=>calm?.42:.8;
 
   // a mellow wave: a sine with a little of its next few harmonics, rounder than a square, warmer than a pure sine
   function soft(c){const re=new Float32Array([0,0,0,0,0,0]),im=new Float32Array([0,1,.22,.1,.04,.02]);return c.createPeriodicWave(re,im);}
@@ -48,11 +51,12 @@ const MUSIC=(()=>{
     // pad: the chord held through the bar, swelling in slowly
     for(const k of tri)tone(c,{wave:"sine",f:hz(root+12+k),at,len:bar*.98,vol:.022,to:[bus],atk:.8});
     // arpeggio: chord tones in eighths, up and back
-    [0,1,2,1,0,1,2,1].forEach((k,i)=>tone(c,{wave:"triangle",f:hz(root+12+tri[k]+(i===2||i===6?12:0)),at:at+i*E,len:E*.9,vol:b.intro?.05:.035,to:[bus],atk:.02}));
+    [0,1,2,1,0,1,2,1].forEach((k,i)=>(!calm||i%2===0)&&tone(c,{wave:"triangle",f:hz(root+12+tri[k]+(i===2||i===6?12:0)),at:at+i*E,len:E*.9,vol:b.intro?.05:.035,to:[bus],atk:.02}));
     // bass: one long root, stepping to the fifth for the last beat
     if(b.intro)tone(c,{wave:"triangle",f:hz(root),at,len:bar*.98,vol:.2,to:[bus],atk:.1});
     else{tone(c,{wave:"triangle",f:hz(root),at,len:E*6*.97,vol:.2,to:[bus],atk:.05});tone(c,{wave:"triangle",f:hz(root+7),at:at+E*6,len:E*2*.95,vol:.17,to:[bus],atk:.05});}
     // lead
+    if(calm)return;
     let pos=0;for(const [m,l] of b.mel){if(m)tone(c,{wave:mellow,f:hz(m),at:at+pos*E,len:l*E*.97,vol:.1,to:[bus,echo],vib:true,atk:.04});pos+=l;}
     // a quiet shaker on the off-beats while the tune climbs toward the top
     if(b.shaker)for(let i=1;i<8;i+=2)shaker(c,at+i*E,.035);
@@ -66,15 +70,19 @@ const MUSIC=(()=>{
   }
   function start(){const c=SND.ctx;if(!c||playing||c.state!=="running")return;setup(c);
     playing=true;bar=0;intro=true;t0=c.currentTime+.1;
-    bus.gain.cancelScheduledValues(c.currentTime);bus.gain.setValueAtTime(bus.gain.value,c.currentTime);bus.gain.linearRampToValueAtTime(.8,c.currentTime+2.5);
+    bus.gain.cancelScheduledValues(c.currentTime);bus.gain.setValueAtTime(bus.gain.value,c.currentTime);bus.gain.linearRampToValueAtTime(level(),c.currentTime+2.5);
     pump();timer=setInterval(pump,100);}
   function stop(){const c=SND.ctx;if(!playing||!c)return;playing=false;clearInterval(timer);
     const now=c.currentTime;bus.gain.cancelScheduledValues(now);bus.gain.setValueAtTime(bus.gain.value,now);bus.gain.linearRampToValueAtTime(0,now+1.5);
     // notes already queued fade out with the bus; a fresh bus next time keeps them from bleeding into a restart
     const old=bus;setTimeout(()=>{try{old.disconnect();}catch(e){}},2000);bus=null;}
   // the game says when the theme belongs on screen; it starts as soon as sound can play (after the first tap)
-  function sync(){if(want&&SND.on&&SND.ctx&&SND.ctx.state==="running")start();else if(!want)stop();}
+  function sync(){if(want&&on&&SND.on&&SND.ctx&&SND.ctx.state==="running")start();else if(!want||!on)stop();}
+  // (between the home screen and a climb the tune carries on, and only its level and its voices change)
+  function mode(m){const was=calm;calm=m==="climb";const c=SND.ctx;
+    if(was!==calm&&playing&&bus&&c){bus.gain.cancelScheduledValues(c.currentTime);bus.gain.setValueAtTime(bus.gain.value,c.currentTime);bus.gain.linearRampToValueAtTime(level(),c.currentTime+2);}}
   addEventListener("pointerdown",()=>setTimeout(sync,60),{passive:true});
   setInterval(()=>{if(want&&!playing)sync();},1000); // e.g. sound switched back on from the bar
-  return {want(v){want=!!v;sync();},sync,get playing(){return playing;}};
+  return {want(v,m){want=!!v;if(m)mode(m);sync();},sync,get playing(){return playing;},
+    get on(){return on;},toggle(){on=!on;LS.set("music",on);sync();}};
 })();
