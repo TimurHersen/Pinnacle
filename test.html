@@ -126,12 +126,11 @@ document.getElementById("hearts").onchange=e=>{const n=e.target.value;e.target.v
 document.getElementById("gearFull").onclick=()=>jump(t=>Object.assign(t.exp,{rope:3,chalk:1,scout:1,anchors:1}));
 document.getElementById("gearNone").onclick=()=>jump(t=>Object.assign(t.exp,{rope:0,chalk:0,scout:0,anchors:0}));
 
-/* forced answers: both players lock in the chosen way (from the hook choice the question starts if it hasn't) */
+/* forced answers: both players lock in the chosen way (with a hook clipped first, if that's ticked) */
 function forceAnswers(kind){
   const w=eng();let t=w.fixTeam(team());if(!t)return;const r=t.round;
-  if(r.phase!=="pre"&&r.phase!=="answer"){note("Go to a pitch first: answers can only be forced on a question.");return;}
-  if(r.phase==="pre"){const hook=document.getElementById("withHook").checked&&t.exp.rope>0;if(hook)t.exp.rope--;
-    t.round={...r,phase:"answer",hook,order:w.shuffled4(),startedAt:Date.now(),dur:db.config.secs||w.QUIZ_SECS||45};save(t);}
+  if(r.phase!=="answer"){note("Go to a pitch first: answers can only be forced on a question.");return;}
+  if(document.getElementById("withHook").checked&&!r.hook&&t.exp.rope>0){t.exp.rope--;r.hook=true;save(t);}
   const R=t.round;
   if(kind==="time"){R.startedAt=Date.now()-R.dur*1000-3000;save(t);return;}
   const right=R.order.indexOf(0),wrong=(right+1)%4,lead=R.leader,bel=Object.keys(t.members).find(i=>i!==lead);

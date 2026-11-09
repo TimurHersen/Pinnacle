@@ -131,7 +131,7 @@ input:focus{border-color:var(--gold);outline:none}
 .clue2 b{color:var(--gold);font-weight:400;font-size:16px}
 .hidden2{font-size:15px;color:var(--muted);margin:-4px 0 12px}
 .radio{margin-top:16px;background:var(--navy);border:2px solid var(--line);box-shadow:inset 0 0 0 2px #10162a;padding:10px 12px}
-.rhead{display:flex;justify-content:space-between;font:600 15px/1.3 var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--gold);padding-top:2px}
+.rhead{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;background:none;border:0;margin:0;padding:2px 0 0;text-align:left;font:600 15px/1.3 var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--gold)}
 .rhead span{color:var(--muted)}
 .rlog{display:grid;gap:6px;max-height:140px;overflow:auto;margin:10px 0}
 .msg{justify-self:start;max-width:88%;background:var(--panel2);border:2px solid var(--line);padding:4px 10px;font-size:16px;line-height:1.3;color:var(--cream)}
@@ -244,7 +244,8 @@ input:focus{border-color:var(--gold);outline:none}
   .hud-r{min-width:0;padding:0 8px}.stat{padding:4px 0;gap:6px;grid-template-columns:16px auto 1fr}.stat .v{font-size:8px;line-height:1.4}.stat .px{width:14px;height:12px}
   .stat:nth-child(3),.stat .k{display:none}.stat{grid-template-columns:14px auto}.hud-r{flex:none}
   .brand{font-size:8px;padding:10px}.linkbtn{padding:10px}.ibtn{width:32px;height:32px}
-  .bar:has(.team:not(:empty)) .brand,.bar .team .climbers,.chip .long{display:none}
+  .bar:has(.team:not(:empty)) .brand,.bar .team .climbers,.chip .long,.teamname,.bar .team.full{display:none}
+  .bar .team{padding:6px 8px}
   .terrain{font-size:16px}
   .tart{aspect-ratio:96/18;object-fit:cover}
   .opts{grid-template-columns:1fr}
@@ -255,8 +256,7 @@ input:focus{border-color:var(--gold);outline:none}
 #main.game2{top:auto;left:var(--edge);right:var(--edgeR);bottom:12px;width:auto;max-height:none;overflow:visible;display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:12px;align-items:end;padding:0}
 body:has(#main.game2) .hud{left:var(--edge)}
 .qpanel{padding:12px}
-.qwrap{display:grid;grid-template-columns:144px minmax(0,1fr) 220px;gap:14px;align-items:start}
-.qwrap.noside{grid-template-columns:144px minmax(0,1fr)}
+.qwrap{display:grid;grid-template-columns:144px minmax(0,1fr);gap:14px;align-items:start}
 .qart img{width:144px;height:112px;image-rendering:pixelated;border:2px solid var(--line);display:block;background:#4479c6}
 .qmain{min-width:0;display:grid;gap:8px}
 .qhead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font:600 14px/1.3 var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
@@ -281,9 +281,11 @@ body:has(#main.game2) .hud{left:var(--edge)}
 .qfoot .wait{margin:0}
 .qrules{margin:0;padding-left:18px;color:var(--muted);font-size:16px;display:grid;gap:4px}
 .qrules b{color:var(--cream)}
-.qside{display:grid;gap:8px;align-content:start}
-.qrole{font:400 11px/1.4 var(--head);text-transform:uppercase;padding:8px;border:2px solid var(--line);background:var(--navy);color:var(--cream)}
-.qrole.lead{border-color:var(--red)}.qrole.belay{border-color:var(--gold)}
+/* the question's gear: a hook, chalk and the scout, each a button showing how many are left */
+.qgear{display:flex;gap:10px;flex-wrap:wrap}.qgear .gbtn{flex:0 1 160px;min-width:0}
+.qhead .role{font-size:12px;padding:2px 6px}
+/* (a clipped hook stays lit) */
+.gbtn.on:disabled{opacity:1;border-color:var(--gold);color:var(--gold);background:#2a2412;box-shadow:none}
 .gbtn{display:grid;grid-template-columns:22px 1fr auto;align-items:center;gap:8px;padding:8px 10px;background:var(--navy);border:2px solid var(--cream);color:var(--cream);cursor:pointer;font:600 15px/1.2 var(--body);text-align:left;box-shadow:var(--frame)}
 .gbtn .px{width:20px;height:20px}
 .gbtn b{font:400 12px/1 var(--head);color:var(--gold)}
@@ -300,20 +302,20 @@ body:has(#main.game2) .hud{left:var(--edge)}
 .route .rmeta{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--cream)}
 /* the rope radio */
 .radio2{padding:12px;display:grid;gap:8px}
+/* (.rlast is the folded radio's one line, phones only) */
+.rbody{display:grid;gap:8px;min-width:0}.rlast{display:none}
 .radio2 .rlog{max-height:150px;min-height:56px;overflow:auto;display:grid;gap:6px;align-content:start;margin:0}
 .calls{display:flex;flex-wrap:wrap;gap:6px}
 .call{font:600 14px/1.2 var(--body);padding:5px 8px;background:var(--panel2);border:2px solid var(--line);color:var(--cream);cursor:pointer}
 @media (hover:hover){.call:hover{border-color:var(--gold)}}
 /* the HUD's gear row beside the hearts, and a lost heart cracking away */
-.hudgear{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.hud .gear{display:flex;gap:10px;padding:6px 10px;background:var(--panel);border:2px solid var(--cream);box-shadow:var(--frame);font:400 12px/1 var(--head);color:var(--cream)}
-.hud .gear span{display:flex;align-items:center;gap:4px}.hud .gear .px{width:18px;height:18px}
+/* the leader's portrait is framed in red (on phones the role tags beside the portraits are hidden) */
+.who.lead .port{border-color:var(--red)}
 .hearts .crack{display:inline-block;animation:crack .9s steps(6) forwards}
 @keyframes crack{30%{transform:translateY(-3px) rotate(-12deg)}100%{transform:translateY(8px) rotate(25deg);opacity:0}}
-@media (max-width:1100px){.qwrap{grid-template-columns:minmax(0,1fr) 200px}.qwrap.noside{grid-template-columns:1fr}.qart{display:none}}
+@media (max-width:1100px){.qwrap{grid-template-columns:1fr}.qart{display:none}}
 @media (max-width:899px),(max-height:520px){
   #main.game2{left:0;right:0;bottom:0;grid-template-columns:1fr;max-height:58vh;max-height:58dvh;overflow-y:auto;padding:10px;gap:10px;background:var(--panel);border-top:2px solid var(--cream)}
-  .qwrap{grid-template-columns:1fr}.qside{grid-template-columns:1fr 1fr}.qside .qrole,.qside .note,.qside .hint{grid-column:1/-1}
   .qart{display:none}
   .qopts{grid-template-columns:1fr}.radio2 .rlog{max-height:90px}#main.game2 .routes,#main.game2 .routes.bonus{grid-template-columns:1fr}
 }
@@ -321,10 +323,10 @@ body:has(#main.game2) .hud{left:var(--edge)}
    make (start, clip, lock in, next pitch…) stays on screen, pinned to the bottom of the sheet while it scrolls */
 @media (max-width:899px),(max-height:520px){
   body:has(#main.game2) .hud{top:calc(64px + env(safe-area-inset-top,0px));right:var(--edgeR);gap:4px}
-  .hud-l{flex-wrap:wrap;gap:4px}.hudgear{flex-wrap:nowrap;gap:4px}
+  .hud-l{flex-wrap:wrap;gap:4px}
   .hud .who{padding:2px}.port{width:28px;height:28px}
   .hud .hearts{padding:5px 6px;gap:2px}.hearts .px{width:14px;height:12px}
-  .hud .gear{gap:6px;padding:5px 6px;font-size:9px}.hud .gear .px{width:13px;height:13px}
+  .stat:nth-child(n+2){display:none}
   .hud-r{padding:0 6px}.stat{padding:3px 0;gap:4px}.stat .px{width:12px;height:10px}
   #main.game2{max-height:60vh;max-height:60dvh;padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px));gap:8px}
   .qpanel{padding:4px 2px}
@@ -339,11 +341,10 @@ body:has(#main.game2) .hud{left:var(--edge)}
   .qopt{padding:7px 8px;gap:8px;font-size:15px;min-height:44px}
   .qopt b{width:20px;height:20px;font-size:11px}
   .qopt em{font-size:8px;padding:3px 4px}
-  .qwrap{gap:8px}.qside{gap:6px}
-  .qrole{font-size:9px;padding:6px 8px}
-  .qside .note{font-size:13px}
+  .qgear{gap:8px}.qgear .gbtn{flex:1 1 0;grid-template-columns:18px 1fr auto;gap:6px}.gbtn .px{width:16px;height:16px}
+  .qhead .role{font-size:11px;padding:1px 5px}
   .gbtn{padding:6px 8px;font-size:14px}
-  .timer{margin:4px 0 0}
+  .timer{display:none}
   .wait{margin-top:6px;padding:8px 10px;font-size:14px}
   .headline{font-size:13px;margin:2px 0 4px}
   .outcome{padding:8px 10px;margin:0 0 4px;font-size:13px}.outcome .px{width:22px;height:22px}
@@ -356,7 +357,16 @@ body:has(#main.game2) .hud{left:var(--edge)}
   .qmain>.actions,.qmain>.qfoot{position:sticky;bottom:-8px;z-index:1;background:var(--panel);padding:6px 0 8px;margin-bottom:-8px;box-shadow:0 -10px 8px -6px var(--panel)}
   .qmain>.btn{position:sticky;bottom:2px;z-index:1;box-shadow:var(--frame),0 0 0 8px var(--panel)}
   .qmain>.btn:disabled{opacity:1;background:var(--panel2);color:var(--dim);border-color:var(--line);box-shadow:0 0 0 8px var(--panel)}
-  .radio2{padding:8px}.radio2 .rlog{max-height:64px;min-height:0}
+  /* the radio folds down to its heading and the latest message; a tap on the heading opens it. Alone on the rope
+     there is nobody to call, so it isn't shown */
+  #main>.radio2{padding:0 4px;border-top:2px dashed var(--line)}.radio2.solo{display:none}
+  .radio2 .rlog{max-height:64px;min-height:0}
+  .rhead{min-height:40px;padding:0;cursor:pointer}
+  .rhead #rstate::after{content:" \25B8";color:var(--gold)}.radio2.open .rhead #rstate::after{content:" \25BE"}
+  .radio2:not(.open) .rbody{display:none}
+  .radio2:not(.open) .rlast:not(:empty){display:block;margin:-4px 0 8px;padding:4px 10px;background:var(--panel2);border:2px solid var(--line);color:var(--cream);font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rlast b{font-weight:600;color:var(--gold)}
+  .radio2.open{padding-bottom:8px}
   .calls{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}.call{flex:none}
 }
 @media (max-width:340px){.qopts,#main.game2 .routes,#main.game2 .routes.bonus{grid-template-columns:1fr}}
@@ -423,4 +433,3 @@ body.home #topo{visibility:hidden} /* (the game's own scene; the painting and it
   .hud,body:has(#main.game2) .hud{left:calc(var(--side) + 12px);top:calc(58px + env(safe-area-inset-top,0px))}
   .toast{left:calc(var(--side) + (100% - var(--side))/2)}
 }
-@media (orientation:landscape) and (max-height:520px) and (min-width:560px) and (max-width:780px){.teamname{display:none}.bar .team{padding:6px 8px}}
