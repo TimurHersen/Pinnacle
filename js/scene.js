@@ -809,7 +809,8 @@ function sceneArea(){const W=FX.W,H=FX.H,wide=W>=900,hud=$("#hud"),hb=hud&&!hud.
     top=Math.max(wide?64:96,hb),m=$("#main");let a={x:0,y:top,w:W,h:H-top};
   // (beside the lobby's column on wide screens; above the bottom question panel in a climb and on phones)
   const r=m&&m.getBoundingClientRect(),dock=m&&m.classList.contains("game2");
-  if(r&&r.width>0&&r.height>0){if(wide&&!dock){a.x=Math.min(W-240,r.right+8);a.w=W-a.x;}else a.h=Math.max(150,r.top-top);}
+  // (a phone on its side has the panel as a column down the left edge instead: the climb is framed beside it)
+  if(r&&r.width>0&&r.height>0){if((wide&&!dock)||r.width<W*.7){a.x=Math.min(W-240,r.right+8);a.w=W-a.x;}else a.h=Math.max(150,r.top-top);}
   return a;}
 // a critically damped spring: eases into a move and settles without overshoot (implicit, so stable at any dt)
 function damp(x,v,to,w,dt){const f=1+2*dt*w,hw=dt*w*w,d=1/(f+dt*hw);return [(f*x+dt*v+dt*hw*to)*d,(v+hw*(to-x))*d];}

@@ -11,15 +11,19 @@
   --gold:#f1c677;--goldD:#a8782e;--goldL:#fff1cf;--orange:#e8792b;--red:#d23c2a;--redD:#8c2a1d;
   --good:#8fd16a;--goodD:#24502a;--warn:#f1c677;--bad:#ff6a5a;--ice:#9fd0f0;
   --head:"Press Start 2P",monospace;--body:"Pixelify Sans","Trebuchet MS",system-ui,sans-serif;
-  --edge:max(12px,env(safe-area-inset-left,0px));--colW:min(440px,38vw);
+  --edge:max(12px,env(safe-area-inset-left,0px));--edgeR:max(12px,env(safe-area-inset-right,0px));--colW:min(440px,38vw);
   /* the frame: a black keyline outside the pale line, a dark gap and a dim teal line inside it, and a hard shadow */
   --frame:0 0 0 2px var(--navy),4px 4px 0 2px rgba(1,6,10,.8),inset 0 0 0 2px var(--navy),inset 0 0 0 4px #17323f;
   color-scheme:dark}
 *,*::before,*::after{box-sizing:border-box}
 [hidden]{display:none!important}
-html,body{height:100%;overflow:hidden}
+html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{margin:0;background:var(--navy);color:var(--ink);font:400 17px/1.4 var(--body);-webkit-font-smoothing:none}
 button,input{font:inherit;color:inherit}
+/* touch: no grey flash or double-tap zoom on a tap, and a long press never selects a button's label */
+button,input,.bar,.hud{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+button,.bar,.hud{-webkit-user-select:none;user-select:none}
 :focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .px{display:inline-block;width:1em;height:1em;vertical-align:-.15em;image-rendering:pixelated}
 
@@ -31,7 +35,7 @@ button,input{font:inherit;color:inherit}
 .panel,.card,.hud .who,.hud .hearts,.hud-r,.bar .team,.brand,.linkbtn,.ibtn,.toast{background:var(--panel);color:var(--ink);border:2px solid var(--cream);box-shadow:var(--frame)}
 
 /* top bar */
-.bar{position:fixed;z-index:6;top:0;left:0;right:0;display:flex;align-items:center;gap:12px;padding:calc(12px + env(safe-area-inset-top,0px)) var(--edge) 8px;pointer-events:none}
+.bar{position:fixed;z-index:6;top:0;left:0;right:0;display:flex;align-items:center;gap:12px;padding:calc(12px + env(safe-area-inset-top,0px)) var(--edgeR) 8px var(--edge);pointer-events:none}
 .bar>*{pointer-events:auto}
 .bar .spacer{flex:1}
 /* the title screen already carries the logo, so the bar's badge only shows once a climb is open */
@@ -41,7 +45,7 @@ body:has(#main.lobby) .brand{display:none}
 .bar .team:empty{display:none}
 .teamname{font:600 15px/1.3 var(--body);letter-spacing:.06em;color:var(--gold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .chip{font:600 15px/1.3 var(--body);letter-spacing:.06em;background:var(--navy);border:2px solid var(--line);padding:6px 8px;cursor:pointer;white-space:nowrap}
-.chip:hover{border-color:var(--gold)}
+@media (hover:hover){.chip:hover{border-color:var(--gold)}}
 .climbers{display:flex;gap:10px;font-size:14px;color:var(--muted);white-space:nowrap}
 .climber{display:flex;align-items:center;gap:6px}
 .dot{width:8px;height:8px;background:var(--line)}
@@ -50,13 +54,13 @@ body:has(#main.lobby) .brand{display:none}
 .ibtn{width:36px;height:36px;display:grid;place-items:center;padding:0;cursor:pointer;flex:none}
 .ibtn svg{width:24px;height:24px}
 .ibtn[aria-pressed="false"] .on,.ibtn[aria-pressed="true"] .off{display:none}
-.linkbtn:hover,.ibtn:hover{background:var(--panel2)}
+@media (hover:hover){.linkbtn:hover,.ibtn:hover{background:var(--panel2)}}
 .linkbtn:active,.ibtn:active,.btn:active{transform:translate(2px,2px);box-shadow:0 0 0 2px var(--navy),2px 2px 0 2px rgba(5,7,13,.75)}
 
 /* the play column (left) and the HUD over the open scene */
 #main{position:fixed;z-index:4;top:calc(70px + env(safe-area-inset-top,0px));left:var(--edge);bottom:14px;width:var(--colW);overflow-y:auto;overscroll-behavior:contain;
   display:grid;gap:16px;align-content:start;padding:2px 8px 12px 2px;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
-.hud{position:fixed;z-index:3;top:calc(70px + env(safe-area-inset-top,0px));left:calc(var(--colW) + 2*var(--edge) + 16px);right:var(--edge);
+.hud{position:fixed;z-index:3;top:calc(70px + env(safe-area-inset-top,0px));left:calc(var(--colW) + 2*var(--edge) + 16px);right:var(--edgeR);
   display:flex;justify-content:space-between;align-items:flex-start;gap:12px;pointer-events:none}
 .hud-l{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}
 .hud .who{display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px}
@@ -92,12 +96,13 @@ input:focus{border-color:var(--gold);outline:none}
 
 /* buttons: dark with a cream line; the main action is a gold slab */
 .btn{font:600 15px/1.3 var(--body);letter-spacing:.06em;letter-spacing:.04em;text-transform:uppercase;background:var(--navy);color:var(--cream);border:2px solid var(--cream);padding:12px 14px;cursor:pointer;white-space:nowrap;box-shadow:var(--frame)}
-.btn:hover{background:var(--panel2)}
+@media (hover:hover){.btn:hover{background:var(--panel2)}}
 .btn.rope{background:var(--gold);color:#1b1408;border-color:var(--goldL);box-shadow:inset 0 -3px 0 var(--goldD),var(--frame)}
-.btn.rope:hover{background:#ffc94d}
+@media (hover:hover){.btn.rope:hover{background:#ffc94d}}
 .btn.ghost{background:transparent;border-color:var(--line);box-shadow:none}
-.btn.ghost:hover{border-color:var(--cream)}
+@media (hover:hover){.btn.ghost:hover{border-color:var(--cream)}}
 .btn:disabled{opacity:.45;cursor:not-allowed}
+.qopt:active:not(:disabled):not(div),.opt:active:not(:disabled),.route:active,.teamrow:active,.call:active,.chip:active,.gbtn:active:not(:disabled){background:var(--panel3)}
 
 /* roles never rely on colour alone: they carry a word and a mark */
 .role{display:inline-block;font:600 15px/1.3 var(--body);letter-spacing:.06em;text-transform:uppercase;padding:4px 6px}
@@ -116,7 +121,7 @@ input:focus{border-color:var(--gold);outline:none}
 .chips span{font-size:15px;padding:3px 8px;background:var(--panel2);border:2px solid var(--line);color:var(--cream)}
 .opts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .opt{text-align:left;padding:12px;background:var(--navy);border:2px solid var(--line);color:var(--cream);cursor:pointer;font-size:17px}
-.opt:hover:not(:disabled){border-color:var(--cream)}
+@media (hover:hover){.opt:hover:not(:disabled){border-color:var(--cream)}}
 .opt.sel{border-color:var(--gold);background:#2a2412}
 .opt.correct{border-color:var(--good);color:var(--good)}
 .clue{font:400 16px/1.2 var(--head);color:var(--gold);text-transform:uppercase}
@@ -161,7 +166,7 @@ input:focus{border-color:var(--gold);outline:none}
 /* camp: choosing a route */
 .routes{display:grid;gap:10px;margin:12px 0}
 .route{display:grid;gap:4px;text-align:left;padding:12px;background:var(--navy);border:2px solid var(--line);color:var(--cream);cursor:pointer}
-.route:hover{border-color:var(--cream)}
+@media (hover:hover){.route:hover{border-color:var(--cream)}}
 .route.sel{border-color:var(--gold);background:#2a2412}
 .route h4{margin:0;font:600 15px/1.3 var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--gold)}
 .route .pp,.votes{font-size:14px;color:var(--muted)}
@@ -170,7 +175,7 @@ input:focus{border-color:var(--gold);outline:none}
 #main.lobby{gap:16px}
 .teams{display:grid;gap:6px}
 .teamrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:var(--navy);border:2px solid var(--line);color:var(--cream);cursor:pointer;text-align:left;width:100%}
-.teamrow:hover{border-color:var(--gold)}
+@media (hover:hover){.teamrow:hover{border-color:var(--gold)}}
 .teamrow span{font:600 15px/1.3 var(--body);letter-spacing:.06em;color:var(--gold)}
 .terrains{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-top:6px}
 .terrains div{border-top:2px solid var(--line);padding-top:8px;font-size:15px;color:var(--muted)}
@@ -226,10 +231,10 @@ input:focus{border-color:var(--gold);outline:none}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));padding:10px 14px;font:600 15px/1.3 var(--body);letter-spacing:.06em;text-transform:uppercase;z-index:20}
 
 /* phones and narrow windows: the column becomes a bottom sheet, the HUD a strip under the bar */
-@media (max-width:899px){
+@media (max-width:899px),(max-height:520px){
   :root{--colW:auto}
   body{font-size:16px}
-  #main{top:auto;left:0;right:0;bottom:0;width:auto;max-height:56vh;padding:12px 12px calc(12px + env(safe-area-inset-bottom,0px));gap:12px;
+  #main{top:auto;left:0;right:0;bottom:0;width:auto;max-height:56vh;max-height:56dvh;padding:12px 12px calc(12px + env(safe-area-inset-bottom,0px));gap:12px;
     background:var(--panel);border-top:2px solid var(--cream);box-shadow:0 -2px 0 2px var(--navy)}
   #main>.panel,#main>.card{border:0;box-shadow:none;padding:8px 4px}
   #main.lobby>.card+.card{border-top:2px dashed var(--line)}
@@ -247,7 +252,7 @@ input:focus{border-color:var(--gold);outline:none}
 
 /* ---------- the climb: the question interface docked along the bottom (as in the concept sheet), the rope radio
    beside it; the HUD runs along the top over the whole width ---------- */
-#main.game2{top:auto;left:var(--edge);right:var(--edge);bottom:12px;width:auto;max-height:none;overflow:visible;display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:12px;align-items:end;padding:0}
+#main.game2{top:auto;left:var(--edge);right:var(--edgeR);bottom:12px;width:auto;max-height:none;overflow:visible;display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:12px;align-items:end;padding:0}
 body:has(#main.game2) .hud{left:var(--edge)}
 .qpanel{padding:12px}
 .qwrap{display:grid;grid-template-columns:144px minmax(0,1fr) 220px;gap:14px;align-items:start}
@@ -263,7 +268,7 @@ body:has(#main.game2) .hud{left:var(--edge)}
 .qopts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .qopt{display:flex;align-items:center;gap:10px;text-align:left;padding:9px 10px;background:var(--panel2);border:2px solid var(--line);color:var(--ink);cursor:pointer;font-size:17px}
 .qopt b{font:400 13px/1 var(--head);color:var(--gold);flex:none;width:24px;height:24px;display:grid;place-items:center;border:2px solid var(--goldD);background:var(--navy)}
-.qopt:hover:not(:disabled):not(div){border-color:var(--cream)}
+@media (hover:hover){.qopt:hover:not(:disabled):not(div){border-color:var(--cream)}}
 .qopt.sel{border-color:var(--gold);background:#2a2412}
 .qopt.cut{opacity:.3;text-decoration:line-through;cursor:default}
 .qopt.right{border-color:var(--good);background:#16301a}
@@ -282,7 +287,7 @@ body:has(#main.game2) .hud{left:var(--edge)}
 .gbtn{display:grid;grid-template-columns:22px 1fr auto;align-items:center;gap:8px;padding:8px 10px;background:var(--navy);border:2px solid var(--cream);color:var(--cream);cursor:pointer;font:600 15px/1.2 var(--body);text-align:left;box-shadow:var(--frame)}
 .gbtn .px{width:20px;height:20px}
 .gbtn b{font:400 12px/1 var(--head);color:var(--gold)}
-.gbtn:hover:not(:disabled){background:var(--panel2)}
+@media (hover:hover){.gbtn:hover:not(:disabled){background:var(--panel2)}}
 .gbtn:disabled{opacity:.4;cursor:default;box-shadow:none}
 .hint{border:2px dashed var(--gold);padding:8px 10px;color:var(--cream);font-size:16px;background:#2a2412}
 .hint b{color:var(--gold)}
@@ -298,7 +303,7 @@ body:has(#main.game2) .hud{left:var(--edge)}
 .radio2 .rlog{max-height:150px;min-height:56px;overflow:auto;display:grid;gap:6px;align-content:start;margin:0}
 .calls{display:flex;flex-wrap:wrap;gap:6px}
 .call{font:600 14px/1.2 var(--body);padding:5px 8px;background:var(--panel2);border:2px solid var(--line);color:var(--cream);cursor:pointer}
-.call:hover{border-color:var(--gold)}
+@media (hover:hover){.call:hover{border-color:var(--gold)}}
 /* the HUD's gear row beside the hearts, and a lost heart cracking away */
 .hudgear{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .hud .gear{display:flex;gap:10px;padding:6px 10px;background:var(--panel);border:2px solid var(--cream);box-shadow:var(--frame);font:400 12px/1 var(--head);color:var(--cream)}
@@ -306,21 +311,22 @@ body:has(#main.game2) .hud{left:var(--edge)}
 .hearts .crack{display:inline-block;animation:crack .9s steps(6) forwards}
 @keyframes crack{30%{transform:translateY(-3px) rotate(-12deg)}100%{transform:translateY(8px) rotate(25deg);opacity:0}}
 @media (max-width:1100px){.qwrap{grid-template-columns:minmax(0,1fr) 200px}.qwrap.noside{grid-template-columns:1fr}.qart{display:none}}
-@media (max-width:899px){
-  #main.game2{left:0;right:0;bottom:0;grid-template-columns:1fr;max-height:58vh;overflow-y:auto;padding:10px;gap:10px;background:var(--panel);border-top:2px solid var(--cream)}
+@media (max-width:899px),(max-height:520px){
+  #main.game2{left:0;right:0;bottom:0;grid-template-columns:1fr;max-height:58vh;max-height:58dvh;overflow-y:auto;padding:10px;gap:10px;background:var(--panel);border-top:2px solid var(--cream)}
   .qwrap{grid-template-columns:1fr}.qside{grid-template-columns:1fr 1fr}.qside .qrole,.qside .note,.qside .hint{grid-column:1/-1}
+  .qart{display:none}
   .qopts{grid-template-columns:1fr}.radio2 .rlog{max-height:90px}#main.game2 .routes,#main.game2 .routes.bonus{grid-template-columns:1fr}
 }
 /* phones in a climb: the HUD packs into one row under the bar, and the question sheet tightens up so the move to
    make (start, clip, lock in, next pitch…) stays on screen, pinned to the bottom of the sheet while it scrolls */
-@media (max-width:899px){
-  body:has(#main.game2) .hud{top:calc(64px + env(safe-area-inset-top,0px));right:var(--edge);gap:4px}
-  .hud-l,.hudgear{flex-wrap:nowrap;gap:4px}
+@media (max-width:899px),(max-height:520px){
+  body:has(#main.game2) .hud{top:calc(64px + env(safe-area-inset-top,0px));right:var(--edgeR);gap:4px}
+  .hud-l{flex-wrap:wrap;gap:4px}.hudgear{flex-wrap:nowrap;gap:4px}
   .hud .who{padding:2px}.port{width:28px;height:28px}
   .hud .hearts{padding:5px 6px;gap:2px}.hearts .px{width:14px;height:12px}
   .hud .gear{gap:6px;padding:5px 6px;font-size:9px}.hud .gear .px{width:13px;height:13px}
   .hud-r{padding:0 6px}.stat{padding:3px 0;gap:4px}.stat .px{width:12px;height:10px}
-  #main.game2{max-height:60vh;padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px));gap:8px}
+  #main.game2{max-height:60vh;max-height:60dvh;padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px));gap:8px}
   .qpanel{padding:4px 2px}
   .qmain{gap:6px}
   .qhead{font-size:12px;gap:6px}
@@ -342,14 +348,18 @@ body:has(#main.game2) .hud{left:var(--edge)}
   .headline{font-size:13px;margin:2px 0 4px}
   .outcome{padding:8px 10px;margin:0 0 4px;font-size:13px}.outcome .px{width:22px;height:22px}
   .routes{margin:6px 0;gap:6px}.route{padding:8px 10px}
+  /* camp fits one screen: the two routes side by side, the three pieces of gear in a row */
+  #main.game2 .routes{grid-template-columns:1fr 1fr}#main.game2 .routes.bonus{grid-template-columns:repeat(3,1fr)}
+  .route{font-size:14px;line-height:1.3;align-content:start}.route h4{font-size:13px}
   .lines{margin:4px 0 8px}.line{padding:5px 0}
   .btn{padding:10px 12px}
   .qmain>.actions,.qmain>.qfoot{position:sticky;bottom:-8px;z-index:1;background:var(--panel);padding:6px 0 8px;margin-bottom:-8px;box-shadow:0 -10px 8px -6px var(--panel)}
   .qmain>.btn{position:sticky;bottom:2px;z-index:1;box-shadow:var(--frame),0 0 0 8px var(--panel)}
+  .qmain>.btn:disabled{opacity:1;background:var(--panel2);color:var(--dim);border-color:var(--line);box-shadow:0 0 0 8px var(--panel)}
   .radio2{padding:8px}.radio2 .rlog{max-height:64px;min-height:0}
   .calls{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}.call{flex:none}
 }
-@media (max-width:340px){.qopts{grid-template-columns:1fr}}
+@media (max-width:340px){.qopts,#main.game2 .routes,#main.game2 .routes.bonus{grid-template-columns:1fr}}
 
 /* ---------- the title screen (js/title.js): the dusk painting, a pixel-art logo and a pixel-art menu ----------
    --u is the size of one of the painting's pixels on screen, so every frame and label lines up with it */
@@ -372,17 +382,45 @@ body.home #topo{visibility:hidden} /* (the game's own scene; the painting and it
     calc(2*var(--u)) 0 0 var(--dk),calc(-2*var(--u)) 0 0 var(--dk),0 calc(2*var(--u)) 0 var(--dk),0 calc(-2*var(--u)) 0 var(--dk),
     var(--u) var(--u) 0 var(--dk),calc(-1*var(--u)) var(--u) 0 var(--dk),var(--u) calc(-1*var(--u)) 0 var(--dk),calc(-1*var(--u)) calc(-1*var(--u)) 0 var(--dk),
     0 calc(3*var(--u)) 0 rgba(5,7,13,.45)}
-.pbtn:hover,.pbtn:focus-visible,.pbtn[aria-current="true"]{--bc:#ffd86a;background:rgba(60,36,14,.92);outline:none}
+.pbtn:focus-visible,.pbtn[aria-current="true"]{--bc:#ffd86a;background:rgba(60,36,14,.92);outline:none}
+@media (hover:hover){.pbtn:hover{--bc:#ffd86a;background:rgba(60,36,14,.92);outline:none}}
 /* a stepped pixel arrow points at the chosen item */
-.pbtn:hover::before,.pbtn:focus-visible::before,.pbtn[aria-current="true"]::before{content:"";position:absolute;left:calc(-8*var(--u));top:50%;width:calc(3*var(--u));height:calc(5*var(--u));transform:translateY(-50%);background:#ffd86a;
+.pbtn:focus-visible::before,.pbtn[aria-current="true"]::before{content:"";position:absolute;left:calc(-8*var(--u));top:50%;width:calc(3*var(--u));height:calc(5*var(--u));transform:translateY(-50%);background:#ffd86a;
   clip-path:polygon(0 0,33.4% 0,33.4% 20%,66.7% 20%,66.7% 40%,100% 40%,100% 60%,66.7% 60%,66.7% 80%,33.4% 80%,33.4% 100%,0 100%)}
+@media (hover:hover){.pbtn:hover::before{content:"";position:absolute;left:calc(-8*var(--u));top:50%;width:calc(3*var(--u));height:calc(5*var(--u));transform:translateY(-50%);background:#ffd86a;
+  clip-path:polygon(0 0,33.4% 0,33.4% 20%,66.7% 20%,66.7% 40%,100% 40%,100% 60%,66.7% 60%,66.7% 80%,33.4% 80%,33.4% 100%,0 100%)}}
 .pbtn:active{transform:translate(var(--u),var(--u))}
 #main[hidden]{display:none}
 #main.lobby .back{justify-self:start}
-@media (min-width:900px){#main.lobby{left:calc(50% - 120px);width:min(460px,calc(100% - 2*var(--edge)));bottom:auto;max-height:calc(100% - 100px)}}
-@media (max-width:899px){#home.away .pmenu{opacity:0;pointer-events:none}}
+@media (min-width:900px) and (min-height:521px){#main.lobby{left:calc(50% - 120px);width:min(460px,calc(100% - 2*var(--edge)));bottom:auto;max-height:calc(100% - 100px)}}
+@media (max-width:899px),(max-height:520px){#home.away .pmenu{opacity:0;pointer-events:none}}
 @media (max-width:600px) and (orientation:portrait){.pmenu{left:50%;transform:translateX(-50%);bottom:auto;top:46%}.pbtn::before{display:none}}
 /* short, wide screens: the menu and the logo side by side, both centred top to bottom (titleScale sets .side and --lx) */
 #home.side .tlogo{top:50%;transform:translate(-50%,-50%)}
 #home.side .pmenu{top:50%;bottom:auto;left:calc(16*var(--u));transform:translateY(-50%)}
 @media (prefers-reduced-motion:reduce){.pmenu{transition:none}}
+
+/* ---------- touch screens: every control is big enough for a thumb ---------- */
+@media (pointer:coarse){
+  .ibtn{width:40px;height:40px}
+  .linkbtn{min-height:40px;padding:8px 12px}
+  .btn{min-height:44px}
+  .gbtn{min-height:44px}
+  .call{min-height:38px;padding:6px 12px}
+  .teamrow{min-height:48px}
+  .setrow .btn{min-width:64px}
+}
+
+/* ---------- a phone on its side: the window is too short for a bottom sheet, so the sheet becomes a column down
+   the left edge, and the climb, the bar and the HUD share the rest (js/scene.js frames the climb beside it) ---------- */
+@media (orientation:landscape) and (max-height:520px) and (min-width:560px){
+  :root{--side:calc(min(52vw,480px) + env(safe-area-inset-left,0px))}
+  #main,#main.game2{top:0;bottom:0;left:0;right:auto;width:var(--side);max-height:none;align-content:start;
+    padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px)) max(10px,env(safe-area-inset-left,0px));
+    border-top:0;border-right:2px solid var(--cream);box-shadow:2px 0 0 2px var(--navy)}
+  #main.lobby{padding-top:calc(10px + env(safe-area-inset-top,0px))}
+  .bar{left:var(--side);padding:calc(8px + env(safe-area-inset-top,0px)) var(--edgeR) 6px 12px;gap:8px}
+  .hud,body:has(#main.game2) .hud{left:calc(var(--side) + 12px);top:calc(58px + env(safe-area-inset-top,0px))}
+  .toast{left:calc(var(--side) + (100% - var(--side))/2)}
+}
+@media (orientation:landscape) and (max-height:520px) and (min-width:560px) and (max-width:780px){.teamname{display:none}.bar .team{padding:6px 8px}}

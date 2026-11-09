@@ -337,12 +337,20 @@ async function takeSeat(code,old){
 
 /* ============================== GAME SESSION ============================== */
 function closeTeam(){
-  S.unsubTeam?.();S.unsubAns?.();S.unsubPres?.();clearInterval(S.presTimer);
+  WAKE.off();S.unsubTeam?.();S.unsubAns?.();S.unsubPres?.();clearInterval(S.presTimer);
   S.unsubTeam=S.unsubAns=S.unsubPres=null;S.team=null;S.code=null;S.answers={};S.ansRound=null;S.panelKey=null;S.online=new Set();S.pres={};
 }
 function goLobby(){closeTeam();try{history.replaceState(null,"",location.pathname+location.search);}catch(e){}renderLobby();}
 function beat(){if(S.code&&document.visibilityState==="visible")fb.put(`presence/${S.code}/${S.uid}`,Date.now()).catch(()=>{});}
 document.addEventListener("visibilitychange",beat);
+// a phone would dim and lock its screen while the two talk a question over, so the screen is kept awake during a
+// climb (where the browser can; the lock is dropped whenever the page is hidden, so it's taken again on return)
+const WAKE={lock:null,
+  async on(){if(WAKE.lock||!navigator.wakeLock||document.visibilityState!=="visible")return;
+    try{const l=WAKE.lock=await navigator.wakeLock.request("screen");l.addEventListener("release",()=>{if(WAKE.lock===l)WAKE.lock=null;});
+      if(!S.code)WAKE.off();}catch(e){WAKE.lock=null;}},
+  off(){const l=WAKE.lock;WAKE.lock=null;if(l)l.release().catch(()=>{});}};
+document.addEventListener("visibilitychange",()=>{if(S.code)WAKE.on();});
 function updateOnline(){const now=Date.now();S.online=new Set(Object.entries(S.pres||{}).filter(([,v])=>now-v<60000).map(([k])=>k));if(S.team)renderBar();}
 function openTeam(code){
   closeTeam();S.code=code;hideHome();$("#main").hidden=false;if(typeof MUSIC!=="undefined")MUSIC.want(false);try{history.replaceState(null,"","#t-"+code);}catch(e){}
@@ -356,7 +364,7 @@ function openTeam(code){
     if(t.round.id!==S.ansRound)subAnswers(t.round.id);
     render();
   });
-  beat();S.presTimer=setInterval(beat,25000);
+  beat();S.presTimer=setInterval(beat,25000);WAKE.on();
   S.unsubPres=fb.listen(`presence/${code}`,p=>{S.pres=p||{};updateOnline();});
 }
 function subAnswers(rid){
@@ -440,7 +448,11 @@ function renderBar(){
   $("#teambar").innerHTML=`<span class="teamname">${esc(t.name)}</span>
    <button class="chip" id="codeChip" title="Copy invite link">${esc(t.code)}<span class="long"> · copy invite link</span></button>
    <span class="climbers">${ids.map(id=>`<span class="climber"><i class="dot ${id===S.uid||S.online.has(id)?"on":""}"></i>${esc(nameOf(id))}</span>`).join("")}${ids.length<2?'<span class="climber"><i class="dot"></i>Waiting for partner</span>':""}</span>`;
-  $("#codeChip").onclick=async()=>{const l=inviteLink(t.code);try{await navigator.clipboard.writeText(l);toast("Invite link copied");}catch(e){toast("Invite link: "+l);}};
+  // on a phone the invite goes out through its share sheet (messages, mail…); elsewhere the link is copied
+  $("#codeChip").onclick=async()=>{const l=inviteLink(t.code);
+    if(navigator.share&&matchMedia("(pointer:coarse)").matches){
+      try{await navigator.share({title:"Pinnacle",text:`Rope up with me on Pinnacle (team code ${t.code})`,url:l});return;}catch(e){if(e&&e.name==="AbortError")return;}}
+    try{await navigator.clipboard.writeText(l);toast("Invite link copied");}catch(e){toast("Invite link: "+l);}};
   $("#homeBtn").hidden=false;
 }
 function render(){
@@ -489,6 +501,8 @@ function renderPanel(t){
   const key=[r.id,r.phase,!!mine,memberIds(t).length,r.phase==="camp"?JSON.stringify(r.votes||{}):"",r.resolvedAt||"",String(r.cut),!!r.scout,e.chalk,e.scout,e.rope,Object.values(S.names).join(",")].join("|");
   if(key===S.panelKey){updateDynamic(t);return;}
   if(S.panelKey&&S.panelKey.split("|")[0]!==String(r.id))S.local={};S.panelKey=key;S.local=S.local||{};
+  // a new step of the round starts at its top (on a phone the panel is a sheet that scrolls)
+  const step=r.id+"|"+r.phase;if(S.step!==step){S.step=step;$("#main").scrollTop=0;}
   panel.innerHTML=r.phase==="ready"?readyView(t):r.phase==="pre"?preView(t):r.phase==="answer"?answerView(t,mine):r.phase==="reveal"?revealView(t):r.phase==="camp"?campView(t):summitView(t);
   wirePanel(t);updateDynamic(t);
 }
