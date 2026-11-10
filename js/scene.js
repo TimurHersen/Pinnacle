@@ -93,7 +93,9 @@ function sprites(){if(SP.tent)return SP;
       :["...y.......","...yy......","..yooy..y..","..yoooyoy..",".yooyyoy...",".yooyyooy..","..yoyyyoy.."];
     g.drawImage(gridSprite(rows,P),0,0);rect(g,1,7,9,1,C.woodL);rect(g,0,8,11,1,C.wood);rect(g,1,9,9,1,C.woodD);
     for(const x of [0,3,7,10])dot(g,x,10,"#8a8a86");return c;});
-  SP.bird=[gridSprite(["k...k",".k.k.","..k.."],P),gridSprite([".....","kkkkk","..k.."],P)];
+  // a bird on the wing, four beats: wings up, level, down, level
+  SP.bird=[[".k....k..","..k..k...","..kkkkk..","...kkkko.","........."],[".........","kk....kk.","..kkkkk..","...kkkko.","........."],
+           [".........",".........","..kkkkk..",".kkkkkko.","kk......."],[".........","kk....kk.","..kkkkk..","...kkkko.","........."]].map(r=>gridSprite(r,{k:"#1e2436",o:C.gold}));
   return SP;}
 // a pine: stepped tiers, lit on the left, with a dark rim, on a short trunk
 function pineSprite(h,seed,pal){const w=Math.round(h*.56)|1,[c,g]=mk(w,h),cx=w>>1,R=rng(seed);
@@ -141,6 +143,7 @@ function drawSky(g,w,h,u){const n=C.sky.length,shift=R0(u*2.5);
     if(i>0){g.fillStyle=C.sky[Math.max(0,i-1-shift)];for(let x=(i&1);x<w;x+=2)g.fillRect(x,y0,1,1);}}}
 // fluffy pixel clouds: a stack of discs, lit on top, with a soft blue underside
 function drawCloud(g,x,y,s,seed){
+  if(ART.clouds){const im=ART.clouds[seed%ART.clouds.length];g.drawImage(im,x-(im.width>>1),y-(im.height>>1));return;}
   const blobs=[[0,0,6],[7,-3,8],[16,-1,7],[23,1,5],[-6,2,4]].map(([a,b,r],i)=>[x+R0(a*s),y+R0(b*s),Math.max(2,R0(r*s*(.8+hash(seed,i)*.4)))]);
   for(const [bx,by,r] of blobs)pdisc(g,bx,by+1,r,C.cloudD);
   for(const [bx,by,r] of blobs)pdisc(g,bx,by,r,C.cloudS);
@@ -149,7 +152,7 @@ function drawCloud(g,x,y,s,seed){
 
 /* ---------- generated art (PixelLab): the valley backdrop, a near treeline and two granite textures ----------
    Each loads in the background; until it has, the painted version above (and the painted rock below) stands in. */
-const ART={},FIRE_N=6;
+const ART={},FIRE_N=6,CLOUD_N=3;
 (function loadArt(){
   const pixels=im=>{const [,g]=mk(im.width,im.height);g.drawImage(im,0,0);return {w:im.width,h:im.height,d:g.getImageData(0,0,im.width,im.height).data};},
     rgb=(p,x,y)=>{const i=(y*p.w+x)*4;return `rgb(${p.d[i]},${p.d[i+1]},${p.d[i+2]})`;},
@@ -207,6 +210,8 @@ const ART={},FIRE_N=6;
       if(!near)d[j+3]=0;}
     ART.firePile=canvasOf(pile);ART.fire=ps.map(canvasOf);});
   load(asset("assets/pine.png"),im=>{ART.pine=im;FX.base=null;});
+  // painted clouds (until all are in, the sky's clouds are simple drawn ones)
+  {const cl=[];let left=CLOUD_N;for(let i=0;i<CLOUD_N;i++)load(asset(`assets/clouds/${i}.png`),im=>{cl[i]=im;if(!--left)ART.clouds=cl;});}
   // the dust poof: the generated cloud and its burst-and-fade frames
   ART.poof=Array.from({length:7},(_,i)=>{const im=new Image();im.src=asset(`assets/poof/${i}.png`);return im;});
   // the base-camp meadow: a grass-and-soil strip repeated along the valley floor, solid soil below it
@@ -363,6 +368,8 @@ const ART_POSE={hang:["climb",0],chalk:["climb",0],shake1:["climb",0],shake2:["c
   pull:["climb",4],crouch:["climb",5],reachL:["climb",6],mantle:["climb",7],look:["idle",1],hop:["idle",3],
   yank1:["yank",1],yank2:["yank",2],yank3:["yank",3],yank4:["yank",4],yank5:["yank",5]};
 const HANG_ART=["fall",2]; // hanging back in the harness
+const TIE=[72,63];          // the front of the belt in the climbing frames (where the rope ties in)
+const REST_N=9,REST_MS=1700; // the resting and dangling clips: nine frames each, the rest played once through
 // the box round a frame's opaque pixels, measured once
 function boxOf(im){if(im.bb)return im.bb;const [,g]=mk(im.width,im.height);g.drawImage(im,0,0);
   const d=g.getImageData(0,0,im.width,im.height).data;let x0=1e9,y0=1e9,x1=-1,y1=-1;
@@ -376,7 +383,12 @@ function feetOf(im){if(im.feet)return im.feet;const b=boxOf(im),[,g]=mk(im.width
 function loadClimber(L){const who=CLIMBER_ART[L.name],A=L.art={clips:{},ready:0};let left=1;
   const img=src=>{left++;const im=new Image();im.onload=()=>{if(--left===0)A.ready=1;};im.src=src;return im;};
   for(const [k,n] of Object.entries(CLIP_N))A.clips[k]=Array.from({length:n},(_,i)=>img(asset(`assets/climbers/${who}/${k}/${i}.png`)));
-  A.front=img(asset(`assets/climbers/${who}/south.png`));if(--left===0)A.ready=1;}
+  A.front=img(asset(`assets/climbers/${who}/south.png`));if(--left===0)A.ready=1;
+  // the extra clips ride at the end of the clips whose placement they share: both rests after the climb's frames
+  // (hand up as in frame 3, then as in frame 7), the dangle after the fall's
+  const extra=(dir,n,done)=>{const fr=[];let k=n;for(let i=0;i<n;i++){const im=new Image();im.onload=()=>{if(!--k)done(fr);};im.src=asset(`assets/climbers/${who}/${dir}/${i}.png`);fr.push(im);}};
+  extra("rest3",REST_N,a=>extra("rest7",REST_N,b=>{A.clips.climb.push(...a,...b);A.rest=1;}));
+  extra("dangle",REST_N,a=>{A.clips.fall.push(...a);A.dangle=1;});}
 loadClimber(LOOK.me);loadClimber(LOOK.mate);
 // all of the climb's pictures are in (until then the scene draws simple stand-ins; the loading screen waits for this)
 const artReady=()=>!!(ART.valley&&ART.pines&&ART.rockLo&&ART.ledge&&ART.tent&&ART.fire&&ART.pine&&ART.ground&&LOOK.me.art.ready&&LOOK.mate.art.ready);
@@ -495,6 +507,8 @@ class Rig{
     this.h=[{x:0,y:0},{x:0,y:0}];this.hi=0;this.gx=0;this.gy=0;this.cheer=0;this.dizzy=0;this.fall=null;this.cnt=0;
     this.mv=null;this.clip=null;this.pose="stand";this.dir=1;this.idleAt=0;this.ph=Math.random()*6;this.cache=new Map();}
   pelvis(){return {x:this.N.x,y:this.N.y};}
+  // where the rope ties in: the front of the harness, where the sprite was last drawn (see draw)
+  tie(){return this.tieW||{x:this.N.x,y:this.N.y};}
   // the hang spot: N is the hips; the near hand sits HANG from them on hold i
   hangAt(i){const a=this.hold(i);return {x:a[0]-HANG[0],y:a[1]-HANG[1]};}
   play(frames,loop=-1){this.clip={frames:frames.map(([p,ms])=>[p,Math.max(40,ms)]),loop,i:0,t:0};this.pose=frames[0][0];}
@@ -540,7 +554,7 @@ class Rig{
   update(dt){
     const c=this.clip;
     if(c){c.t+=dt*1000;while(c.t>=c.frames[c.i][1]){c.t-=c.frames[c.i][1];if(c.i<c.frames.length-1)c.i++;else if(c.loop>=0)c.i=c.loop;else{c.t=0;break;}}
-      const np=c.frames[c.i][0];if(np!==this.pose){if((np==="pull"||np==="hang")&&this.mode==="climb"&&this.pose!=="chalk"&&!this.pose.startsWith("shake"))sfx("grab");
+      const np=c.frames[c.i][0];if(np!==this.pose){if((np==="pull"||np==="hang")&&this.mode==="climb"&&this.pose!=="chalk"&&this.pose!=="rest"&&!this.pose.startsWith("shake"))sfx("grab");
         if(np==="chalk"&&this.mode==="climb")puff(this.h[0].x,this.h[0].y); // (a puff only when they chalk up)
         this.pose=np;}}
     if(this.mode==="fall"){const F=this.fall;this.v.y+=450*dt;this.N.x+=this.v.x*dt;this.N.y+=this.v.y*dt;
@@ -558,13 +572,13 @@ class Rig{
     if(this.mode==="stand"){if(this.cheer>0){this.cheer-=dt;if(!(this.clip&&this.clip.joy)){this.play([["cheer1",170],["cheer2",170]],0);this.clip.joy=1;}if(this.cheer<=0)this.standLoop();}
       else if(this.clip&&this.clip.joy)this.standLoop();}
     if(!this.mv&&(this.mode==="climb"||this.mode==="stand")&&this.cheer<=0&&FX.time>this.idleAt&&!RM.matches){this.calm();
-      if(this.mode==="climb")this.play(Math.random()<.5?[["chalk",900],["hang",1e9]]:[["shake1",110],["shake2",110],["shake1",110],["shake2",110],["shake1",110],["shake2",110],["hang",1e9]]);
+      if(this.mode==="climb")this.play(this.L.art&&this.L.art.rest?[["rest",REST_MS],["hang",1e9]]:Math.random()<.5?[["chalk",900],["hang",1e9]]:[["shake1",110],["shake2",110],["shake1",110],["shake2",110],["shake1",110],["shake2",110],["hang",1e9]]);
       else if(this.pose==="stand"||this.pose==="stand2")this.play([["look",1600],["stand",650],["stand2",650]],1);}
     // on the wall they face it; on a ledge they face their partner
     const other=FX.A&&(this===FX.A.me?FX.A.mate:FX.A.me);
     // a belayer on the wall leans back out on the rope while the leader climbs past, so the two never overlap
-    const lean=other&&this===FX.A.mate&&this.mode==="climb"&&other.mode==="climb"&&Math.abs(other.N.y-this.N.y)<90?-32:0;
-    this.passX=(this.passX||0)+(lean-(this.passX||0))*(1-Math.exp(-dt*6));
+    const lean=other&&this===FX.A.mate&&this.mode==="climb"&&other.mode==="climb"&&Math.abs(other.N.y-this.N.y)<120?-40:0;
+    this.passX=(this.passX||0)+(lean-(this.passX||0))*(1-Math.exp(-dt*9));
     if(this.mode==="climb")this.dir=1;
     else if(this.mode==="stand"&&other&&other!==this&&Math.abs(other.N.x-this.N.x)>4)this.dir=other.N.x>this.N.x?1:-1;
     this.pin();
@@ -581,11 +595,15 @@ class Rig{
     // (while a move off a ledge or a fall waits to start, the body keeps the frame it had, so it never dips first)
     if(this.mode==="climb"&&this.mv&&this.mv.wait>0&&this.lastArt)return this.lastArt;
     if(this.mode==="climb"){const half=CLIP_N.climb>>1,base=(this.hi&1)*half,m=this.mv;
+      // resting between moves: the lower hand drops and shakes out, then goes back to its grip (the frames follow
+      // the climb clip's own, so they are placed on the wall the same way)
+      if(this.pose==="rest"&&this.clip&&!m&&this.L.art.rest)return ["climb",CLIP_N.climb+(this.hi&1)*REST_N+Math.min(REST_N-1,Math.floor(this.clip.t/REST_MS*REST_N))];
       if(m&&m.wait<=0)return ["climb",(base+Math.min(half-1,Math.floor(m.t/m.d*half)))%CLIP_N.climb];
       return ["climb",(base+half-1+(this.pose==="shake2"?1:0))%CLIP_N.climb];}
     // a fall: tipping back off the wall (two frames), then flailing on a loop; once the rope has caught them, they
     // hang back in the harness
-    if(this.mode==="fall"){const F=this.fall,ft=FX.time-(F?F.t0:0);if(F&&F.caught)return HANG_ART;
+    if(this.mode==="fall"){const F=this.fall,ft=FX.time-(F?F.t0:0);
+      if(F&&F.caught)return this.L.art.dangle?["fall",CLIP_N.fall+Math.floor((FX.time-(F.tc||0))*7)%REST_N]:HANG_ART;
       return ["fall",ft<.1?1:ft<.2?2:3+Math.floor((ft-.2)*11)%3];}
     // on the ground or a ledge with the partner climbing above: braced, paying out the rope
     if(this.mode==="stand"&&(this.pose==="stand"||this.pose==="stand2"||this.pose==="look")&&this.cheer<=0){const o=FX.A&&(this===FX.A.me?FX.A.mate:FX.A.me);
@@ -602,7 +620,7 @@ class Rig{
     if(L&&L.kind!==kind){const dx=L.wx-wx,dy=L.wy-wy;if(Math.abs(dx)+Math.abs(dy)<140)this.blend={dx,dy,t0:FX.time};}
     let ex=0,ey=0;const B=this.blend;
     if(B){const k=(FX.time-B.t0)/.28;if(k>=1)this.blend=null;else{const s=1-smooth(k);ex=R0(B.dx*s);ey=R0(B.dy*s);}}
-    this.lastDraw={kind,wx:wx+ex,wy:wy+ey};g.drawImage(img,px+ex,py+ey);}
+    this.lastDraw={kind,wx:wx+ex,wy:wy+ey};this.at=[px+ex,py+ey];g.drawImage(img,px+ex,py+ey);}
   draw(g,t,ox,oy){if(this.hidden)return; // asleep in the tent
     // a jolt (the rope jerked) snaps the body down and lets it spring back over a third of a second
     // (and pulls it out from the wall a little, the way the rope tugs)
@@ -621,8 +639,10 @@ class Rig{
       if(f&&!this.mantling&&Math.abs(laneX(FX.exp.choice,wy)-laneX(FX.exp.choice,R0(this.N.y+HANG[1])))<6)
         this.blit(g,img,R0(laneX(FX.exp.choice,wy)+8)+(x-R0(this.N.x))+3-f.x,y+HANG[1]-1-b.y0,"wall",ox,oy);
       else if(k==="climb")this.blit(g,img,x+HANG[0]+2-b.x1,y+HANG[1]-1-b.y0,"hand",ox,oy);
-      else this.blit(g,img,x-(flip?W-1-((b.x0+b.x1)>>1):(b.x0+b.x1)>>1),y+LEG-b.y1,"feet:"+k+(flip?"<":">"),ox,oy);}
-    else{
+      else this.blit(g,img,x-(flip?W-1-((b.x0+b.x1)>>1):(b.x0+b.x1)>>1),y+LEG-b.y1,"feet:"+k+(flip?"<":">"),ox,oy);
+      // (the harness: on the wall at the belt's front in the climbing frames; standing, just ahead of the hips)
+      this.tieW=k==="climb"?{x:this.at[0]-ox+TIE[0],y:this.at[1]-oy+TIE[1]}:{x:x-ox+4*this.dir,y:y-oy+3};}
+    else{this.tieW=null;
       const P0=POSES[this.pose]||POSES.stand,blink=!P0.eff&&!P0.oh&&((t+this.ph*1.7)%3.9)<.13,flap=Math.floor(t*4+this.ph)%2,gear=this.gear|0;
       const key=`${this.pose}|${gear}|${blink?1:0}|${flap}|${this.dir}`;let img=this.cache.get(key);
       if(!img){const s=pixelSprite(this.L,this.pose,{gear,blink,flap});
@@ -632,26 +652,47 @@ class Rig{
     if(this.dizzy>0)for(let i=0;i<3;i++){const a=Math.floor(t*8)/8*6+i*2.09;rect(g,x+R0(Math.cos(a)*8)-1,y-50+R0(Math.sin(a)*2)-1,2,2,i%2?C.cream:C.gold);}
   }
 }
-/* ---------- rope: a stepped sagging line from the partner's harness through the clipped bolts to the leader ---------- */
-const ROPE={l:"#f0b464",m:"#d0702a",s:"#8a3c14",d:"#3a1a0c"};
+/* ---------- rope: from the partner's harness through the clipped quickdraws to the leader's harness ----------
+   Each span between two points hangs as a curve with real slack, and the low point of that curve is a little weight
+   on a spring: when an end moves the slack lags behind, swings and settles, and a light breeze keeps it from ever
+   hanging dead still. Standing together on the meadow or a ledge, the rope droops to the ground and lies along it.
+   It is drawn as a braided cord: a dark keyline all round, an orange sheath lit from above, and a pale fleck woven
+   in every few pixels. When it snaps taut (a rope jerk, or a fall caught on it) the slack goes, it flashes pale for
+   an instant and twangs side to side, fading out over about half a second. */
+const ROPE={l:"#ffc27a",m:"#e8792b",s:"#b3521a",d:"#2a1408",f:"#fff1cf"};
 class Rope{
-  constructor(){this.path=null;}
-  update(path){this.path=path;}
-  // a 2px kernmantle rope: every pixel along the sagging curve gets a 2x2 dab, dark on the lower right, and a twisted
-  // sheath pattern (a light fleck every few pixels, a dark one between) so it reads as a braided cord, not a line
-  // When it snaps taut (a rope jerk or a fall caught on it) the sag goes, it flashes pale for an instant and twangs:
-  // each span vibrates side to side, fading out over about half a second
-  draw(g,ox,oy){const p=this.path;if(!p||p.length<2)return;let s=0;
-    const dab=(x,y,c)=>{g.fillStyle=c;g.fillRect(x,y,2,2);};
-    const jk=FX.time-(FX.ropeJerk??-9),taut=jk<.6,tw=taut?3.4*(1-jk/.6)**2*Math.cos(jk*48):0,flash=jk<.09;
-    for(let pass=0;pass<2;pass++){s=0;
-      for(let i=1;i<p.length;i++){const [x0,y0]=p[i-1],[x1,y1]=p[i],L=Math.hypot(x1-x0,y1-y0),sag=taut?0:Math.min(8,L*.12),n=Math.max(2,Math.ceil(L));
-        const mx=(x0+x1)/2+sag*.4,my=(y0+y1)/2+sag,nx=-(y1-y0)/(L||1),ny=(x1-x0)/(L||1);let lx=null,ly=null;
-        for(let k=0;k<=n;k++){const t=k/n,w=tw*Math.sin(Math.PI*t),
-            x=R0((1-t)*(1-t)*x0+2*(1-t)*t*mx+t*t*x1+nx*w)+ox,y=R0((1-t)*(1-t)*y0+2*(1-t)*t*my+t*t*y1+ny*w)+oy;
-          if(x===lx&&y===ly)continue;lx=x;ly=y;s++;
-          if(pass===0)dab(x+1,y+1,ROPE.d);
-          else{dab(x,y,flash?ROPE.l:ROPE.m);const q=s%4;if(q===0)dot(g,x,y,ROPE.l);else if(q===2)dot(g,x+1,y+1,ROPE.s);}}}}}
+  constructor(){this.path=null;this.c=[];this.ground=null;}
+  update(path,dt=0,o={}){this.path=path;this.ground=o.ground??null;const n=Math.max(0,path.length-1);
+    if(this.c.length!==n)this.c=[];
+    const jk=FX.time-(FX.ropeJerk??-9),taut=jk<.6;
+    for(let i=0;i<n;i++){const [x0,y0]=path[i],[x1,y1]=path[i+1],L=Math.hypot(x1-x0,y1-y0);
+      // how much slack a span carries: plenty in the loop at the belayer, a little up to the leader, almost none
+      // between two quickdraws; on the ground enough to lie along it
+      let sag=this.ground!=null?L*.5+14:i===0?Math.min(o.first??13,4+L*.16):i===n-1?Math.min(7,2+L*.1):1.5;if(taut)sag=0;
+      const wind=RM.matches||taut?0:Math.sin(FX.time*1.15+i*1.9)*Math.min(1.6,sag*.22);
+      const tx=(x0+x1)/2+wind,ty=(y0+y1)/2+sag;let c=this.c[i];
+      if(!c||Math.hypot(c.x-tx,c.y-ty)>70||!dt){this.c[i]={x:tx,y:ty,vx:0,vy:0};continue;}
+      // (a lightly damped spring, stepped stably whatever the frame time)
+      const k=taut?520:95,d=taut?30:5.2,h=Math.min(dt,.033);
+      c.vx+=(k*(tx-c.x)-d*c.vx)*h;c.vy+=(k*(ty-c.y)-d*c.vy)*h;c.x+=c.vx*h;c.y+=c.vy*h;}}
+  // every pixel the rope passes through, in order, as [x,y]
+  points(ox,oy){const p=this.path,out=[];if(!p||p.length<2)return out;
+    const jk=FX.time-(FX.ropeJerk??-9),tw=jk<.6?3.4*(1-jk/.6)**2*Math.cos(jk*48):0,gy=this.ground;let lx=null,ly=null;
+    for(let i=1;i<p.length;i++){const [x0,y0]=p[i-1],[x1,y1]=p[i],c=this.c[i-1]||{x:(x0+x1)/2,y:(y0+y1)/2};
+      // (the curve's own control point is set so that its middle passes through the swinging low point)
+      const mx=2*c.x-(x0+x1)/2,my=2*c.y-(y0+y1)/2,L=Math.hypot(x1-x0,y1-y0)||1,nx=-(y1-y0)/L,ny=(x1-x0)/L,n=Math.max(2,Math.ceil(L*1.6+Math.abs(c.y-(y0+y1)/2)*2));
+      for(let k=0;k<=n;k++){const t=k/n,w=tw*Math.sin(Math.PI*t);
+        let x=(1-t)*(1-t)*x0+2*(1-t)*t*mx+t*t*x1+nx*w,y=(1-t)*(1-t)*y0+2*(1-t)*t*my+t*t*y1+ny*w;
+        if(gy!=null&&y>gy-2)y=gy-2+(hash(R0(x)>>2,91)<.3?-1:0); // (lying on the grass, over a tuft here and there)
+        x=R0(x)+ox;y=R0(y)+oy;if(x===lx&&y===ly)continue;lx=x;ly=y;out.push([x,y]);}}
+    return out;}
+  draw(g,ox,oy){const P=this.points(ox,oy);if(!P.length)return;const flash=FX.time-(FX.ropeJerk??-9)<.09;
+    // the keyline first (a pixel all round the cord), then the cord over it
+    g.fillStyle=ROPE.d;for(const [x,y] of P){g.fillRect(x-1,y,4,2);g.fillRect(x,y-1,2,4);}
+    P.forEach(([x,y],s)=>{g.fillStyle=flash?ROPE.f:ROPE.m;g.fillRect(x,y,2,2);if(flash)return;
+      const q=s%6;dot(g,x,y,q===3?ROPE.f:ROPE.l);dot(g,x+1,y+1,q===0?ROPE.d:ROPE.s);});
+    // a knot at each harness
+    const p=this.path;for(const [x,y] of [p[0],p[p.length-1]]){rect(g,R0(x)+ox-1,R0(y)+oy-1,4,4,ROPE.d);rect(g,R0(x)+ox,R0(y)+oy,2,2,ROPE.l);dot(g,R0(x)+ox+1,R0(y)+oy+1,ROPE.s);}}
 }
 /* ---------- particles and pop-up words ---------- */
 function emit(p){if(FX.parts.length<300&&!RM.matches)FX.parts.push(p);}
@@ -660,14 +701,22 @@ function pebbles(r){for(let i=0;i<6;i++)emit({k:"peb",x:r.N.x+(Math.random()-.5)
 function embers(x,y,amt){const dt=FX.dt;if(Math.random()<dt*7*amt)emit({k:"ember",x:x+(Math.random()-.5)*5,y:y-4,vx:(Math.random()-.5)*5+3,vy:-14-Math.random()*10,g:-3,l:1.1+Math.random(),m:2.1});
   if(Math.random()<dt*1.4*amt)emit({k:"smoke",x:x+(Math.random()-.5)*3,y:y-9,vx:4,vy:-8,g:-1,l:2.6,m:2.6});}
 function pop(r,text){if(RM.matches)return;FX.pops.push({x:r.N.x,y:r.N.y-58,text,t:0});sfx("pop");}
-function stepParts(dt){FX.parts=FX.parts.filter(p=>{p.l-=dt;p.vy+=p.g*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;return p.l>0;});
+// a pop-up word: the signs' 5-pixel font at twice its size, gold with a dark keyline (a lone "z" stays small)
+function wordSprite(text){const key="w|"+text;let s=FX.text.get(key);if(s)return s;
+  const k=text.length>1?2:1,w=PF.width(text),[a,ag]=mk(w+2,7);
+  for(const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1]])PF.draw(ag,text,1+dx,1+dy,INK);PF.draw(ag,text,1,1,C.gold);
+  const [c,g]=mk((w+2)*k,7*k);g.drawImage(a,0,0,(w+2)*k,7*k);if(k>1){g.globalCompositeOperation="source-atop";g.fillStyle="rgba(255,255,255,.35)";g.fillRect(0,0,c.width,5);}
+  FX.text.set(key,c);return c;}
+function stepParts(dt){FX.parts=FX.parts.filter(p=>{p.l-=dt;p.vy+=p.g*dt;if(p.k==="conf"){p.vy=Math.min(p.vy,62);p.x+=Math.sin(FX.time*3+p.ph)*10*dt;}p.x+=p.vx*dt;p.y+=p.vy*dt;return p.l>0;});
   FX.pops=FX.pops.filter(p=>(p.t+=dt)<1.1);}
 function drawParts(g,ox,oy,t){for(const p of FX.parts){const a=p.l/p.m,x=R0(p.x)+ox,y=R0(p.y)+oy;
   if(p.k==="chalk")rect(g,x,y,a>.5?2:1,a>.5?2:1,"#f4f1e8");
   else if(p.k==="ember")dot(g,x,y,a>.5?C.gold:C.rope);
   else if(p.k==="smoke"){if(((x+y)&1)===0||a>.6)rect(g,x,y,a>.4?3:2,2,a>.5?"#d8d4cc":"#b8b4ac");}
+  // (confetti flutters: each scrap turns edge-on and back as it falls)
+  else if(p.k==="conf"){const f=Math.floor(t*9+p.ph)%4;rect(g,x,y,f===1?1:2,f===3?1:2,p.c);}
   else rect(g,x,y,2,2,"#6e6a62");}
-  for(const p of FX.pops){const k=p.t/1.1,s=textSprite(p.text,C.gold);if(k>.85&&Math.floor(t*16)%2)continue;
+  for(const p of FX.pops){const k=p.t/1.1,s=wordSprite(p.text);if(k>.85&&Math.floor(t*16)%2)continue;
     g.drawImage(s,Math.max(4,Math.min(R0(p.x)+ox-(s.width>>1),FX.vw-s.width-4)),R0(p.y-k*14)+oy-(k<.12?R0((.12-k)*30):0));}}
 
 /* ---------- camps, base camp and the summit ---------- */
@@ -799,8 +848,17 @@ function drawSummit(g,t,ox,oy){const fx=SX-18,fy=R0(peakTop(fx))+1,F=pennant(15,
   // reaches out left over the drop so it never hides the flag
   const sx=Math.max(SX-62,edgeL(TOPY)+6),sy=R0(peakTop(sx));drawSign(g,signpost("SUMMIT",18,{snow:true,post:6}),sx+ox,sy+oy);}
 const fireAmt=k=>!FX.lit[k]?0:FX.litAt[k]?clamp((FX.time-FX.litAt[k])/1.2,0,1):1;
-function quickdraws(g,ox,oy){const p=FX.pins;if(!p.length)return;for(let i=1;i<p.length-1;i++){const x=R0(p[i][0])+ox,y=R0(p[i][1])+oy;rect(g,x,y,1,3,C.gold);rect(g,x-1,y+3,3,3,C.metal);dot(g,x,y+4,C.navy);}}
-
+// the route's hardware: a steel hanger bolted to the rock every few holds all the way up, and on the ones between
+// the two climbers a quickdraw (a carabiner on the bolt, a short red sling, and the carabiner the rope runs through)
+const QD=[0,9]; // where the rope runs, from the bolt
+function hardware(g,ox,oy,vy0,vy1){if(!FX.exp||FX.mode!=="game")return;const ch=FX.exp.choice,clipped=FX.clips||[];
+  for(let i=Math.max(2,Math.floor(-vy1/HS));i<=Math.min(IDX_TOP-2,Math.ceil(-vy0/HS));i++){if(i%4!==2||i===IDX_C1||i===IDX_C2)continue;
+    const [bx,by]=boltXY(ch,i),x=bx+ox,y=by+oy;
+    rect(g,x-2,y-2,5,5,INK);rect(g,x-1,y-1,3,3,C.metalD);dot(g,x-1,y-1,C.metal);dot(g,x,y,INK);
+    if(!clipped.includes(i))continue;
+    rect(g,x-1,y+2,3,5,INK);rect(g,x,y+2,1,5,C.red);                       // the sling
+    rect(g,x-3,y+6,7,7,INK);rect(g,x-2,y+7,5,5,C.metal);rect(g,x-1,y+8,3,3,INK);dot(g,x-2,y+7,"#ffffff");dot(g,x+2,y+11,C.metalD);} // the carabiner
+}
 /* ---------- setup, loop and frame ---------- */
 function ensureScene(){
   const cv=$("#topo");if(!cv)return false;if(FX.cv===cv)return true;
@@ -825,7 +883,7 @@ function ensureScene(){
   return true;
 }
 function stepAmbient(dt){
-  FX.nextBird-=dt;if(FX.nextBird<0&&!RM.matches){FX.nextBird=8+Math.random()*10;FX.birds.push({x:-10,y:.12+Math.random()*.3,v:9+Math.random()*6,n:2+(Math.random()*3|0),t:0});}
+  FX.nextBird-=dt;if(FX.nextBird<0&&!RM.matches){FX.nextBird=14+Math.random()*16;FX.birds.push({x:-12,y:.12+Math.random()*.3,v:11+Math.random()*6,n:1+(Math.random()*3|0),t:0});}
   FX.birds=FX.birds.filter(b=>{b.x+=b.v*dt;b.t+=dt;return b.x<FX.vw+30;});
   const c=FX.cam;if(!c)return;
   const vy0=c.y-FX.vh/2,vy1=c.y+FX.vh/2,cp=FX.camp;if(fireLit(cp)&&cp.cy>vy0&&cp.cy<vy1&&Math.random()<dt*5)sfx("crackle");
@@ -875,12 +933,17 @@ function frame(now){
     const k=w.ms?clamp((now-w.t0)/w.ms,0,1):1;w.fn(k);if(k>=1){FX.tw.splice(FX.tw.indexOf(w),1);w.res(true);}}
   const A=FX.A;
   if(FX.exp){A.me.update(dt);A.mate.update(dt);
-    const ch=FX.exp.choice,pm=A.mate.pelvis(),pl=A.me.pelvis(),path=[[pm.x,pm.y]];
+    const ch=FX.exp.choice,pm=A.mate.tie(),pl=A.me.tie(),path=[[pm.x,pm.y]],clips=[];
     // the rope runs through the clipped bolts between the two only while the leader is on the wall (once the leader
     // has topped out onto a ledge they belay from there), and only bolts that lie between them on the way up
-    if(A.me.mode==="climb")for(let i=A.mate.hi+1;i<A.me.hi;i++)if(i%4===2){const b=boltXY(ch,i);if(b[1]<pm.y-6&&b[1]>pl.y+6)path.push(b);}
+    if(A.me.mode==="climb")for(let i=A.mate.hi+1;i<A.me.hi;i++)if(i%4===2){const b=boltXY(ch,i);if(b[1]<pm.y-6&&b[1]>pl.y+6){path.push([b[0]+QD[0],b[1]+QD[1]]);clips.push(i);}}
+    // (off a leader on the wall the rope first drops straight down from the harness, between them and the rock,
+    // so it never cuts across behind their pack on its way to the belayer)
+    if(A.me.mode==="climb"&&pm.y>pl.y+30)path.push([pl.x+1,pl.y+20]);
     path.push([pl.x,pl.y]);if(FX.camp)path.length=0; // (coiled away while camp is up)
-    FX.pins=path;FX.rope.update(path);}
+    // (with both on their feet the rope lies on the ground between them; a belayer on the wall keeps a short loop)
+    const up=r=>r.mode==="climb"||r.mode==="fall";
+    FX.pins=path;FX.clips=clips;FX.rope.update(path,dt,{ground:!up(A.me)&&!up(A.mate)?Math.max(A.me.gy,A.mate.gy):null,first:A.mate.mode==="climb"?6:13});}
   stepParts(dt);stepAmbient(dt);updateCam(dt);
   if(FX.visible&&!document.hidden)paint(t);
   FX.raf=requestAnimationFrame(frame);
@@ -901,7 +964,7 @@ function paint(t){
   const cloudMax=art?valleyY(h,climb)+60:h*.7;
   for(let k=0;k<6;k++){const cx=R0(((hash(k,1)*w*1.6+t*(1.2+hash(k,3)*1.5))%(w*1.6))-w*.3),cy=R0(h*(.08+hash(k,4)*.3)+climb*.03);
     if(cy<cloudMax)drawCloud(g,cx,cy,.8+hash(k,2)*.6,k);}
-  for(const b of FX.birds)for(let i=0;i<b.n;i++)g.drawImage(SP.bird?SP.bird[Math.floor(b.t*5+i)%2]:sprites().bird[0],R0(b.x-i*7),R0(b.y*h+(i%2?3:-1)*i));
+  for(const b of FX.birds)for(let i=0;i<b.n;i++)g.drawImage(sprites().bird[Math.floor(b.t*7+i*1.3)%4],R0(b.x-i*13),R0(b.y*h+(i%2?5:-2)*i+Math.sin(b.t*1.4+i)*2));
   if(art)drawPines(g,w,h,climb);
   else for(const L of FX.layers){const y=R0(climb*L.par);if(y<h)g.drawImage(L.c,0,y);}
   if(vy1>-120){const B=baseLayer();g.drawImage(B.c,B.x0+ox,B.y0+oy);drawFire(g,-118+ox,oy,3,t);embers(-100,-10,1);}
@@ -917,7 +980,7 @@ function paint(t){
   // (the climbers keep the camera's fraction of a pixel, so the one it follows holds still on screen rather than
   // flickering a pixel up and down as their rounding and the camera's take turns)
   FX.sub=oyF-R0(oyF);
-  FX.rope.draw(g,ox,oy);quickdraws(g,ox,oy);
+  hardware(g,ox,oy,vy0,vy1);FX.rope.draw(g,ox,oy);
   FX.A.mate.draw(g,t,ox,oy);FX.A.me.draw(g,t,ox,oy);
   drawPoofs(g,ox,oy);
   if(FX.night>0)drawNight(g,w,h,t,ox,oy);
@@ -944,10 +1007,10 @@ function title(text,sub,tone){const fx=$("#fx");if(!fx)return;fx.querySelectorAl
   fx.appendChild(el);setTimeout(()=>el.remove(),2700);}
 function caption(text){const fx=$("#fx");if(!fx)return;fx.querySelectorAll(".cap").forEach(x=>x.remove());
   const el=document.createElement("div");el.className="cap";el.textContent=text;fx.appendChild(el);setTimeout(()=>el.remove(),2900);}
-function confetti(n=28){const fx=$("#fx");if(!fx||RM.matches)return;const cols=[C.red,C.gold,"#2f8f8a",C.cream,"#9bd16a"];
-  for(let i=0;i<n;i++){const c=document.createElement("i");c.className="conf";
-    c.style.cssText=`--x:${(Math.random()*100).toFixed(1)}%;--d:${(Math.random()*.5).toFixed(2)}s;--c:${cols[i%cols.length]};--dr:${Math.round((Math.random()*2-1)*60)}px;--dur:${(1.4+Math.random()).toFixed(2)}s`;
-    fx.appendChild(c);setTimeout(()=>c.remove(),3200);}}
+// confetti: scraps of colour let go across the top of the view, drawn on the scene's own pixel grid
+function confetti(n=28){const c=FX.cam;if(!c||RM.matches)return;const cols=[C.red,C.gold,"#2f8f8a",C.cream,"#9bd16a"],top=-R0(c.my-c.y);
+  for(let i=0;i<n*2&&FX.parts.length<300;i++)FX.parts.push({k:"conf",x:Math.random()*FX.vw-FX.ox,y:top-6+Math.random()*FX.vh*.3,vx:(Math.random()-.5)*14,vy:14+Math.random()*30,g:60,
+    l:3.5+Math.random()*2,m:6,c:cols[i%cols.length],ph:Math.random()*6});}
 
 /* ---------- sequences ---------- */
 const stepMsFor=n=>clamp(3600/Math.max(n,1),230,460);

@@ -493,8 +493,9 @@ async function invite(){const t=S.team;if(!t)return;const l=inviteLink(t.code);
    As in the concept sheet: the climb fills the screen, the HUD sits along the top (both climbers' portraits and
    roles, the team's hooks as hearts, the gear row, altitude and rope), and the question interface is a framed panel
    along the bottom with the rope radio beside it. */
-ICON.chalk=pix(["...kk...","..k..k..",".kkkkkk.",".kcwcck.",".kccccS.",".kccccS.",".kSSSSk.","..kkkk.."]);
-ICON.scout=pix(["kkk.kkk","kSk.kSk","kSkkkSk","kSSSSSk","kGSkSGk","kkk.kkk"]);
+// the chalk bag and the scout's binoculars, drawn to read at the size of a thumb
+ICON.chalk=pix(["...kkkk...","..kwwwwk..",".kkkkkkkk.",".kSSSSSSk.",".kSSwSSSk.",".kSwwwSSk.",".kSSwSSSk.",".kSSSSSSk.","..kSSSSk..","...kkkk..."]);
+ICON.scout=pix([".kkk..kkk.","kGGGkkGGGk","kGsGkkGsGk","kGGGkkGGGk","kGGGkkGGGk","kSSSkkSSSk","kSSSkkSSSk","kkkk..kkkk"]);
 function renderBar(){
   const t=S.team;if(!t){$("#teambar").innerHTML="";return;}
   const ids=memberIds(t);$("#teambar").classList.toggle("full",ids.length>1);
