@@ -210,6 +210,8 @@ const ART={},FIRE_N=6,CLOUD_N=3;
       if(!near)d[j+3]=0;}
     ART.firePile=canvasOf(pile);ART.fire=ps.map(canvasOf);});
   load(asset("assets/pine.png"),im=>{ART.pine=im;FX.base=null;});
+  // camp props: a coil of rope, a cooking pot, a lantern and a supply crate
+  ART.props={};for(const n of ["coil","pot","lantern","crate"])load(asset(`assets/props/${n}.png`),im=>{ART.props[n]=im;FX.base=null;});
   // painted clouds (until all are in, the sky's clouds are simple drawn ones)
   {const cl=[];let left=CLOUD_N;for(let i=0;i<CLOUD_N;i++)load(asset(`assets/clouds/${i}.png`),im=>{cl[i]=im;if(!--left)ART.clouds=cl;});}
   // the dust poof: the generated cloud and its burst-and-fade frames
@@ -370,6 +372,7 @@ const ART_POSE={hang:["climb",0],chalk:["climb",0],shake1:["climb",0],shake2:["c
 const HANG_ART=["fall",2]; // hanging back in the harness
 const TIE=[72,63];          // the front of the belt in the climbing frames (where the rope ties in)
 const REST_N=9,REST_MS=1700; // the resting and dangling clips: nine frames each, the rest played once through
+const STAND_N=9,STAND_MS=2000,LAND_N=5,LAND_MS=900; // standing: a look up the wall, a drink; and up from a hard landing
 // the box round a frame's opaque pixels, measured once
 function boxOf(im){if(im.bb)return im.bb;const [,g]=mk(im.width,im.height);g.drawImage(im,0,0);
   const d=g.getImageData(0,0,im.width,im.height).data;let x0=1e9,y0=1e9,x1=-1,y1=-1;
@@ -388,7 +391,8 @@ function loadClimber(L){const who=CLIMBER_ART[L.name],A=L.art={clips:{},ready:0}
   // (hand up as in frame 3, then as in frame 7), the dangle after the fall's
   const extra=(dir,n,done)=>{const fr=[];let k=n;for(let i=0;i<n;i++){const im=new Image();im.onload=()=>{if(!--k)done(fr);};im.src=asset(`assets/climbers/${who}/${dir}/${i}.png`);fr.push(im);}};
   extra("rest3",REST_N,a=>extra("rest7",REST_N,b=>{A.clips.climb.push(...a,...b);A.rest=1;}));
-  extra("dangle",REST_N,a=>{A.clips.fall.push(...a);A.dangle=1;});}
+  extra("dangle",REST_N,a=>{A.clips.fall.push(...a);A.dangle=1;});
+  extra("look",STAND_N,a=>extra("drink",STAND_N,b=>extra("land",LAND_N,c=>{A.clips.idle.push(...a,...b,...c);A.stand=1;})));}
 loadClimber(LOOK.me);loadClimber(LOOK.mate);
 // all of the climb's pictures are in (until then the scene draws simple stand-ins; the loading screen waits for this)
 const artReady=()=>!!(ART.valley&&ART.pines&&ART.rockLo&&ART.ledge&&ART.tent&&ART.fire&&ART.pine&&ART.ground&&LOOK.me.art.ready&&LOOK.mate.art.ready);
@@ -529,7 +533,8 @@ class Rig{
   reachFrom(i,d){const ms=d*1000,first=this.mode==="fall"?"pull":"hop";this.mode="climb";this.fall=null;this.hi=i;const p=this.hangAt(i);
     this.slide(p.x,p.y,d*.6,d*.4);this.play([[first,ms*.4],["jump",ms*.6],["hang",1e9]]);this.calm();}
   topOut(x,y,d){this.mantling=true;this.slide(x,y-LEG,d,0,k=>k*k*(3-2*k));this.play([["mantle",d*600],["hop",1e9]]);}
-  land(x,y){this.standAt(x,y);this.play([["hop",160],["stand",650],["stand2",650]],1);}
+  // (hard: off a fall, they land in a crouch and get up slowly)
+  land(x,y,hard){this.standAt(x,y);this.play(hard&&this.L.art&&this.L.art.stand?[["landed",LAND_MS],["stand",650],["stand2",650]]:[["hop",160],["stand",650],["stand2",650]],1);}
   // off the wall and down onto a ledge: the body eases across in a short hop, then stands
   dropTo(x,y,d){this.mantling=false;this.mode="stand";this.fall=null;this.gx=x;this.gy=y;this.slide(x,y-LEG,d);this.play([["hop",d*1000+160],["stand",650],["stand2",650]],1);this.calm();}
   // on a ledge: walk to x at a steady pace (facing the way they go; standing again on arrival), or kneel to work
@@ -559,7 +564,7 @@ class Rig{
         this.pose=np;}}
     if(this.mode==="fall"){const F=this.fall;this.v.y+=450*dt;this.N.x+=this.v.x*dt;this.N.y+=this.v.y*dt;
       // a floor (the meadow or a camp ledge): land on it, feet first, with a thud and a puff of dust
-      if(F.floor!=null&&this.N.y>=F.floor){this.land(this.N.x,F.floor+LEG);this.dizzy=1.4;FX.shake=Math.max(FX.shake,.8);sfx("thud");pebbles(this);return;}
+      if(F.floor!=null&&this.N.y>=F.floor){this.land(this.N.x,F.floor+LEG,true);this.dizzy=1.4;FX.shake=Math.max(FX.shake,.8);sfx("thud");pebbles(this);return;}
       if(F.ax!=null){const dx=this.N.x-F.ax,dy=this.N.y-F.ay,d=Math.hypot(dx,dy);
         // (slack while they're still above the anchor: they fall freely until they pass it)
         if(d>F.len&&dy>=0){const nx=dx/d,ny=dy/d,vr=this.v.x*nx+this.v.y*ny;this.N.x=F.ax+nx*F.len;this.N.y=F.ay+ny*F.len;
@@ -573,7 +578,9 @@ class Rig{
       else if(this.clip&&this.clip.joy)this.standLoop();}
     if(!this.mv&&(this.mode==="climb"||this.mode==="stand")&&this.cheer<=0&&FX.time>this.idleAt&&!RM.matches){this.calm();
       if(this.mode==="climb")this.play(this.L.art&&this.L.art.rest?[["rest",REST_MS],["hang",1e9]]:Math.random()<.5?[["chalk",900],["hang",1e9]]:[["shake1",110],["shake2",110],["shake1",110],["shake2",110],["shake1",110],["shake2",110],["hang",1e9]]);
-      else if(this.pose==="stand"||this.pose==="stand2")this.play([["look",1600],["stand",650],["stand2",650]],1);}
+      // (on their feet with nothing to do, they look up the wall or take a drink; while belaying they just glance up)
+      else if(this.pose==="stand"||this.pose==="stand2"){const o=FX.A&&(this===FX.A.me?FX.A.mate:FX.A.me),busy=!this.L.art||!this.L.art.stand||(o&&(o.mode==="climb"||o.mode==="fall"));
+        this.play(busy?[["look",1600],["stand",650],["stand2",650]]:[[Math.random()<.5?"slook":"sdrink",STAND_MS],["stand",650],["stand2",650]],1);}}
     // on the wall they face it; on a ledge they face their partner
     const other=FX.A&&(this===FX.A.me?FX.A.mate:FX.A.me);
     // a belayer on the wall leans back out on the rope while the leader climbs past, so the two never overlap
@@ -610,6 +617,11 @@ class Rig{
       if(o&&(o.mode==="climb"||o.mode==="fall")&&o.N.y<this.N.y-30)return ["belay",Math.floor(t*5+this.ph)%CLIP_N.belay];}
     if(this.mode==="walk")return ["walk",Math.floor(t*9+this.ph)%CLIP_N.walk];
     if(this.mode==="work")return ["work",Math.floor(t*7+this.ph)%CLIP_N.work];
+    // a quiet moment on their feet (a look up the wall, a drink), or getting up after landing hard
+    if(this.clip&&this.L.art.stand){const at=n=>Math.min(n-1,Math.floor(this.clip.t/(this.pose==="landed"?LAND_MS:STAND_MS)*n));
+      if(this.pose==="slook")return ["idle",CLIP_N.idle+at(STAND_N)];
+      if(this.pose==="sdrink")return ["idle",CLIP_N.idle+STAND_N+at(STAND_N)];
+      if(this.pose==="landed")return ["idle",CLIP_N.idle+2*STAND_N+at(LAND_N)];}
     const m=ART_POSE[this.pose];if(m)return m;
     if(this.pose.startsWith("cheer"))return ["cheer",Math.floor(t*12+this.ph)%CLIP_N.cheer];
     return ["idle",Math.floor(t*4+this.ph)%CLIP_N.idle];}
@@ -668,7 +680,7 @@ class Rope{
     for(let i=0;i<n;i++){const [x0,y0]=path[i],[x1,y1]=path[i+1],L=Math.hypot(x1-x0,y1-y0);
       // how much slack a span carries: plenty in the loop at the belayer, a little up to the leader, almost none
       // between two quickdraws; on the ground enough to lie along it
-      let sag=this.ground!=null?L*.5+14:i===0?Math.min(o.first??13,4+L*.16):i===n-1?Math.min(7,2+L*.1):1.5;if(taut)sag=0;
+      let sag=this.ground!=null?L*.5+14:i===0?Math.min(o.first??13,4+L*.16)+(o.loose?L*.12:0):i===n-1?Math.min(7,2+L*.1):1.5;if(taut)sag=0;
       const wind=RM.matches||taut?0:Math.sin(FX.time*1.15+i*1.9)*Math.min(1.6,sag*.22);
       const tx=(x0+x1)/2+wind,ty=(y0+y1)/2+sag;let c=this.c[i];
       if(!c||Math.hypot(c.x-tx,c.y-ty)>70||!dt){this.c[i]={x:tx,y:ty,vx:0,vy:0};continue;}
@@ -813,7 +825,11 @@ function drawPoofs(g,ox,oy){FX.poofs=FX.poofs.filter(p=>FX.time-p.t0<.5);
 function drawCamp(g,k,cy,t,ox,oy){const L=campLayer(k,cy);g.drawImage(L.c,L.x0+ox,L.y0+oy);
   const C2=FX.camp;if(!C2||C2.k!==k)return;const S=campSpots();
   drawTentRise(g,S.tentX+ox,cy+oy,C2.tent,C2.tentAt);
+  // once the tent is up, in front of it: the cooking pot, a lantern at the door and the rope, coiled
+  if(C2.tent>=5){prop(g,"pot",S.door-44+ox,cy+1+oy);prop(g,"lantern",S.door-18+ox,cy+1+oy);prop(g,"coil",S.tentR-18+ox,cy+1+oy);}
   drawFire(g,S.fireX+ox,cy+oy,C2.fire||0,t,C2.fireAt);if(fireLit(C2))embers(S.fireC,cy-12,1);}
+// a camp prop standing on the ground at y, its left edge at x
+function prop(g,n,x,y){const im=ART.props&&ART.props[n];if(im)g.drawImage(im,R0(x),R0(y)-im.height);}
 // the base-camp meadow and the near pines, painted once per view width
 const BASE_SIGN_X=-98;
 function baseLayer(){const ox=FX.ox,w=FX.vw;if(FX.base&&FX.base.ox===ox&&FX.base.w===w)return FX.base;
@@ -832,6 +848,8 @@ function baseLayer(){const ox=FX.ox,w=FX.vw;if(FX.base&&FX.base.ox===ox&&FX.base
   // the tent, the camp's signpost at its corner, then (drawn each frame) the fire beside the climbers
   drawTent(g,X(-196),Y(0));
   drawSign(g,signpost("BASE CAMP",57,{post:7}),X(BASE_SIGN_X),Y(0));
+  // (a supply crate by the tent's far corner, a lantern standing on it, the cooking pot beside it)
+  prop(g,"crate",X(-196),Y(1));if(ART.props.crate)prop(g,"lantern",X(-193),Y(1-ART.props.crate.height+1));prop(g,"pot",X(-174),Y(1));
   return FX.base={c,x0,y0,ox,w};}
 // the big pines in front of the cliff foot: the generated pine (every other one mirrored) once it has loaded
 function drawFrontPines(g,ox,oy){
@@ -851,6 +869,13 @@ const fireAmt=k=>!FX.lit[k]?0:FX.litAt[k]?clamp((FX.time-FX.litAt[k])/1.2,0,1):1
 // the route's hardware: a steel hanger bolted to the rock every few holds all the way up, and on the ones between
 // the two climbers a quickdraw (a carabiner on the bolt, a short red sling, and the carabiner the rope runs through)
 const QD=[0,9]; // where the rope runs, from the bolt
+// a hold at each move of the route: a little lip of rock catching the light, dark underneath, snow-capped high on the
+// mountain, with a dab of chalk once a hand has been on it
+function holds(g,ox,oy,vy0,vy1){if(!FX.exp||FX.mode!=="game"||!FX.A)return;const ch=FX.exp.choice,used=Math.max(FX.A.me.hi,FX.A.mate.hi);
+  for(let i=Math.max(1,Math.floor(-vy1/HS)-1);i<=Math.min(IDX_TOP-1,Math.ceil(-vy0/HS)+1);i++){if(i===IDX_C1||i===IDX_C2)continue;
+    const [hx,hy]=holdXY(ch,i),x=hx+ox,y=hy+oy,snowy=uOf(hy)>.62,w=4+(hash(i,41)*3|0);
+    rect(g,x-1,y+2,w+2,2,"#241a14");rect(g,x,y,w,2,snowy?C.snowS:"#b39c7c");rect(g,x,y,w-1,1,snowy?C.snow:"#e0cfae");
+    if(i<=used){dot(g,x+1,y,"#ffffff");dot(g,x+2,y+1,"#f4f1e8");}}}
 function hardware(g,ox,oy,vy0,vy1){if(!FX.exp||FX.mode!=="game")return;const ch=FX.exp.choice,clipped=FX.clips||[];
   for(let i=Math.max(2,Math.floor(-vy1/HS));i<=Math.min(IDX_TOP-2,Math.ceil(-vy0/HS));i++){if(i%4!==2||i===IDX_C1||i===IDX_C2)continue;
     const [bx,by]=boltXY(ch,i),x=bx+ox,y=by+oy;
@@ -913,8 +938,9 @@ function updateCam(dt){const me=FX.A.me,mt=FX.A.mate,now=performance.now();
   // (a new camera, such as the first frames on load, snaps; after that the view always pans, however far)
   if(FX.oxF==null||!FX.cam){FX.oxF=oxT;FX.oxV=0;}else[FX.oxF,FX.oxV]=damp(FX.oxF,FX.oxV||0,oxT,2.8,dt);FX.ox=R0(FX.oxF);
   let fy=FX.focus==="summit"?TOPY-30:lerp(me.N.y,mt.N.y,.3);
-  // (a short open area, as on a phone, can't hold both: the higher climber's head always stays in view)
-  if(FX.focus!=="summit")fy=Math.min(fy,Math.min(me.N.y,mt.N.y)-40+ah/2);
+  // (a short open area can't hold both: the leader stays in view, head to boots, since the pitch is theirs to climb
+  // or to fall off, even when they start it below their partner)
+  if(FX.focus!=="summit")fy=clamp(fy,me.N.y+44-ah/2,me.N.y-40+ah/2);
   // camera y is the world y at the open area's vertical middle; keep the summit sky and the meadow in frame
   let y=clamp(fy,TOPY-120+(ah/2),60-(ah/2));
   if(FX.fxEl){const s=FX.fxEl.style,v=[A.x,A.y,A.w,A.h].map(n=>Math.round(n)+"px");if(s.width!==v[2]||s.height!==v[3]||s.top!==v[1]||s.left!==v[0]){s.left=v[0];s.top=v[1];s.width=v[2];s.height=v[3];}}
@@ -943,7 +969,8 @@ function frame(now){
     path.push([pl.x,pl.y]);if(FX.camp)path.length=0; // (coiled away while camp is up)
     // (with both on their feet the rope lies on the ground between them; a belayer on the wall keeps a short loop)
     const up=r=>r.mode==="climb"||r.mode==="fall";
-    FX.pins=path;FX.clips=clips;FX.rope.update(path,dt,{ground:!up(A.me)&&!up(A.mate)?Math.max(A.me.gy,A.mate.gy):null,first:A.mate.mode==="climb"?6:13});}
+    FX.pins=path;FX.clips=clips;FX.rope.update(path,dt,{ground:!up(A.me)&&!up(A.mate)?Math.max(A.me.gy,A.mate.gy):null,first:A.mate.mode==="climb"?6:20,
+      loose:A.me.mode==="fall"&&!(A.me.fall&&A.me.fall.caught)});}
   stepParts(dt);stepAmbient(dt);updateCam(dt);
   if(FX.visible&&!document.hidden)paint(t);
   FX.raf=requestAnimationFrame(frame);
@@ -980,7 +1007,7 @@ function paint(t){
   // (the climbers keep the camera's fraction of a pixel, so the one it follows holds still on screen rather than
   // flickering a pixel up and down as their rounding and the camera's take turns)
   FX.sub=oyF-R0(oyF);
-  hardware(g,ox,oy,vy0,vy1);FX.rope.draw(g,ox,oy);
+  holds(g,ox,oy,vy0,vy1);hardware(g,ox,oy,vy0,vy1);FX.rope.draw(g,ox,oy);
   FX.A.mate.draw(g,t,ox,oy);FX.A.me.draw(g,t,ox,oy);
   drawPoofs(g,ox,oy);
   if(FX.night>0)drawNight(g,w,h,t,ox,oy);
@@ -998,7 +1025,10 @@ function drawNight(g,w,h,t,ox,oy){const n=FX.night,cp=FX.camp;
   if(cp.tent>0&&cp.sleep){g.globalAlpha=.55*n;drawTentRise(g,S.tentX+ox,cy+oy,cp.tent);g.globalAlpha=1;}
   if(fireLit(cp)){const fx=S.fireC+ox,fy=cy-8+oy;
     for(const [r,a,c] of [[30,.10,"#ff9a3a"],[20,.16,"#ffb04a"],[12,.22,"#ffd27a"]]){g.globalAlpha=a*n;pdisc(g,fx,fy,r,c);}
-    g.globalAlpha=1;drawFire(g,S.fireX+ox,cy+oy,cp.fire,t);}}
+    g.globalAlpha=1;drawFire(g,S.fireX+ox,cy+oy,cp.fire,t);}
+  // (the lantern at the tent door burns through the night too)
+  if(cp.tent>=5&&ART.props&&ART.props.lantern){const lx=S.door-12+ox,ly=cy-9+oy;
+    for(const [r,a] of [[13,.10],[8,.16],[4,.22]]){g.globalAlpha=a*n;pdisc(g,lx,ly,r,"#ffd27a");}g.globalAlpha=1;prop(g,"lantern",S.door-18+ox,cy+1+oy);}}
 
 /* ---------- overlays: pixel title cards, captions and confetti ---------- */
 function title(text,sub,tone){const fx=$("#fx");if(!fx)return;fx.querySelectorAll(".tcard").forEach(x=>x.remove());
@@ -1102,7 +1132,7 @@ async function fallRig(r,anchor,back,id,ch,hook){
   if(rs&&!hook){r.startFall(null,null,0,anchor?14:62,rs.y-LEG);
     // (on the feet again: a moment dazed, then back to where they stand at camp)
     while(r.mode==="fall"){if(!(await wait(60,ch)))return false;}
-    if(!(await wait(700,ch)))return false;const d=r.walkTo(rs.x,34);if(d&&!(await wait(d,ch)))return false;
+    if(!(await wait(LAND_MS+500,ch)))return false;const d=r.walkTo(rs.x,34);if(d&&!(await wait(d,ch)))return false;
     r.hi=anchor;return ok();}
   // (caught below an anchor, the rope holds them a little out from the wall, so they hang clear of a partner below)
   const [hx,ay]=r.hold(anchor),ax=hook?hx:hx-24;
