@@ -150,6 +150,7 @@ document.getElementById("gearNone").onclick=()=>jump(t=>Object.assign(t.exp,{rop
 function forceAnswers(kind){
   const w=eng();let t=w.fixTeam(team());if(!t)return;const r=t.round;
   if(r.phase!=="answer"){note("Go to a pitch first: answers can only be forced on a question.");return;}
+  if(kind.startsWith("jerk")&&Object.keys(t.members).length<2){note("A rope jerk needs two climbers: set Players to Two.");return;}
   if(document.getElementById("withHook").checked&&!r.hook&&t.exp.rope>0){t.exp.rope--;r.hook=true;save(t);}
   const R=t.round;
   if(kind==="time"){R.startedAt=Date.now()-R.dur*1000-3000;save(t);return;}
@@ -167,7 +168,9 @@ document.getElementById("talkBtn").onclick=talk;
 document.getElementById("talkText").onkeydown=e=>{if(e.key==="Enter")talk();};
 
 /* the status line: where the team is, live */
-let msg="";function note(s){msg=s;showStatus(team());setTimeout(()=>{if(msg===s){msg="";showStatus(team());}},4000);}
+let msg="";function note(s){msg=s;showStatus(team());
+  // (on a phone the controls have just folded away: they open again so the note can be read)
+  if(NARROW)setTimeout(()=>{const c=document.querySelector(".ctl"),b=document.getElementById("tog");c.classList.add("open");b.setAttribute("aria-expanded","true");b.textContent="Close ▴";},0);setTimeout(()=>{if(msg===s){msg="";showStatus(team());}},4000);}
 function showStatus(t){const el=document.getElementById("status");if(!t){el.textContent="No test team.";return;}
   try{const w=eng();if(w&&w.fixTeam)t=w.fixTeam(t)||t;}catch(e){} // (the phase as the game reads it)
   const e=t.exp,r=t.round,res=r.result;

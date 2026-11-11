@@ -141,7 +141,7 @@ function judge(t,ans){
   const L=pick(r.leader),B=bel?pick(bel):null;
   const o={right,lead:L,bel:B,correct:L===right,jerk:!!bel&&L!==null&&B!==null&&B!==L,move:0,fall:false,tone:"good"};
   if(o.correct){o.move=1;o.headline=o.jerk?"Right hold, but the rope jerked.":bel&&B===L?"In sync. Clean move.":"Clean move.";if(o.jerk)o.tone="warn";}
-  else{o.fall=true;o.tone="bad";o.headline=L===null?"No answer. Off the wall!":"Wrong hold. Off the wall!";}
+  else{o.fall=true;o.tone="bad";o.headline=L===null?"No answer. Off the wall!":o.jerk?"Wrong hold, and the rope jerked!":"Wrong hold. Off the wall!";}
   return o;}
 function applyOutcome(t,o){
   const exp=clone(t.exp),r=t.round,before=exp.pitch,beforeAlt=altOf(exp,before),q=quizById(r.qid);let moveText="";
@@ -205,7 +205,7 @@ function advance(withAnchor){
 function useHook(){
   const rid=S.team.round.id;
   guarded(t=>{const r=t.round;if(r.id!==rid||r.phase!=="answer"||r.hook||t.exp.rope<=0)return null;
-    t.exp.rope--;return {...t,round:{...r,hook:true}};});
+    t.exp.rope--;return {...t,round:{...r,hook:true,hookBy:S.uid}};});
 }
 // (a team saved while the game still asked about the hook before each question goes straight on to the question)
 function climbOn(){
@@ -551,7 +551,7 @@ function renderHud(t){
   const who=ids.map(id=>`<div class="who ${id===lead?"lead":""}"><img class="port" src="${portrait(lookOf(t,id))}" alt=""><div><div class="nm">${ptag(t,id)} ${esc(S.names[id]||nameOf(id))}${id===S.uid?" (you)":""}</div>
     <span class="role ${id===lead?"lead":"belay"}">${id===lead?"Leader":"Belayer"}</span></div></div>`).join("");
   const hearts=`<div class="hearts" title="Hooks: clip one during a question and a wrong answer only slips you. A rope jerk costs one." aria-label="${e.rope} hooks left">${
-    [...Array(n).keys()].map(i=>i<e.rope?ICON.heart:i<lost?`<span class="crack">${ICON.heart}</span>`:ICON.heartUsed).join("")}</div>`;
+    [...Array(n).keys()].map(i=>i<e.rope?ICON.hook:i<lost?`<span class="crack">${ICON.hook}</span>`:ICON.hookUsed).join("")}</div>`;
   const html=`<div class="hud-l">${who}${hearts}</div>
    <div class="hud-r"><div class="stat">${ICON.mtn}<span class="k">Alt</span><span class="v">${fmt(alt)} m</span></div>
      <div class="stat">${ICON.rope}<span class="k">Rope</span><span class="v">${fmt(alt-altOf(e,e.anchor))} m</span></div>
@@ -602,7 +602,7 @@ function answerView(t,mine){
   // the count before the clock starts: what the question is about and how hard, so both are ready together
   if(now()<r.startedAt)return frameQ(t,`<div class="qhead"><span>${pitchLabel(e,e.pitch)}</span>${role}</div>
    <div class="getready"><div><div class="qtitle">${esc(q.cat)}</div>${tierMarks(q.tier)}</div><div class="count" id="count" aria-hidden="true"></div></div>
-   <p class="qsub">${solo?"Get ready.":lead?"Get ready: you lead this pitch, so your answer is the one that counts.":`Get ready: ${esc(nameOf(r.leader))} leads this pitch.`}</p>`);
+   <p class="qsub">${solo?"Get ready.":lead?"You lead: your answer counts. If your partner answers differently, the rope jerks and costs a hook.":`${esc(nameOf(r.leader))} leads: their answer counts. Answer differently and the rope jerks and costs a hook.`}</p>`);
   const sel=mine?mine.choice:S.local.choice;
   const opts=r.order.map((k,i)=>`<button class="qopt ${cut.includes(i)?"cut":""} ${sel===i?"sel":""}" data-i="${i}" ${cut.includes(i)||mine?"disabled":""}><b>${LETTERS[i]}</b><span>${esc(q.o[k])}</span></button>`).join("");
   // the gear, one button each: a hook (either climber, any time while the question is open), chalk, and the scout
@@ -612,9 +612,10 @@ function answerView(t,mine){
     <button class="gbtn" id="chalkBtn" aria-label="Chalk, ${e.chalk} left" title="Chalk: wipes out two wrong answers" ${e.chalk>0&&!r.cut?"":"disabled"}>${ICON.chalk}<span>Chalk</span><b>${e.chalk}</b></button>
     ${!lead||solo?`<button class="gbtn" id="scoutBtn" aria-label="Route scout, ${e.scout} left" title="Route scout: a hint only you see" ${e.scout>0&&!r.scout?"":"disabled"}>${ICON.scout}<span>Scout</span><b>${e.scout}</b></button>`:""}</div>`;
   const hint=!r.scout?"":!lead||solo?`<div class="hint"><b>Scout:</b> ${esc(q.hint)}</div>`:`<p class="note">Your belayer has a hint. Ask on the radio.</p>`;
+  const hooked=r.hook?`<div class="hooked">${ICON.hook}<span><b>${r.hookBy===S.uid?"You clipped a hook.":`${esc(nameOf(r.hookBy))} clipped a hook.`}</b> A wrong answer now only slips you.</span></div>`:"";
   return frameQ(t,`<div class="qhead"><span>${pitchLabel(e,e.pitch)} · ${esc(q.cat)}</span>${role}<span class="qtime" id="qtime"></span></div>
    <div class="qtext">${esc(q.q)}</div><div class="qopts">${opts}</div>
-   ${hint}
+   ${hint}${hooked}
    <div class="qfoot">${gear}${mine?`<div class="wait">Locked in: <strong>${mine.choice==null?"no answer":LETTERS[mine.choice]}</strong></div>`:`<button class="btn rope" id="lockBtn" ${sel==null?"disabled":""}>Lock in</button>`}<span class="note" id="partnerTxt"></span></div>
    <div class="timer"><i id="timerBar"></i></div>`);
 }
