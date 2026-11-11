@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Pinnacle test mode</title>
 <meta name="robots" content="noindex">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pixelify+Sans:wght@400;600&display=swap">
@@ -11,7 +11,7 @@
    around the climb and force results. Nothing here touches the real Firebase teams. */
 :root{--bg:#0b1322;--panel:#16233d;--line:#2c3d5f;--cream:#f4e6c4;--ink:#c9d3e6;--muted:#8796b3;--gold:#f2c14e;--red:#e05a4a;--green:#7cc36a;color-scheme:dark}
 *{box-sizing:border-box}
-html,body{height:100%;margin:0}
+html,body{height:100%;height:100dvh;margin:0;overflow:hidden}
 body{background:var(--bg);color:var(--ink);font:500 15px/1.35 "Pixelify Sans",system-ui,sans-serif;display:flex;flex-direction:column}
 .ctl{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;padding:8px 12px;background:var(--panel);border-bottom:2px solid var(--line)}
 .ctl h1{font:400 11px/1 "Press Start 2P",monospace;color:var(--gold);margin:0 6px 0 0}
@@ -32,13 +32,28 @@ input[type=text]{cursor:text;width:13em}
 .seat header button{font:500 12px/1 "Pixelify Sans",sans-serif;padding:2px 6px}
 .box{flex:1;position:relative;overflow:hidden;border:2px solid var(--line);background:#000;min-height:0}
 .box iframe{position:absolute;left:0;top:0;border:0;transform-origin:0 0;background:#000}
+/* the controls fold away behind a button on a phone (they open as a sheet over the game), so the game gets the
+   screen; the view switch stays in the bar so one phone can play both climbers */
+.more{display:contents}.tog{display:none}
+@media (max-width:760px){
+  .ctl{position:relative;padding:6px 8px calc(6px);gap:6px;flex-wrap:nowrap;padding-top:max(6px,env(safe-area-inset-top))}
+  .ctl h1{font-size:9px;margin:0;white-space:nowrap}.ctl>.grp>span{display:none}
+  .tog{display:block;margin-left:auto;white-space:nowrap}
+  .more{display:none}
+  .ctl.open .more{display:flex;flex-wrap:wrap;gap:10px 12px;position:absolute;z-index:10;left:0;right:0;top:100%;max-height:70dvh;overflow:auto;padding:10px 10px 14px;
+    background:var(--panel);border-bottom:2px solid var(--line);box-shadow:0 12px 24px rgba(0,0,0,.6)}
+  .ctl.open .more .grp>span{display:inline;min-width:4.5em}
+  .stage{padding:4px;gap:4px}.seat header{padding:2px 2px 4px}
+}
 </style>
 </head>
 <body>
 <div class="ctl">
   <h1>Pinnacle test</h1>
   <div class="grp"><span>View</span><button data-view="both" class="on">Both</button><button data-view="p1">P1</button><button data-view="p2">P2</button></div>
-  <div class="grp"><span>Screen</span><button data-size="desktop" class="on">Desktop</button><button data-size="phone">Phone</button></div>
+  <button class="tog" id="tog" type="button" aria-expanded="false">Controls ▾</button>
+  <div class="more" id="more">
+  <div class="grp"><span>Screen</span><button data-size="fit">Fit</button><button data-size="desktop" class="on">Desktop</button><button data-size="phone">Phone</button></div>
   <div class="grp"><span>Players</span><button data-players="2" class="on">Two</button><button data-players="1">Solo</button></div>
   <div class="grp"><span>Timer</span><button data-secs="0" class="on">45 s</button><button data-secs="15">15 s</button><button data-secs="5">5 s</button></div>
   <div class="grp"><span>Go to</span><button id="goBase">Base camp</button>
@@ -59,6 +74,7 @@ input[type=text]{cursor:text;width:13em}
   <div class="grp"><span>Radio</span><select id="talkAs" aria-label="Talk as"><option value="p1">P1</option><option value="p2" selected>P2</option></select>
     <input type="text" id="talkText" placeholder="Say something…" maxlength="60" aria-label="Radio message"><button id="talkBtn">Send</button></div>
   <div class="status" id="status" aria-live="polite"></div>
+  </div>
 </div>
 <div class="stage">
   <div class="seat" id="seat1"><header><span>P1 · Red</span><button data-reload="1">Reload</button></header><div class="box"><iframe id="f1" title="Player 1"></iframe></div></div>
@@ -71,7 +87,9 @@ input[type=text]{cursor:text;width:13em}
 <script>
 // the shared database both frames play on (js/testdb.js), starting with a fresh two-player team at base camp
 const db=window.TESTDB=new TestDB();
-const UI={view:"both",size:"desktop",players:2};
+// (on a phone: one climber at a time, the frame filling the screen at its real size)
+const NARROW=matchMedia("(max-width:760px)").matches;
+const UI={view:NARROW?"p1":"both",size:NARROW?"fit":"desktop",players:2};
 const f1=document.getElementById("f1"),f2=document.getElementById("f2");
 const team=()=>JSON.parse(db.get("teams/TEST01"));
 const save=t=>db.put("teams/TEST01",JSON.stringify(t));
@@ -83,8 +101,9 @@ function fresh(){const old=team(),t=testTeam(UI.players===2);t.round.id=(old?.ro
 
 /* frames: drawn at a desktop or phone size and scaled down to fit their half of the window */
 function fit(){
-  const [W,H]=UI.size==="phone"?[390,844]:[1280,800];
   for(const f of [f1,f2]){const box=f.parentElement,r=box.getBoundingClientRect();if(!r.width)continue;
+    // (fit: the frame is exactly the box, at the screen's own size; otherwise a desktop or phone screen scaled down)
+    const [W,H]=UI.size==="fit"?[Math.floor(r.width),Math.floor(r.height)]:UI.size==="phone"?[390,844]:[1280,800];
     const k=Math.min(r.width/W,r.height/H,1);f.style.width=W+"px";f.style.height=H+"px";f.style.transform=`scale(${k})`;
     f.style.left=Math.max(0,(r.width-W*k)/2)+"px";}}
 addEventListener("resize",fit);
@@ -150,6 +169,7 @@ document.getElementById("talkText").onkeydown=e=>{if(e.key==="Enter")talk();};
 /* the status line: where the team is, live */
 let msg="";function note(s){msg=s;showStatus(team());setTimeout(()=>{if(msg===s){msg="";showStatus(team());}},4000);}
 function showStatus(t){const el=document.getElementById("status");if(!t){el.textContent="No test team.";return;}
+  try{const w=eng();if(w&&w.fixTeam)t=w.fixTeam(t)||t;}catch(e){} // (the phase as the game reads it)
   const e=t.exp,r=t.round,res=r.result;
   el.innerHTML=[`Phase <b>${r.phase}</b>`,(()=>{const w=eng(),so=w.stageOf?w.stageOf(e,e.pitch):null;return so?`Stage <b>${so.s+1}</b> · pitch <b>${Math.min(so.i+1,so.n)}/${so.n}</b>`:`Pitch <b>${e.pitch+1}</b>`;})(),(e.choice||[]).some(Boolean)?`Routes <b>${(e.choice||[]).map(c=>c||"–").join(" · ")}</b>`:"",
     r.leader?`Leader <b>${r.leader.toUpperCase()}</b>`:"",r.qid?`Question <b>${r.qid}</b>`:"",
@@ -162,6 +182,11 @@ db.listen("teams/TEST01",j=>showStatus(JSON.parse(j)));
   b.onclick=()=>{sndStart();if(SND.ctx&&SND.ctx.state==="suspended")SND.ctx.resume();on=!on;MUSIC.want(on);
     b.classList.toggle("on",on);b.setAttribute("aria-pressed",on);b.textContent=on?"Stop theme":"Preview theme";};}
 
+{const c=document.querySelector(".ctl"),b=document.getElementById("tog");
+  b.onclick=()=>{const o=c.classList.toggle("open");b.setAttribute("aria-expanded",o);b.textContent=o?"Close ▴":"Controls ▾";};
+  // (a control used on a phone folds the sheet away again, so the result can be seen)
+  document.getElementById("more").addEventListener("click",e=>{if(NARROW&&e.target.closest("button")&&!e.target.closest("[data-size],[data-players]")){c.classList.remove("open");b.setAttribute("aria-expanded","false");b.textContent="Controls ▾";}});}
+pick("view",UI.view);pick("size",UI.size);
 fresh();load(1);load(2);layout();
 </script>
 </body>
