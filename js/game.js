@@ -15,8 +15,8 @@ const clone=o=>JSON.parse(JSON.stringify(o));
 const fmt=n=>Math.round(n).toLocaleString("en-US").replace(/,/g," ");
 // an art file's address at the art's version (see index.html), so a changed picture is fetched fresh
 const asset=p=>window.AV?`${p}?${window.AV}`:p;
-// a crevasse number as written: a bare count or year (no unit) without the thousands space, so 1523 never reads "1 523"
-const qnum=(n,q)=>q&&!q.u?String(Math.round(n)):fmt(n);
+// a line for screen readers (the #sr live region): results, the last seconds and radio messages are read out
+function announce(msg){const el=$("#sr");if(!el||!msg)return;el.textContent="";setTimeout(()=>{el.textContent=msg;},50);}
 function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,2600);}
 // in the order they joined, so whoever made the team is player 1
 const memberIds=t=>{const m=t.members||{};return Object.keys(m).sort((a,b)=>(m[a].joined||0)-(m[b].joined||0)||(a<b?-1:a>b?1:0));};
@@ -123,8 +123,10 @@ const fmtDur=ms=>{const s=Math.round(ms/1000);return s>=3600?`${Math.floor(s/360
 // the pitch's question: from this mountain's pool at the pitch's difficulty (set by the route: easy at the foot of
 // the wall, hardest on the summit push), one the team hasn't had lately
 function tierAt(exp,p){const T=[...SEG0_TIERS,...(exp.choice[0]?FORKS[0][exp.choice[0]].tiers:[]),...(exp.choice[1]?FORKS[1][exp.choice[1]].tiers:[])];return clamp((T[p]||3)+MT(exp).tier,1,4);}
-function pickQuiz(tier,used){const pool=QUIZ.filter(q=>q.tier===tier);let fresh=pool.filter(q=>!used.includes(q.id));
-  if(!fresh.length)fresh=pool;return fresh[Math.floor(Math.random()*fresh.length)];}
+// (once every question of the tier has come up lately, it's the one asked longest ago)
+function pickQuiz(tier,used){const pool=QUIZ.filter(q=>q.tier===tier),fresh=pool.filter(q=>!used.includes(q.id));
+  if(fresh.length)return fresh[Math.floor(Math.random()*fresh.length)];
+  return pool.reduce((a,q)=>used.lastIndexOf(q.id)<used.lastIndexOf(a.id)?q:a);}
 const quizById=id=>QUIZ.find(q=>q.id===id);
 // the four options in a fresh order for a round: order[i] is the option shown in slot i (option 0 is the right one)
 function shuffled4(){const a=[0,1,2,3];for(let i=3;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
@@ -626,6 +628,7 @@ function revealView(t){
    <div class="qtext">${esc(q.q)}</div><div class="qopts">${opts}</div>`;
   if(sus)return frameQ(t,head+`<div class="result wait"><div><b class="dots">The rope goes tight</b></div></div>`);
   const oc=o.arrived==="summit"?[ICON.flag,"Summit reached!"]:o.arrived?[ICON.tent,`${o.arrived} reached!`]:o.fall&&o.caught?[ICON.hook,o.headline]:o.fall?[ICON.anchor,o.headline]:[ICON.up,o.headline];
+  if(S._said!==r.id){S._said=r.id;announce(`${oc[1]} The answer was ${q.o[0]}. ${o.moveText||""}`);}
   return frameQ(t,head+`<div class="result ${o.tone||"good"}">${oc[0]}<div><b>${esc(oc[1])}</b><span>${esc(o.moveText||"")}</span></div></div>
    ${q.x?`<p class="fact">${esc(q.x)}</p>`:""}
    <div class="actions">${atCamp?`<button class="btn rope" id="nextBtn">Make camp</button>`:atTop?`<button class="btn rope" id="nextBtn">Stand on top</button>`:`<button class="btn rope" id="nextBtn">Next pitch</button>${canAnchor?`<button class="btn ghost" id="anchorBtn" title="A fall without a hook will drop you no lower than this">Place anchor (${e.anchors} left)</button>`:""}`}</div>`);
@@ -734,7 +737,7 @@ function updateRadio(t){const rl=$("#rlog");if(!rl)return;const msgs=talkOf();
   if(rl.dataset.n!==String(msgs.length)){const fresh=msgs.length>(+rl.dataset.n||0);rl.dataset.n=msgs.length;
     rl.innerHTML=msgs.map(m=>`<div class="msg ${m.uid===S.uid?"me":""}"><b>${ptag(t,m.uid)}</b>${esc(m.text)}</div>`).join("")||`<div class="note">Nothing on the radio yet.</div>`;
     const last=msgs[msgs.length-1];rl.scrollTop=rl.scrollHeight;
-    if(fresh&&last&&last.uid!==S.uid){sfx("tug");if(!S.radioOpen){S.unread=(S.unread||0)+1;bubble(`<b>${esc(S.names[last.uid]||ptag(t,last.uid))}</b> ${esc(last.text)}`);renderBar();}}}
+    if(fresh&&last&&last.uid!==S.uid){sfx("tug");announce(`${S.names[last.uid]||"Partner"} on the radio: ${last.text}`);if(!S.radioOpen){S.unread=(S.unread||0)+1;bubble(`<b>${esc(S.names[last.uid]||ptag(t,last.uid))}</b> ${esc(last.text)}`);renderBar();}}}
   const pid=partnerId(t),st=$("#rstate");if(st)st.textContent=pid?(S.online.has(pid)?"partner online":"partner away"):"";}
 
 function wirePanel(t){
@@ -765,7 +768,7 @@ function updateDynamic(t){
   if(bar)bar.style.width=Math.max(0,Math.min(100,100*rem/r.dur))+"%";
   if(txt){txt.textContent=clock(rem);txt.classList.toggle("low",rem<=10);}
   // the last five seconds tick, for whoever hasn't locked in yet
-  const s=Math.ceil(rem);if(rem>0&&s<=5&&!S.answers[S.uid]&&S._beep!==r.id+":"+s){S._beep=r.id+":"+s;sfx("tick");}
+  const s=Math.ceil(rem);if(rem>0&&s<=5&&!S.answers[S.uid]&&S._beep!==r.id+":"+s){S._beep=r.id+":"+s;sfx("tick");if(s===5)announce("5 seconds left.");}
   const pid=partnerId(t);if(ptx)ptx.textContent=pid?(S.answers[pid]?`${nameOf(pid)} is locked in`:`${nameOf(pid)} is thinking…`):"";
 }
 

@@ -5,22 +5,61 @@
     "teams": {
       "$code": {
         ".read": true,
-        ".write": true,
-        ".validate": "$code.matches(/^[A-Z0-9]{6}$/)"
+        ".write": "newData.exists()",
+        ".validate": "$code.matches(/^[A-Z0-9]{6}$/) && newData.hasChildren(['name', 'members', 'exp', 'round'])",
+        "name": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 40" },
+        "code": { ".validate": "newData.isString() && newData.val() === $code" },
+        "createdBy": { ".validate": "newData.isString() && newData.val().length <= 40" },
+        "members": {
+          "$uid": {
+            ".validate": "$uid.length <= 40 && newData.hasChildren(['name'])",
+            "name": { ".validate": "newData.isString() && newData.val().length <= 40" },
+            "joined": { ".validate": "newData.isNumber()" }
+          }
+        },
+        "round": {
+          ".validate": "newData.hasChildren(['id', 'phase'])",
+          "id": { ".validate": "newData.isNumber()" },
+          "phase": { ".validate": "newData.isString() && newData.val().length <= 16" },
+          "votes": {
+            "$uid": { ".validate": "$uid.length <= 40" }
+          }
+        }
       }
     },
     "answers": {
       "$code": {
         ".read": true,
         ".write": true,
-        ".validate": "$code.matches(/^[A-Z0-9]{6}$/)"
+        ".validate": "$code.matches(/^[A-Z0-9]{6}$/)",
+        "$round": {
+          ".validate": "$round.matches(/^[0-9]{1,9}$/)",
+          "_talk": {
+            "$msg": {
+              ".validate": "$msg.length <= 48 && newData.hasChildren(['uid', 'text', 'at'])",
+              "uid": { ".validate": "newData.isString() && newData.val().length <= 40" },
+              "text": { ".validate": "newData.isString() && newData.val().length <= 60" },
+              "at": { ".validate": "newData.isNumber()" },
+              "$other": { ".validate": false }
+            }
+          },
+          "$uid": {
+            ".validate": "$uid.length <= 40 && newData.hasChildren(['roundId', 'uid', 'at'])",
+            "roundId": { ".validate": "newData.isNumber()" },
+            "uid": { ".validate": "newData.isString() && newData.val() === $uid" },
+            "at": { ".validate": "newData.isNumber()" },
+            "choice": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
+            "$other": { ".validate": false }
+          }
+        }
       }
     },
     "presence": {
       "$code": {
         ".read": true,
         ".write": true,
-        ".validate": "$code.matches(/^[A-Z0-9]{6}$/)"
+        ".validate": "$code.matches(/^[A-Z0-9]{6}$/)",
+        "$uid": { ".validate": "$uid.length <= 40 && newData.isNumber()" }
       }
     }
   }

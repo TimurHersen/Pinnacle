@@ -488,3 +488,4 @@ body.home #topo{visibility:hidden} /* (the game's own scene; the painting and it
   .conn{left:calc(var(--side) + (100% - var(--side))/2);top:calc(56px + env(safe-area-inset-top,0px))}
   .toast{left:calc(var(--side) + (100% - var(--side))/2)}
 }
+.sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0}
