@@ -330,13 +330,13 @@ function setLead(t){if(!FX.rigs||t.round.phase==="map")return;const ids=memberId
   // standing together on the meadow or a ledge, they trade places: the one now ahead steps up to the wall while the
   // other steps back behind them (drawn behind, so they pass rather than walk through each other)
   for(const x of FX.rigs){const rs=x.mode==="stand"&&!x.hidden&&x.rest(x.hi);if(rs&&Math.abs(rs.x-x.N.x)>3)x.walkTo(rs.x,48);}}
-// the hold each climber belongs at: their own pitch's; on the same pitch of the wall, the second hangs three holds
-// below the first (never so low their boots would be in a ledge). Alone on the rope, the partner drawn with them
+// the hold each climber belongs at: their own pitch's; on the same pitch of the wall, the second hangs a body length
+// (five holds) below the first (never so low their boots would be in a ledge). Alone on the rope, the partner drawn with them
 // follows as a belayer would
 function rigTargets(t){const exp=t.exp,ids=memberIds(t),T=new Map(),A=FX.A;
   if(ids.length<2){const r=rigOfId(t,ids[0])||A.me,o=FX.rigs.find(x=>x!==r),ix=idxOf(exp,posOf(exp,ids[0]));T.set(r,ix);T.set(o,mateIdx(ix,o.hi));return T;}
   const a=idxOf(exp,posOf(exp,ids[0])),b=idxOf(exp,posOf(exp,ids[1]));
-  if(a===b&&!isLedge(a)){const lo=Math.max(a-3,ledgeBelow(a)+LOW),hi=Math.max(a,lo+3);T.set(A.me,hi);T.set(A.mate,lo);}
+  if(a===b&&!isLedge(a)){const lo=Math.max(a-5,ledgeBelow(a)+LOW),hi=Math.max(a,lo+5);T.set(A.me,hi);T.set(A.mate,lo);}
   else{T.set(rigOfId(t,ids[0]),a);T.set(rigOfId(t,ids[1]),b);}
   return T;}
 
@@ -591,8 +591,8 @@ class Rig{
     // on the wall they face it; on a ledge they face their partner
     const other=FX.A&&(this===FX.A.me?FX.A.mate:FX.A.me);
     // a belayer on the wall leans back out on the rope while the leader climbs past, so the two never overlap
-    const lean=other&&this===FX.A.mate&&this.mode==="climb"&&other.mode==="climb"&&Math.abs(other.N.y-this.N.y)<120?-40:0;
-    this.passX=(this.passX||0)+(lean-(this.passX||0))*(1-Math.exp(-dt*9));
+    const lean=other&&this===FX.A.mate&&this.mode==="climb"&&other.mode==="climb"&&Math.abs(other.N.y-this.N.y)<74?-38:0;
+    this.passX=(this.passX||0)+(lean-(this.passX||0))*(1-Math.exp(-dt*5));
     if(this.mode==="climb")this.dir=1;
     else if(this.mode==="stand"&&other&&other!==this&&Math.abs(other.N.x-this.N.x)>4)this.dir=other.N.x>this.N.x?1:-1;
     this.pin();
@@ -1146,9 +1146,12 @@ async function runEvent(exp,o,t){
   for(const w of who)puff(w.r.N.x+5,w.r.N.y-38);sfx("chalk");if(!(await wait(SUSPENSE_MS)))return;
   // the rope jerk: the one too far ahead is snapped back onto their holds, the rope twangs, their partner feels it
   const held=who.find(w=>w.x.held);
-  if(held){FX.ropeJerk=FX.time;FX.shake=Math.max(FX.shake,1.6);sfx("boing");pebbles(held.r);pop(held.r,"ROPE JERK!");
+  if(held){const hr=held.r,y0=hr.N.y,up=hr.mode==="climb";
+    if(up){hr.slide(hr.N.x,y0-9,.36);sfx("hup");if(!(await wait(360)))return;}
+    FX.ropeJerk=FX.time;FX.shake=Math.max(FX.shake,1.8);sfx("boing");sfx("thud");pebbles(hr);pebbles(hr);pop(hr,"ROPE JERK!");
+    if(up)hr.slide(hr.N.x,y0,.1);
     caption(`Rope jerk! ${MAX_GAP} pitches ahead is as far as the rope goes`);
-    held.r.jolt(held.r.mode==="climb"?11:6);const other=who.find(w=>w!==held);if(other)other.r.yank();
+    hr.jolt(up?14:6);const other=who.find(w=>w!==held);if(other){other.r.yank();if(other.r.mode==="climb")other.r.jolt(8);}
     if(!(await wait(950)))return;}
   for(const w of who.filter(w=>w.x.fall)){const r=w.r,tg=T.get(r);
     // still on the meadow or a ledge they never get far: a few moves up, then off, landing back on their feet
