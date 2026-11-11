@@ -312,17 +312,15 @@ body:has(#main.game2) .hud{left:var(--edge)}
 
 /* ---------- the map: where an expedition starts. The painted island floats over a dusky sky in the open part of
    the screen (js/game.js fitWorld sizes it), a pin on each mountain ---------- */
-.world{position:fixed;inset:0;z-index:1;background:radial-gradient(ellipse at 50% 40%,#1b3448 0,#0b1a26 55%,#040c13 100%)}
-.world::before{content:"";position:absolute;inset:0;opacity:.5;
-  background-image:radial-gradient(1px 1px at 12% 18%,#cfe0ea 50%,transparent 51%),radial-gradient(1px 1px at 78% 12%,#cfe0ea 50%,transparent 51%),
-    radial-gradient(1px 1px at 33% 8%,#9fb6c4 50%,transparent 51%),radial-gradient(1px 1px at 91% 36%,#9fb6c4 50%,transparent 51%),
-    radial-gradient(1px 1px at 6% 52%,#cfe0ea 50%,transparent 51%),radial-gradient(1px 1px at 64% 4%,#cfe0ea 50%,transparent 51%)}
+.world{position:fixed;inset:0;z-index:1;background:#0b1a26}
+/* (behind the framed map, the same painting fills the screen, dimmed, so the view never ends at a hard edge) */
+.world{overflow:hidden}
+.world::before{content:"";position:absolute;inset:-24px;background:var(--map) center/cover no-repeat;filter:blur(7px) brightness(.6) saturate(.9)}
 .world.in .wmap{animation:map-in .5s steps(6) both}
 @keyframes map-in{from{opacity:0;transform:translateY(14px) scale(.96)}}
 .wbox{position:absolute;display:grid;place-items:center}
-.wmap{position:relative;flex:none;filter:drop-shadow(0 10px 0 rgba(0,0,0,.35))}
-.wmap>img{display:block;width:100%;height:100%;image-rendering:pixelated;animation:map-bob 6s ease-in-out infinite}
-@keyframes map-bob{50%{transform:translateY(-3px)}}
+.wmap{position:relative;flex:none;border:2px solid var(--cream);box-shadow:var(--frame),0 0 0 6px rgba(2,11,18,.55)}
+.wmap>img{display:block;width:100%;height:100%;image-rendering:pixelated}
 /* a pin: a flag planted on the mountain, its name on a little plate under it */
 .wpin{position:absolute;transform:translate(-50%,-100%);display:grid;justify-items:center;gap:2px;background:none;border:0;padding:0;margin:0;cursor:pointer;color:inherit;z-index:1}
 .wpin .wflag{width:18px;height:24px;background:linear-gradient(var(--fc),var(--fc)) 3px 2px/13px 9px no-repeat,linear-gradient(#0a0d17,#0a0d17) 0 0/3px 24px no-repeat;
@@ -353,7 +351,7 @@ body:has(#main.game2) .hud{left:var(--edge)}
 /* (on a wide screen the radio keeps to its log and message box while the team chooses, so the map gets the room;
    its quick calls are for answers) */
 @media (min-width:900px) and (min-height:521px){body.atmap .radio2 .calls{display:none}body.atmap .radio2 .rlog{max-height:72px}}
-@media (prefers-reduced-motion:reduce){.wmap>img,.wpin .wflag,.wpin.sel::after,.world.in .wmap{animation:none}}
+@media (prefers-reduced-motion:reduce){.wpin .wflag,.wpin.sel::after,.world.in .wmap{animation:none}}
 @media (max-width:899px),(max-height:520px){
   .wpin .wplate{padding:4px 6px 3px}.wpin b{font-size:8px}.wpin small{font-size:10px}
   .wpin .wflag{width:14px;height:19px;background-size:10px 7px,2px 19px;background-position:2px 2px,0 0}

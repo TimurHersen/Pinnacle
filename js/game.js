@@ -656,12 +656,12 @@ function mapView(t){
 function renderWorld(t){const el=$("#world");if(!el)return;const r=t&&t.round,on=!!(r&&r.phase==="map");
   if(!on){if(!el.hidden){el.hidden=true;el.innerHTML="";S.worldKey=null;}return;}
   const votes=r.votes||{},ids=memberIds(t),pk=t.stats?.peaks||{},key=JSON.stringify([votes,pk,ids]);
-  if(el.hidden){el.hidden=false;el.classList.remove("in");void el.offsetWidth;el.classList.add("in");}
+  if(el.hidden){el.hidden=false;el.style.setProperty("--map",`url("${new URL(asset("assets/map.png"),location.href).href}")`);el.classList.remove("in");void el.offsetWidth;el.classList.add("in");}
   if(S.worldKey!==key){S.worldKey=key;
     const pin=k=>{const m=MOUNTAINS[k],tags=ids.filter(i=>votes[i]?.mtn===k).map(i=>`<em class="${i===S.uid?"me":""}">${ptag(t,i)}</em>`).join("");
       return `<button class="wpin d${m.diff} ${votes[S.uid]?.mtn===k?"sel":""}" data-mtn="${k}" style="left:${100*m.map[0]/MAP_W}%;top:${100*m.map[1]/MAP_W}%" aria-label="${esc(m.name)}, ${m.label}">
         <span class="wflag" aria-hidden="true"></span><span class="wplate"><b>${esc(m.name)}</b><small>${diffMarks(m.diff)}<span class="lbl"> ${m.label}</span>${pk[k]?ICON.flag:""}</small>${tags?`<span class="wtags">${tags}</span>`:""}</span></button>`;};
-    el.innerHTML=`<div class="wbox"><div class="wmap"><img src="${asset("assets/map.png")}" alt="A map of three mountains around a valley">
+    el.innerHTML=`<div class="wbox"><div class="wmap"><img src="${asset("assets/map.png")}" alt="A painted map of a mountain range: a green hill, a granite peak and an ice giant above a valley with a lake">
       <span class="wcamp" style="left:${100*MAP_CAMP[0]/MAP_W}%;top:${100*MAP_CAMP[1]/MAP_W}%">Camp</span>${MOUNTAIN_ORDER.map(pin).join("")}</div></div>`;
     el.querySelectorAll(".wpin").forEach(b=>b.onclick=()=>pickMountain(b.dataset.mtn));}
   fitWorld();}
@@ -670,7 +670,7 @@ function fitWorld(){const el=$("#world"),box=el&&el.querySelector(".wbox"),map=e
   const W=innerWidth,H=innerHeight,m=$("#main").getBoundingClientRect(),bar=$("#bar").getBoundingClientRect().bottom;
   const side=m.width<W*.7&&m.height>H*.7,x0=side?m.right:0,y0=bar+4,y1=side?H:m.top-4;
   Object.assign(box.style,{left:x0+"px",top:y0+"px",width:(W-x0)+"px",height:Math.max(80,y1-y0)+"px"});
-  const avail=Math.min(W-x0-16,y1-y0-8)/MAP_W,k=avail>=1?Math.floor(avail):Math.max(.4,Math.floor(avail*8)/8);
+  const avail=Math.min(W-x0-20,y1-y0-16)/MAP_W,k=avail>=1?Math.floor(avail):Math.max(.4,Math.floor(avail*8)/8);
   map.style.width=map.style.height=MAP_W*k+"px";map.classList.toggle("tight",k<.95);}
 addEventListener("resize",()=>fitWorld());
 // at camp: two rows of cards, the route on and the bonus gear; each climber's picks are shown under the cards

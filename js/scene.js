@@ -190,26 +190,11 @@ const ART={},FIRE_N=6,CLOUD_N=3;
     const canvasOf=()=>{const [c,g]=mk(p.w,p.h),id=g.createImageData(p.w,p.h);id.data.set(d);g.putImageData(id,0,0);return c;};
     ART.ledge=canvasOf();wintry(d);ART.ledgeSnow=canvasOf();FX.camps={};});
   load(asset("assets/tent.png"),im=>{ART.tent=im;FX.camps={};FX.base=null;});
-  // the campfire's flicker loop; the unlit pile is its first frame with the flames (bright orange and yellow pixels)
-  // taken out, leaving the leaning logs and the stones
-  // Some flicker frames grew a patch of ground under the fire; every frame is cleaned against the first one: in its
-  // lowest rows, only the pixels that are logs or stones in the first frame are kept. (ART.fire is set once all
-  // six frames are in and cleaned.)
-  const canvasOf=(p)=>{const [c,g]=mk(p.w,p.h),id=g.createImageData(p.w,p.h);id.data.set(p.d);g.putImageData(id,0,0);return c;};
-  const raw=Array.from({length:FIRE_N},(_,i)=>{const im=new Image();im.src=asset(`assets/fire/${i}.png`);return im;});let fireLeft=FIRE_N;
-  raw.forEach(im=>im.onload=()=>{if(--fireLeft)return;
-    const ps=raw.map(pixels),base=ps[0],bb=boxOf(raw[0]),floor=bb.y1-9;
-    for(const p of ps)for(let y=floor;y<p.h;y++)for(let x=0;x<p.w;x++){const i=(y*p.w+x)*4;if(base.d[i+3]<=40)p.d[i+3]=0;}
-    // the unlit pile keeps only the wood: brown pixels (not flame-bright), plus the dark outline pixels touching them,
-    // so neither the flames nor their outlines are left standing over the logs
-    const pile={w:base.w,h:base.h,d:base.d.slice()},d=pile.d,W=pile.w,wood=new Uint8Array(W*pile.h);
-    for(let j=0,k=0;j<d.length;j+=4,k++){const r=d[j],gr=d[j+1],b=d[j+2],flame=(r>200&&gr>90&&r-b>80)||(r>215&&gr>200&&b>170)||(b>r+30&&b>110);
-      const lum=r*.3+gr*.59+b*.11;if(d[j+3]>40&&!flame&&lum>=48&&r>=gr&&gr>=b-6&&gr>r*.42&&r-b>12&&r<200)wood[k]=1;}
-    for(let k=0;k<wood.length;k++){if(wood[k])continue;const j=k*4,x=k%W,lum=d[j]*.3+d[j+1]*.59+d[j+2]*.11;let near=0;
-      if(d[j+3]>40&&lum<70)for(let dy=-1;dy<=1&&!near;dy++)for(let dx=-1;dx<=1;dx++){const n=k+dy*W+dx;if(x+dx>=0&&x+dx<W&&n>=0&&n<wood.length&&wood[n]){near=1;break;}}
-      if(!near)d[j+3]=0;}
-    ART.firePile=canvasOf(pile);ART.fire=ps.map(canvasOf);});
-  load(asset("assets/pine.png"),im=>{ART.pine=im;FX.base=null;});
+  // the campfire: its flicker loop and the same logs and stones unlit (ART.fire is set once every frame is in)
+  {const fr=[];let left=FIRE_N;for(let n=0;n<FIRE_N;n++)load(asset(`assets/fire/${n}.png`),im=>{fr[n]=im;if(!--left)ART.fire=fr;});
+    load(asset("assets/fire/pile.png"),im=>{ART.firePile=im;});}
+  // two tall trees (a broad old spruce and a slender pine), well over twice a climber's height
+  ART.trees=[];["tree-a","tree-b"].forEach((n,t)=>load(asset(`assets/${n}.png`),im=>{ART.trees[t]=im;FX.base=null;}));
   // camp props: a coil of rope, a cooking pot, a lantern and a supply crate
   ART.props={};for(const n of ["coil","pot","lantern","crate"])load(asset(`assets/props/${n}.png`),im=>{ART.props[n]=im;FX.base=null;});
   // painted clouds (until all are in, the sky's clouds are simple drawn ones)
@@ -319,7 +304,7 @@ const holdXY=(ch,i)=>{const y=R0(-i*HS+(hash(i,5)-.5)*3);return [R0(laneX(ch,y)+
 // bolts go into the rock just in from the holds
 const boltXY=(ch,i)=>[R0(laneX(ch,-i*HS)+15),-i*HS+6];
 const idxOf=(exp,p)=>Math.round(-WY(geoAlt(exp,p))/HS);
-function restSpot(i,m){if(i<=0)return {x:m?-74:-26,y:0};
+function restSpot(i,m){if(i<=0)return {x:m?-60:-26,y:0};
   if(i===IDX_C1||i===IDX_C2)return {x:m?-60:-26,y:-i*HS}; // (the edge spot stays clear of the rock face at x -9)
   if(i>=IDX_TOP){const x=m?SX+48:SX+12;return {x,y:R0(peakTop(x))+2};}return null;}
 // where the partner belays from while the leader is at li. The two swap leads each pitch, so a partner who has just led
@@ -373,6 +358,9 @@ const ART_POSE={hang:["climb",0],chalk:["climb",0],shake1:["climb",0],shake2:["c
 const HANG_ART=["fall",2]; // hanging back in the harness
 const TIE=[72,63];          // the front of the belt in the climbing frames (where the rope ties in)
 const REST_N=9,REST_MS=1700; // the resting and dangling clips: nine frames each, the rest played once through
+// the pull-up onto a ledge: nine frames on a tall canvas, the first the hanging climb frame, the last standing up
+// on top. `hang` is where the climb clip's frame sits in that canvas and `stand` where the idle clip's does.
+const MANTLE_N=9,MANTLE={lumberjack:{hang:[0,107],stand:[26,18]},woman:{hang:[0,105],stand:[25,22]}};
 const STAND_N=9,STAND_MS=2000,LAND_N=5,LAND_MS=900; // standing: a look up the wall, a drink; and up from a hard landing
 // the box round a frame's opaque pixels, measured once
 function boxOf(im){if(im.bb)return im.bb;const [,g]=mk(im.width,im.height);g.drawImage(im,0,0);
@@ -393,10 +381,11 @@ function loadClimber(L){const who=CLIMBER_ART[L.name],A=L.art={clips:{},ready:0}
   const extra=(dir,n,done)=>{const fr=[];let k=n;for(let i=0;i<n;i++){const im=new Image();im.onload=()=>{if(!--k)done(fr);};im.src=asset(`assets/climbers/${who}/${dir}/${i}.png`);fr.push(im);}};
   extra("rest3",REST_N,a=>extra("rest7",REST_N,b=>{A.clips.climb.push(...a,...b);A.rest=1;}));
   extra("dangle",REST_N,a=>{A.clips.fall.push(...a);A.dangle=1;});
+  extra("mantle",MANTLE_N,a=>{A.mantle=a;A.mantleAt=MANTLE[who];});
   extra("look",STAND_N,a=>extra("drink",STAND_N,b=>extra("land",LAND_N,c=>{A.clips.idle.push(...a,...b,...c);A.stand=1;})));}
 loadClimber(LOOK.me);loadClimber(LOOK.mate);
 // all of the climb's pictures are in (until then the scene draws simple stand-ins; the loading screen waits for this)
-const artReady=()=>!!(ART.valley&&ART.pines&&ART.rockLo&&ART.ledge&&ART.tent&&ART.fire&&ART.pine&&ART.ground&&LOOK.me.art.ready&&LOOK.mate.art.ready);
+const artReady=()=>!!(ART.valley&&ART.pines&&ART.rockLo&&ART.ledge&&ART.tent&&ART.fire&&ART.firePile&&ART.trees[0]&&ART.trees[1]&&ART.ground&&LOOK.me.art.ready&&LOOK.mate.art.ready);
 function ik(rx,ry,tx,ty,a,b,bend){let dx=tx-rx,dy=ty-ry,d=Math.hypot(dx,dy)||1e-4;const m=a+b-.01;if(d>m){tx=rx+dx/d*m;ty=ry+dy/d*m;d=m;}
   const ang=Math.atan2(ty-ry,tx-rx),j=ang+bend*Math.acos(clamp((a*a+d*d-b*b)/(2*a*d),-1,1));return [rx+Math.cos(j)*a,ry+Math.sin(j)*a,tx,ty];}
 // sprite box and the hips' place in it; HANG is where the near hand sits (from the hips) when hanging on a hold
@@ -533,7 +522,11 @@ class Rig{
     this.play([["pull",ms*.5],[n%2?"reachL":"reachR",ms*.5],["hang",1e9]]);this.calm();}
   reachFrom(i,d){const ms=d*1000,first=this.mode==="fall"?"pull":"hop";this.mode="climb";this.fall=null;this.hi=i;const p=this.hangAt(i);
     this.slide(p.x,p.y,d*.6,d*.4);this.play([[first,ms*.4],["jump",ms*.6],["hang",1e9]]);this.calm();}
-  topOut(x,y,d){this.mantling=true;this.slide(x,y-LEG,d,0,k=>k*k*(3-2*k));this.play([["mantle",d*600],["hop",1e9]]);}
+  // over the edge and onto their feet. With the pull-up frames in, those play where the climber hangs (the body's
+  // own point slides up meanwhile, for the rope and the camera); without them the body just slides up
+  topOut(x,y,d){const A=this.L.art,L=this.lastDraw;
+    this.mt=A&&A.mantle&&L&&this.lastArt&&this.lastArt[0]==="climb"?{wx:L.wx-A.mantleAt.hang[0],wy:L.wy-A.mantleAt.hang[1],t0:FX.time,d}:null;
+    this.mantling=true;this.slide(x,y-LEG,d,0,k=>k*k*(3-2*k));this.play([["mantle",d*600],["hop",1e9]]);}
   // (hard: off a fall, they land in a crouch and get up slowly)
   land(x,y,hard){this.standAt(x,y);this.play(hard&&this.L.art&&this.L.art.stand?[["landed",LAND_MS],["stand",650],["stand2",650]]:[["hop",160],["stand",650],["stand2",650]],1);}
   // off the wall and down onto a ledge: the body eases across in a short hop, then stands
@@ -638,6 +631,10 @@ class Rig{
     // (and pulls it out from the wall a little, the way the rope tugs)
     const jt=FX.time-(this.joltT??-9),jd=jt<.35?this.joltA*Math.exp(-jt*9):0,jo=R0(jd*Math.cos(jt*28)),jx=-R0(jd*.7);
     const x=R0(this.N.x)+ox+jx+R0(this.passX||0),y=R0(this.N.y+(FX.sub||0))+oy+jo,A=this.L.art;
+    if(this.mt&&this.mantling&&A&&A.mantle){const M=this.mt,S=A.mantleAt,k=clamp((FX.time-M.t0)/M.d,0,.999);
+      g.drawImage(A.mantle[Math.floor(k*MANTLE_N)],M.wx+ox,M.wy+oy);
+      // (handed on as if the standing frame had been drawn where the last one stands, so the next draw joins up)
+      this.lastDraw={kind:"mantle",wx:M.wx+S.stand[0],wy:M.wy+S.stand[1]};this.lastArt=["idle",0];this.tieW={x:this.N.x+4,y:this.N.y+3};return;}
     if(A&&A.ready){const [k,i]=this.lastArt=this.artFrame(t),fr=A.clips[k],b=boxOf(fr[0]),W=fr[0].width,flip=this.dir<0,key=`${k}|${i}|${flip}`;
       let img=this.cache.get(key);
       if(!img){if(flip){const [c,cg]=mk(W,fr[i].height);cg.translate(W,0);cg.scale(-1,1);cg.drawImage(fr[i],0,0);img=c;}else img=fr[i];this.cache.set(key,img);}
@@ -787,7 +784,7 @@ function campSpots(){const L=ART.ledge,T=ART.tent,F=ART.fire&&ART.fire[0];
   // (the tent faces out of the screen, so its door is in the middle; the sign's post takes the first few pixels)
   // (one kneels at the tent's far corner pegging it out, well clear of the fire; the fire sits against the wall,
   // so its builder kneels on the near side of it, facing it)
-  const fb=F?boxOf(F):{x0:4,x1:34},fw=fb.x1-fb.x0,tentL=walk0+12,tentR=tentL+tw,fireL=tentR+22;
+  const fb=F?boxOf(F):{x0:4,x1:34},fw=fb.x1-fb.x0,tentL=walk0+22,tentR=tentL+tw,fireL=tentR+2;
   return {tentX:tentL-tb.x0,tentR,fireX:fireL-fb.x0,fireC:fireL+(fw>>1),meWork:tentL+22,mateWork:fireL-10,door:tentL+(tw>>1)};}
 // Camp props appear the cartoon way: piece by piece, each popping in with a dust poof and a little drop-and-settle.
 // The tent comes in five pieces (bottom left and right, middle left and right, then the top with its poles); the
@@ -813,7 +810,7 @@ function drawFire(g,x,y,f,t,at){if(f<=0)return;const F=ART.fire,ok=F&&ART.firePi
   const d=at?dropOf(at):0;
   // (the fire's flat bottom sits FIRE_SINK pixels down into the grass, so it rests on the ground, not on top of it)
   if(f>=3){const im=F[Math.floor(t*9)%FIRE_N];g.drawImage(im,x,y-boxOf(im).y1-1+FIRE_SINK+(d>>1));return;}
-  const P=ART.firePile,pb=boxOf(P),base=y-pb.y1-1+FIRE_SINK,cut=pb.y1-6;
+  const P=ART.firePile,pb=boxOf(P),base=y-pb.y1-1+FIRE_SINK,cut=pb.y1-9;
   if(f>=2)g.drawImage(P,x,base+d);else g.drawImage(P,0,cut,P.width,P.height-cut,x,base+cut+d,P.width,P.height-cut);}
 // dust poofs: the generated cloud bursting and fading over about half a second, its foot at (x,y); until it loads,
 // three cream puffs shrinking away
@@ -831,12 +828,15 @@ function drawCamp(g,k,cy,t,ox,oy){const L=campLayer(k,cy);g.drawImage(L.c,L.x0+o
 // a camp prop standing on the ground at y, its left edge at x
 function prop(g,n,x,y){const im=ART.props&&ART.props[n];if(im)g.drawImage(im,R0(x),R0(y)-im.height);}
 // the base-camp meadow and the near pines, painted once per view width
-const BASE_SIGN_X=-98;
+const BASE_SIGN_X=-139,BASE_TENT_X=-264,BASE_FIRE_X=-128;
+// a tree standing on the ground at y, its trunk at x (mirrored when asked)
+function tree(g,i,x,y,flip){const T=ART.trees&&ART.trees[i];if(!T)return;const dx=R0(x)-(T.width>>1),dy=R0(y)-T.height;
+  if(flip){g.save();g.translate(dx+T.width,dy);g.scale(-1,1);g.drawImage(T,0,0);g.restore();}else g.drawImage(T,dx,dy);}
 function baseLayer(){const ox=FX.ox,w=FX.vw;if(FX.base&&FX.base.ox===ox&&FX.base.w===w)return FX.base;
-  const x0=-ox-8,x1=w-ox+8,y0=-90,y1=120,[c,g]=mk(x1-x0,y1-y0),X=x=>x-x0,Y=y=>y-y0;
+  const x0=-ox-8,x1=w-ox+8,y0=-215,y1=120,[c,g]=mk(x1-x0,y1-y0),X=x=>x-x0,Y=y=>y-y0;
   // distant pines first, then the meadow, then the big pines in front of the cliff foot
   // (once the generated pine is in, the generated treeline behind stands in for these painted ones)
-  if(!ART.pine)for(let x=x0;x<-30;x+=9+(hash(x,1)*8|0)){const h=22+(hash(x,2)*26|0),s=pineSprite(h,x*7,{l:C.pineL,m:C.pine,d:C.pineD,h:C.pineH});g.drawImage(s,X(x)-(s.width>>1),Y(2-h));}
+  if(!ART.pines)for(let x=x0;x<-30;x+=9+(hash(x,1)*8|0)){const h=22+(hash(x,2)*26|0),s=pineSprite(h,x*7,{l:C.pineL,m:C.pine,d:C.pineD,h:C.pineH});g.drawImage(s,X(x)-(s.width>>1),Y(2-h));}
   // the generated meadow strip, its grass rising a few pixels above the ground line, soil below it
   if(ART.ground){const G=ART.ground,gy=-6-ART.groundTop;
     rect(g,0,Y(gy+ART.soilAt),x1-x0,y1-gy-ART.soilAt,ART.soil);
@@ -846,17 +846,15 @@ function baseLayer(){const ox=FX.ox,w=FX.vw;if(FX.base&&FX.base.ox===ox&&FX.base
       if(y>=1&&y<4&&hash(x*3,y)<.12)col=C.mossH;dot(g,X(x),Y(y),col);}
     if(hash(x,8)<.18)dot(g,X(x),Y(-2),C.grassL);}
   // the tent, the camp's signpost at its corner, then (drawn each frame) the fire beside the climbers
-  drawTent(g,X(-196),Y(0));
+  // (two tall trees stand behind the camp: the spruce out past the stores, the pine rising over the tent)
+  tree(g,0,X(-360),Y(3),true);tree(g,1,X(-208),Y(3));
+  drawTent(g,X(BASE_TENT_X),Y(0));
   drawSign(g,signpost("BASE CAMP",57,{post:7}),X(BASE_SIGN_X),Y(0));
   // (a supply crate by the tent's far corner, a lantern standing on it, the cooking pot beside it)
-  prop(g,"crate",X(-196),Y(1));if(ART.props.crate)prop(g,"lantern",X(-193),Y(1-ART.props.crate.height+1));prop(g,"pot",X(-174),Y(1));
+  prop(g,"crate",X(-290),Y(1));if(ART.props.crate)prop(g,"lantern",X(-287),Y(1-ART.props.crate.height+1));prop(g,"pot",X(-314),Y(1));
   return FX.base={c,x0,y0,ox,w};}
-// the big pines in front of the cliff foot: the generated pine (every other one mirrored) once it has loaded
-function drawFrontPines(g,ox,oy){
-  if(ART.pine){const P=ART.pine,b=boxOf(P);[[-214,0],[-6,1],[14,0]].forEach(([x,f])=>{const dx=x+ox-(P.width>>1),dy=2-b.y1-1+oy;
-      if(f){g.save();g.translate(dx+P.width,dy);g.scale(-1,1);g.drawImage(P,0,0);g.restore();}else g.drawImage(P,dx,dy);});return;}
-  for(const [x,h] of [[-214,64],[-6,46],[14,58]]){const s=FX.pines?.[h]||(FX.pines=FX.pines||{},FX.pines[h]=pineSprite(h,h*13,{l:C.pineL,m:C.pine,d:C.pineD,h:C.pineH}));
-  g.drawImage(s,x+ox-(s.width>>1),2-h+oy);}}
+// the old spruce at the foot of the cliff, in front of the rock (the climbers pass in front of it)
+function drawFrontPines(g,ox,oy){tree(g,0,-6+ox,3+oy);}
 // a tall flag on the tip (a red pennant on a pole, in a little cairn), and a signpost down the left ridge
 function drawSummit(g,t,ox,oy){const fx=SX-18,fy=R0(peakTop(fx))+1,F=pennant(15,9,C.red,"summit");
   rect(g,fx+ox-1,fy-36+oy,3,37,INK);rect(g,fx+ox,fy-35+oy,1,35,C.metal);dot(g,fx+ox,fy-37+oy,INK);
@@ -1004,9 +1002,9 @@ function paint(t){
   for(const b of FX.birds)for(let i=0;i<b.n;i++)g.drawImage(sprites().bird[Math.floor(b.t*7+i*1.3)%4],R0(b.x-i*13),R0(b.y*h+(i%2?5:-2)*i+Math.sin(b.t*1.4+i)*2));
   if(art)drawPines(g,w,h,climb);
   else for(const L of FX.layers){const y=R0(climb*L.par);if(y<h)g.drawImage(L.c,0,y);}
-  if(vy1>-120){const B=baseLayer();g.drawImage(B.c,B.x0+ox,B.y0+oy);drawFire(g,-118+ox,oy,3,t);embers(-100,-10,1);}
+  if(vy1>-215){const B=baseLayer();g.drawImage(B.c,B.x0+ox,B.y0+oy);drawFire(g,BASE_FIRE_X+ox,oy,3,t);embers(BASE_FIRE_X+22,-14,1);}
   const [c1,c2]=chunkRange(vy0,vy1);for(let ci=c1;ci<=c2;ci++)g.drawImage(chunk(ci),-40+ox,-(ci+1)*CHK+oy);
-  if(vy1>-120)drawFrontPines(g,ox,oy);
+  if(vy1>-215)drawFrontPines(g,ox,oy);
   for(const [kk,ix] of [["c1",IDX_C1],["c2",IDX_C2]]){const y=-ix*HS;if(y>vy0-70&&y<vy1+30)drawCamp(g,kk,y,t,ox,oy);}
   if(vy0<TOPY+60)drawSummit(g,t,ox,oy);
   // the next pitch's goal: a little gold pennant pinned to the rock at the route, with the pitch's number beside it
@@ -1118,7 +1116,8 @@ async function climbRig(r,to,ms,id,ch="main"){
   const rs=r.rest(to);
   if(rs&&r.mode==="climb"){const o=r===FX.A.me?FX.A.mate:FX.A.me,there=o.mode==="stand"&&o.hi===to,spot=restSpot(to,there?1:0);
     const ey=to>=IDX_TOP?R0(peakTop(r.N.x))+2:spot.y; // (the summit slopes: stand on it where they come up)
-    r.topOut(r.N.x,ey,.45);if(!(await wait(450,ch)))return false;
+    const d=r.L.art&&r.L.art.mantle?1.05:.45;sfx("hup");
+    r.topOut(r.N.x,ey,d);if(!(await wait(d*1000,ch)))return false;
     r.land(r.N.x,ey);r.hi=to;sfx("thud");if(!(await wait(300,ch)))return false;
     if(to<IDX_TOP&&Math.abs(r.N.x-spot.x)>3){const d=r.walkTo(spot.x,36);if(!(await wait(d,ch)))return false;}
     if(!(await wait(220,ch)))return false;}
