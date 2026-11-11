@@ -66,8 +66,8 @@ input[type=text]{cursor:text;width:13em}
     <button id="gearFull">Refill</button><button id="gearNone">Empty</button></div>
   <div class="grp"><span>Answer</span><label><input type="checkbox" id="withHook"> hook</label>
     <button class="good" data-force="both">Both right</button>
-    <button class="bad" data-force="jerkL" title="Leader right, belayer wrong: rope jerk">Leader right · jerk</button>
-    <button class="bad" data-force="jerkB" title="Leader wrong, belayer right: fall and rope jerk">Leader wrong · jerk</button>
+    <button class="bad" data-force="jerkL" title="P1 right, P2 wrong: P1 climbs, P2 falls">P1 right · P2 wrong</button>
+    <button class="bad" data-force="jerkB" title="P1 wrong, P2 right: P1 falls, P2 climbs">P1 wrong · P2 right</button>
     <button class="bad" data-force="wrong">Both wrong</button>
     <button data-force="time">Time out</button></div>
   <div class="grp"><span>Music</span><button id="themeBtn" aria-pressed="false">Preview theme</button></div>
@@ -150,11 +150,10 @@ document.getElementById("gearNone").onclick=()=>jump(t=>Object.assign(t.exp,{rop
 function forceAnswers(kind){
   const w=eng();let t=w.fixTeam(team());if(!t)return;const r=t.round;
   if(r.phase!=="answer"){note("Go to a pitch first: answers can only be forced on a question.");return;}
-  if(kind.startsWith("jerk")&&Object.keys(t.members).length<2){note("A rope jerk needs two climbers: set Players to Two.");return;}
   if(document.getElementById("withHook").checked&&!r.hook&&t.exp.rope>0){t.exp.rope--;r.hook=true;save(t);}
   const R=t.round;
   if(kind==="time"){R.startedAt=Date.now()-R.dur*1000-3000;save(t);return;}
-  const right=R.order.indexOf(0),wrong=(right+1)%4,lead=R.leader,bel=Object.keys(t.members).find(i=>i!==lead);
+  const right=R.order.indexOf(0),wrong=(right+1)%4,lead="p1",bel=t.members.p2?"p2":null;
   const pickOf={both:[right,right],jerkL:[right,wrong],jerkB:[wrong,right],wrong:[wrong,wrong]}[kind];
   const put=(id,c)=>db.put(`answers/TEST01/${R.id}/${id}`,JSON.stringify({roundId:R.id,uid:id,at:Date.now(),choice:c}));
   put(lead,pickOf[0]);if(bel)put(bel,pickOf[1]);}

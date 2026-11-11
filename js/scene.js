@@ -316,14 +316,29 @@ function mateIdx(li,cur){if(li<=0||li===IDX_C1||li===IDX_C2||li>=IDX_TOP)return 
   if(cur!=null&&cur<=li-LOW&&(cur<=base||cur>=base+LOW+1))return cur;
   const an=FX.exp?idxOf(FX.exp,FX.exp.anchor||0):0,f=Math.min(li-8,an-4);
   return f-base>=LOW+1?f:base;}
-// the pitch's leader leads in the scene too: FX.A.me is the climber leading this pitch and FX.A.mate belays. A new
-// leader takes over where they stand (the roles swap; nobody moves until the pitch plays out)
-function setLead(t){const r=t.round;if(!["pre","answer","reveal"].includes(r.phase)||!r.leader||!FX.rigs)return;
-  const look=lookOf(t,r.leader),lead=FX.rigs.find(x=>x.L===look);if(!lead||lead===FX.A.me)return;
+// Each climber is drawn at their own place on the route. FX.A.me is the one higher up (the rope's leader, who the
+// rope runs up to) and FX.A.mate the other; they swap when one overtakes the other. FX.own is this player's climber,
+// which the camera keeps in view.
+const isLedge=i=>i<=0||i===IDX_C1||i===IDX_C2||i>=IDX_TOP,ledgeBelow=i=>i>IDX_C2?IDX_C2:i>IDX_C1?IDX_C1:0;
+function rigOfId(t,id){const L=lookOf(t,id);return FX.rigs.find(x=>x.L===L);}
+function setLead(t){if(!FX.rigs||t.round.phase==="map")return;const ids=memberIds(t);let lead=null;
+  if(ids.length<2)lead=rigOfId(t,ids[0]);
+  else{const pa=posOf(t.exp,ids[0]),pb=posOf(t.exp,ids[1]);if(pa!==pb)lead=rigOfId(t,pa>pb?ids[0]:ids[1]);}
+  FX.own=rigOfId(t,S.uid)||null;
+  if(!lead||lead===FX.A.me)return;
   FX.A={me:lead,mate:FX.A.me};
-  // standing together on the meadow or a ledge, they trade places: the new leader steps up to the wall while the new
-  // belayer steps back behind them (drawn behind, so they pass rather than walk through each other)
+  // standing together on the meadow or a ledge, they trade places: the one now ahead steps up to the wall while the
+  // other steps back behind them (drawn behind, so they pass rather than walk through each other)
   for(const x of FX.rigs){const rs=x.mode==="stand"&&!x.hidden&&x.rest(x.hi);if(rs&&Math.abs(rs.x-x.N.x)>3)x.walkTo(rs.x,48);}}
+// the hold each climber belongs at: their own pitch's; on the same pitch of the wall, the second hangs three holds
+// below the first (never so low their boots would be in a ledge). Alone on the rope, the partner drawn with them
+// follows as a belayer would
+function rigTargets(t){const exp=t.exp,ids=memberIds(t),T=new Map(),A=FX.A;
+  if(ids.length<2){const r=rigOfId(t,ids[0])||A.me,o=FX.rigs.find(x=>x!==r),ix=idxOf(exp,posOf(exp,ids[0]));T.set(r,ix);T.set(o,mateIdx(ix,o.hi));return T;}
+  const a=idxOf(exp,posOf(exp,ids[0])),b=idxOf(exp,posOf(exp,ids[1]));
+  if(a===b&&!isLedge(a)){const lo=Math.max(a-3,ledgeBelow(a)+LOW),hi=Math.max(a,lo+3);T.set(A.me,hi);T.set(A.mate,lo);}
+  else{T.set(rigOfId(t,ids[0]),a);T.set(rigOfId(t,ids[1]),b);}
+  return T;}
 
 /* ---------- climbers: side-view explorer sprites ----------
    Human proportions (head about a sixth of the body), seen side-on facing the wall, after the concept sheet.
@@ -916,10 +931,10 @@ function updateCam(dt){const me=FX.A.me,mt=FX.A.mate,now=performance.now();
   const oxT=FX.camp?ax+aw/2-(ledgeL()+30)/2:atBase?ax+aw/2+104:ax+aw*(FX.W>=900?.42:.38);
   // (a new camera, such as the first frames on load, snaps; after that the view always pans, however far)
   if(FX.oxF==null||!FX.cam){FX.oxF=oxT;FX.oxV=0;}else[FX.oxF,FX.oxV]=damp(FX.oxF,FX.oxV||0,oxT,2.8,dt);FX.ox=R0(FX.oxF);
-  let fy=FX.focus==="summit"?TOPY-30:lerp(me.N.y,mt.N.y,.3);
-  // (a short open area can't hold both: the leader stays in view, head to boots, since the pitch is theirs to climb
-  // or to fall off, even when they start it below their partner)
-  if(FX.focus!=="summit")fy=clamp(fy,me.N.y+44-ah/2,me.N.y-40+ah/2);
+  const own=FX.own||me,oth=own===me?mt:me;
+  let fy=FX.focus==="summit"?TOPY-30:lerp(own.N.y,oth.N.y,.3);
+  // (a short open area can't hold both: this player's own climber stays in view, head to boots)
+  if(FX.focus!=="summit")fy=clamp(fy,own.N.y+44-ah/2,own.N.y-40+ah/2);
   // camera y is the world y at the open area's vertical middle; keep the summit sky and the meadow in frame
   let y=clamp(fy,TOPY-120+(ah/2),60-(ah/2));
   if(FX.fxEl){const s=FX.fxEl.style,v=[A.x,A.y,A.w,A.h].map(n=>Math.round(n)+"px");if(s.width!==v[2]||s.height!==v[3]||s.top!==v[1]||s.left!==v[0]){s.left=v[0];s.top=v[1];s.width=v[2];s.height=v[3];}}
@@ -1122,34 +1137,32 @@ async function fallRig(r,anchor,back,id,ch,hook){
 // reaching the summit is a celebration; reaching a camp is quieter: a title, then the team gets to work
 function arrive(name,exp,to){const top=name==="summit";title(top?"SUMMIT!":name.toUpperCase(),`${fmt(mAlt(exp,to*HS/WK+ALT.base))} m`,"camp");
   if(top){confetti();sfx("summit");FX.A.me.cheer=2.6;}else sfx("thud");}
-async function runEvent(exp,o){
-  const id=++FX.ch.main,A=FX.A,me=A.me,mate=A.mate,ok=()=>FX.ch.main===id;
-  const to=idxOf(exp,typeof o.to==="number"?o.to:exp.pitch),plan=mateIdx(to,mate.hi);
-  // a beat before it plays out (the panel holds its result back for the same moment): the leader chalks up
-  puff(me.N.x+5,me.N.y-38);sfx("chalk");if(!(await wait(SUSPENSE_MS)))return;
-  // the rope jerk (the two locked in different answers): the rope snaps taut and twangs, the leader is jolted off
-  // their holds for a moment (grit rains down), the belayer is dragged a step, the view shakes; then the pitch plays
-  // (on the ground the leader is jolted where they stand; only the belayer is dragged a step toward them)
-  if(o.jerk){FX.ropeJerk=FX.time;FX.shake=Math.max(FX.shake,1.6);sfx("boing");pebbles(me);pop(me,"ROPE JERK!");
-    caption(o.jerkCost?"Rope jerk! You answered differently: −1 hook":"Rope jerk! You answered differently");
-    me.jolt(me.mode==="climb"?11:6);mate.yank();
+// a round plays out: a beat while both chalk up; the rope jerks whoever it holds back; whoever got it wrong comes
+// off (onto the hook, the rope or down to the anchor); whoever got it right climbs to their next pitch, the higher
+// one first; and if that brings both onto a camp ledge or the top, they arrive
+async function runEvent(exp,o,t){
+  const id=++FX.ch.main,A=FX.A,ok=()=>FX.ch.main===id,T=rigTargets(t);
+  const who=memberIds(t).map(u=>({r:rigOfId(t,u),x:(o.pl||{})[u]||{}})).filter(w=>w.r);
+  for(const w of who)puff(w.r.N.x+5,w.r.N.y-38);sfx("chalk");if(!(await wait(SUSPENSE_MS)))return;
+  // the rope jerk: the one too far ahead is snapped back onto their holds, the rope twangs, their partner feels it
+  const held=who.find(w=>w.x.held);
+  if(held){FX.ropeJerk=FX.time;FX.shake=Math.max(FX.shake,1.6);sfx("boing");pebbles(held.r);pop(held.r,"ROPE JERK!");
+    caption(`Rope jerk! ${MAX_GAP} pitches ahead is as far as the rope goes`);
+    held.r.jolt(held.r.mode==="climb"?11:6);const other=who.find(w=>w!==held);if(other)other.r.yank();
     if(!(await wait(950)))return;}
-  // a new leader still on the meadow or a ledge never gets far: a few moves up, then off, landing back on their feet
-  if(o.fall&&me.mode==="stand"){const at=me.hi;caption("Off at the first moves!");
-    if(!(await climbRig(me,at+LOW+2,280,id)))return;if(!(await fallRig(me,at,at,id,"main",false)))return;}
-  else if(o.fall&&to<me.hi){title("WHOOPS!",`Down to ${fmt(mAlt(exp,to*HS/WK+ALT.base))} m`,"bad");
-    // the partner lowers off to meet them: alongside, when the rope catches the fall on the wall; but when it goes
-    // all the way down to the meadow or a camp they hold still until the leader has landed, so nobody falls through them
-    const lower=me.rest(to)?Promise.resolve(true):wait(150).then(r=>r&&mate.hi>plan&&climbRig(mate,plan,190,id));
-    if(!(await fallRig(me,to,to,id,"main",false)))return;await lower;}
-  else if(o.fall){caption("Wrong hold, but the hook holds");if(!(await fallRig(me,me.hi-1,me.hi,id,"main",true)))return;}
-  else if(to>me.hi){const ms=stepMsFor(to-me.hi),follow=wait(700).then(r=>r&&climbRig(mate,plan,ms,id));
-    if(!(await climbRig(me,to,ms,id)))return;
-    if(o.arrived)arrive(o.arrived,exp,to);else if(o.echo)title("ECHO!","A double pitch","good");else pop(me,o.move>=2?"HUP HUP!":"HUP!");
-    if(!(await follow))return;
-    if(o.arrived==="summit")mate.cheer=1.8;else if(o.arrived&&campOf(to)){await makeCamp(to);return;}}
-  else{caption("Holding on…");pop(me,"PHEW!");}
-  if(ok()&&mate.hi!==plan)await climbRig(mate,plan,320,id);
+  for(const w of who.filter(w=>w.x.fall)){const r=w.r,tg=T.get(r);
+    // still on the meadow or a ledge they never get far: a few moves up, then off, landing back on their feet
+    if(r.mode==="stand"){const at=r.hi;caption("Off at the first moves!");
+      if(!(await climbRig(r,at+LOW+2,280,id)))return;if(!(await fallRig(r,at,at,id,"main",false)))return;}
+    else if(w.x.caught||tg>=r.hi){caption(w.x.caught?"Wrong hold, but the hook holds":"Wrong hold!");if(!(await fallRig(r,r.hi-1,r.hi,id,"main",true)))return;}
+    else{title("WHOOPS!",`Down to ${fmt(mAlt(exp,tg*HS/WK+ALT.base))} m`,"bad");if(!(await fallRig(r,tg,tg,id,"main",false)))return;}}
+  const ups=who.filter(w=>!w.x.fall&&T.get(w.r)>w.r.hi).sort((a,b)=>T.get(b.r)-T.get(a.r));
+  const jobs=ups.map((w,k)=>wait(k*700).then(z=>z&&climbRig(w.r,T.get(w.r),stepMsFor(T.get(w.r)-w.r.hi),id)).then(z=>{if(z&&!o.arrived)pop(w.r,"HUP!");return z;}));
+  for(const j of jobs)if(!(await j))return;
+  // (anyone not yet where they belong, such as the partner drawn beside a lone climber, moves there)
+  for(const r of FX.rigs){const tg=T.get(r);if(ok()&&tg!=null&&r.hi!==tg&&r.mode!=="fall"&&!(await climbRig(r,tg,320,id)))return;}
+  if(o.arrived&&ok()){const to=idxOf(exp,exp.pitch);arrive(o.arrived,exp,to);
+    if(o.arrived==="summit")A.mate.cheer=1.8;else if(campOf(to))await makeCamp(to);}
 }
 async function runSummit(t){++FX.ch.main;const A=FX.A;
   if(A.me.mode!=="stand"||A.me.hi<IDX_TOP)placeTeam(t.exp,IDX_TOP);
@@ -1172,6 +1185,7 @@ async function runDemo(){ // lobby: a rope team climbs the whole cliff on a loop
 function snap(exp,t){FX.ch.main++;const A=FX.A,ix=idxOf(exp,exp.pitch);placeTeam(exp,ix);
   A.me.gear=exp.rope;if(t.round.phase==="summit"){A.me.cheer=2;A.mate.cheer=2;}
   else if(campOf(ix)){FX.camp={k:campOf(ix),ix,cy:-ix*HS,tent:TENT_UP,sleep:true};FX.night=1;A.me.hidden=A.mate.hidden=true;}
+  else for(const [rg,tg] of rigTargets(t))if(rg&&tg!==ix)place(rg,tg); // (each at their own pitch)
   FX.cam=null;}
 
 function drawTopo(t){
@@ -1188,8 +1202,10 @@ function drawTopo(t){
   for(const [k,ix] of [["c1",IDX_C1],["c2",IDX_C2]]){const on=reached>=ix;if(on&&!FX.lit[k]&&FX.mode==="game")FX.litAt[k]=FX.time+1.6;FX.lit[k]=on;}
   FX.focus=r.phase==="summit"?"summit":"me";
   const tot=total(exp);
-  FX.label=r.phase!=="summit"&&exp.pitch<tot&&needsChoice(exp)<0?{i:idxOf(exp,exp.pitch+1),text:`P${stageOf(exp,exp.pitch).i+1}`}:null;
-  const st={n:exp.n,m:exp.m||"",pitch:exp.pitch,res:r.phase==="reveal"?r.resolvedAt:null,phase:r.phase,gear:exp.rope};
+  // (the goal marker stands at this player's own next pitch, while there is one to climb to)
+  const mine=posOf(exp,memberIds(t).includes(S.uid)?S.uid:memberIds(t)[0]);
+  FX.label=r.phase!=="summit"&&mine<tot&&mine<capOf(exp)?{i:idxOf(exp,mine+1),text:`P${stageOf(exp,mine).i+1}`}:null;
+  const st={n:exp.n,m:exp.m||"",pitch:exp.pitch,pos:memberIds(t).map(u=>posOf(exp,u)).join(","),res:r.phase==="reveal"?r.resolvedAt:null,phase:r.phase,gear:exp.rope};
   const prev=FX.state;FX.state=st;
   // (the mountain sets the snow line: the wall is repainted when it changes)
   const sn=MT(exp).snow;if(FX.snow!==sn){FX.snow=sn;FX.chunks.clear();FX.camps={};}
@@ -1197,8 +1213,9 @@ function drawTopo(t){
   // spent hooks leave the rack at once; a restock waits until the leader has pulled onto the camp ledge
   if(st.gear<prev.gear)FX.A.me.gear=st.gear;
   else if(st.gear>prev.gear)setTimeout(()=>{if(FX.mode!=="game"||!FX.state||FX.state.n!==st.n||FX.state.gear!==st.gear)return;const me=FX.A.me;me.gear=st.gear;pop(me,"GEAR RESTOCKED!");sfx("restock");},2600);
-  if(st.res&&st.res!==prev.res&&r.result)runEvent(exp,r.result);
-  else if(st.pitch!==prev.pitch){const id=++FX.ch.main,to=idxOf(exp,st.pitch);climbRig(FX.A.me,to,300,id).then(k=>k&&climbRig(FX.A.mate,mateIdx(to,FX.A.mate.hi),300,id));}
+  if(st.res&&st.res!==prev.res&&r.result)runEvent(exp,r.result,t);
+  else if(st.pos!==prev.pos){const id=++FX.ch.main,T=rigTargets(t);
+    (async()=>{for(const rg of [FX.A.me,FX.A.mate]){const tg=T.get(rg);if(tg!=null&&tg!==rg.hi&&!(await climbRig(rg,tg,300,id)))return;}})();}
   if(st.phase==="summit"&&prev.phase!=="summit")runSummit(t);
   // morning: once the route on is picked, the team packs up camp before the next pitch
   else if(prev.phase==="camp"&&st.phase!=="camp"&&FX.camp)leaveCamp();

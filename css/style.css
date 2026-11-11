@@ -255,6 +255,8 @@ body:has(#main.game2) .hud{left:var(--edge)}
 /* a clipped hook, said in words (on a phone the gear buttons are icons only) */
 .hooked{display:flex;align-items:center;gap:8px;padding:6px 10px;border:2px solid var(--gold);background:#2a2412;color:var(--cream);font-size:15px;line-height:1.25}
 .hooked .px{width:18px;height:18px;flex:none}.hooked b{color:var(--gold);font-weight:600}
+.hooked.tight{border-color:var(--bad)}.hooked.tight b{color:var(--bad)}
+.mateline{font-size:15px}
 .hint{border:2px dashed var(--gold);padding:8px 10px;color:var(--cream);font-size:16px;background:#2a2412}
 .hint b{color:var(--gold)}
 .tier{font-size:13px;color:var(--gold);letter-spacing:2px}.tier i{font-style:normal;color:var(--line)}

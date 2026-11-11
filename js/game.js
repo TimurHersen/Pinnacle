@@ -74,7 +74,7 @@ function fixTeam(t){
   // a team saved under the old pitch types starts this quiz climb fresh at base camp
   if(!t.exp||t.exp.v!==2){t.exp=newExp((t.exp?.n||0)+1);t.round={id:(t.round?.id||0)+1,phase:"ready"};}
   const e=t.exp;const c=e.choice||{};e.choice=[c[0]||null,c[1]||null];
-  e.used=Object.values(e.used||{});
+  e.used=Object.values(e.used||{});e.up=e.up&&typeof e.up==="object"?e.up:{};
   for(const k of ["pitch","anchor","rope","chalk","scout","anchors"])e[k]=e[k]||0;
   t.round=t.round||{id:0,phase:"ready"};t.round.id=t.round.id||0;t.round.votes=t.round.votes||{};
   // a team that finished the stage-one prototype picks its route at Camp I; a camp vote is {route, bonus}
@@ -112,6 +112,12 @@ function stageOf(exp,p){const L=lens(exp);if(p<L[0]||!L[1])return {s:0,i:p,n:L[0
 const STAGE_TO=["Camp I","Camp II","the summit"];
 function nextStop(exp){const L=lens(exp);if(exp.pitch<L[0])return L[0];
   if(L[1]&&exp.pitch<L[0]+L[1])return L[0]+L[1];return total(exp);}
+/* Each climber has their own place on the route. exp.pitch is the pitch both have reached (the lower climber's);
+   exp.up says how many pitches above it each one is. The rope lets them get MAX_GAP pitches apart and no more, and
+   nobody climbs past a camp (or the top) until both are there. */
+const MAX_GAP=3;
+const capOf=exp=>needsChoice(exp)>=0?exp.pitch:Math.max(exp.pitch,nextStop(exp));
+const posOf=(exp,id)=>Math.min(exp.pitch+Math.min(MAX_GAP,Math.max(0,(exp.up||{})[id]|0)),capOf(exp));
 // an expedition: the pitch reached, the anchor a fall without a hook drops you to, and the team's gear (rope = hooks)
 function newExp(n,prev){return {v:2,n,m:null,choice:[null,null],pitch:0,anchor:0,rope:3,chalk:1,scout:1,anchors:1,used:prev?prev.used.slice(-80):[]};}
 // an ascent's score out of 100: the share of questions answered right, less a little for every fall and rope jerk
@@ -131,44 +137,46 @@ function shuffled4(){const a=[0,1,2,3];for(let i=3;i>0;i--){const j=Math.floor(M
 const LETTERS="ABCD";
 
 /* ============================== JUDGING ==============================
-   The rope lock: both climbers lock an answer in secret, and the two are shown together. The leader's answer is the
-   one that counts. If the two disagree the rope jerks, which costs a hook whoever was right. A right answer climbs
-   one pitch. A wrong one (or none) falls: onto the hook if the team clipped one during the question, so they slip
-   but keep their height; otherwise down to their last anchor or camp. */
-function judge(t,ans){
-  const r=t.round,ids=memberIds(t),right=r.order.indexOf(0),bel=ids.find(i=>i!==r.leader);
-  const pick=id=>{const c=ans[id]?.choice;return typeof c==="number"&&c>=0&&c<4?c:null;};
-  const L=pick(r.leader),B=bel?pick(bel):null;
-  const o={right,lead:L,bel:B,correct:L===right,jerk:!!bel&&L!==null&&B!==null&&B!==L,move:0,fall:false,tone:"good"};
-  if(o.correct){o.move=1;o.headline=o.jerk?"Right hold, but the rope jerked.":bel&&B===L?"In sync. Clean move.":"Clean move.";if(o.jerk)o.tone="warn";}
-  else{o.fall=true;o.tone="bad";o.headline=L===null?"No answer. Off the wall!":o.jerk?"Wrong hold, and the rope jerked!":"Wrong hold. Off the wall!";}
-  return o;}
+   Both climbers lock an answer in secret, and the two are shown together. Each climbs on their own answer: right,
+   and they go up a pitch; wrong (or no answer), and they fall: onto the hook if the team clipped one during the
+   question (they keep their height), otherwise down to the team's anchor or last camp.
+   The rope ties the two together: they can be MAX_GAP pitches apart and no more. A climber who would go further
+   ahead than that is held back by the rope (a rope jerk: they stay where they are until their partner catches up),
+   and one who falls is caught by it MAX_GAP pitches below their partner. */
+function judge(t,ans){const r=t.round,right=r.order.indexOf(0),picks={};
+  for(const id of memberIds(t)){const c=ans[id]?.choice;if(typeof c==="number"&&c>=0&&c<4)picks[id]=c;}
+  return {right,picks};}
 function applyOutcome(t,o){
-  const exp=clone(t.exp),r=t.round,before=exp.pitch,beforeAlt=altOf(exp,before),q=quizById(r.qid);let moveText="";
-  if(o.fall){
-    if(r.hook){o.caught=true;o.tone="warn";o.headline=o.lead===null?"No answer, but the hook held.":"Wrong hold, but the hook held.";moveText="You keep your height.";}
-    else{exp.pitch=exp.anchor;const L=lens(exp),where=exp.anchor===0?"base camp":exp.anchor===L[0]?"Camp I":L[1]&&exp.anchor===L[0]+L[1]?"Camp II":"your anchor";
-      moveText=exp.pitch<before?`No hook clipped: fell ${Math.round(beforeAlt-altOf(exp,exp.pitch))} m to ${where}.`:`No hook clipped, but you were at ${where}.`;}}
-  else{exp.pitch=Math.min(exp.pitch+1,total(exp));moveText=`Up ${Math.round(altOf(exp,exp.pitch)-beforeAlt)} m to ${fmt(altOf(exp,exp.pitch))} m.`;}
-  if(o.jerk){if(exp.rope>0){exp.rope--;o.jerkCost=1;moveText+=" The rope jerk cost a hook.";}else moveText+=" The rope jerked.";}
-  // reaching a camp or the top: a camp also becomes the anchor, so no fall ever drops the team below it
+  const exp=clone(t.exp),r=t.round,ids=memberIds(t),q=quizById(r.qid),cap=capOf(exp),before=exp.pitch,pl={};
+  for(const id of ids){const from=posOf(exp,id),ok=o.picks[id]===o.right,x=pl[id]={from,to:from,ok,none:o.picks[id]==null};
+    if(ok)x.to=Math.min(from+1,cap);
+    else{x.fall=true;if(r.hook)x.caught=true;else x.to=Math.min(from,exp.anchor);}}
+  // the rope: the one who would get too far ahead is held where they were; one who falls too far is caught by it
+  if(ids.length>1)for(const [hi,lo] of [[ids[0],ids[1]],[ids[1],ids[0]]]){const H=pl[hi],L=pl[lo];
+    if(H.to-L.to>MAX_GAP&&H.to>H.from){H.to=H.from;H.held=true;}
+    if(H.to-L.to>MAX_GAP){L.to=H.to-MAX_GAP;L.roped=true;}}
+  exp.pitch=Math.min(...ids.map(id=>pl[id].to));exp.up={};for(const id of ids)exp.up[id]=pl[id].to-exp.pitch;
+  // reaching a camp or the top (both of them): a camp also becomes the anchor, so no fall ever drops them below it
   let arrived=null;if(exp.pitch>before){const L=lens(exp);
     arrived=exp.pitch===L[0]?"Camp I":L[1]&&exp.pitch===L[0]+L[1]?"Camp II":exp.choice[1]&&exp.pitch>=total(exp)?"summit":null;
     if(arrived)exp.anchor=exp.pitch;}
-  const stats=clone(t.stats||{});stats.rounds=(stats.rounds||0)+1;if(o.jerk)stats.jerks=(stats.jerks||0)+1;
-  if(o.correct&&!o.jerk&&o.bel!==null)stats.synced=(stats.synced||0)+1;if(o.fall&&!o.caught)stats.falls=(stats.falls||0)+1;
-  // this expedition's own tally, for the end of the stage
-  const run=exp.run={...(exp.run||{})};if(o.jerk)run.jerks=(run.jerks||0)+1;run.q=(run.q||0)+1;if(o.correct)run.right=(run.right||0)+1;
-  if(o.correct&&!o.jerk&&o.bel!==null)run.synced=(run.synced||0)+1;if(o.fall)run[o.caught?"slips":"falls"]=(run[o.caught?"slips":"falls"]||0)+1;
+  const all=ids.map(id=>pl[id]),n=f=>all.filter(f).length,jerk=n(x=>x.held)>0;
+  const stats=clone(t.stats||{});stats.rounds=(stats.rounds||0)+1;stats.jerks=(stats.jerks||0)+n(x=>x.held);
+  if(ids.length>1&&all.every(x=>x.ok))stats.synced=(stats.synced||0)+1;stats.falls=(stats.falls||0)+n(x=>x.fall&&!x.caught);
+  // this expedition's own tally, for the end of the climb
+  const run=exp.run={...(exp.run||{})};run.q=(run.q||0)+ids.length;run.right=(run.right||0)+n(x=>x.ok);run.jerks=(run.jerks||0)+n(x=>x.held);
+  if(ids.length>1&&all.every(x=>x.ok))run.synced=(run.synced||0)+1;run.slips=(run.slips||0)+n(x=>x.caught);run.falls=(run.falls||0)+n(x=>x.fall&&!x.caught);
   // the summit: the ascent is timed and scored, and goes down as the team's best if it is
   if(arrived==="summit"){if(exp.t0)run.ms=Math.max(0,now()-exp.t0);run.pts=ascentScore(run);stats.summits=(stats.summits||0)+1;
     if(!stats.best||run.pts>stats.best.pts){run.best=!!stats.best;stats.best={pts:run.pts,right:run.right||0,q:run.q||0,falls:run.falls||0,jerks:run.jerks||0,ms:run.ms||0,n:exp.n,m:exp.m};}
     // (and on the mountain's own record, which the map shows)
     const pk=stats.peaks=clone(stats.peaks||{}),mine=pk[exp.m]||{n:0,pts:0};pk[exp.m]={n:mine.n+1,pts:Math.max(mine.pts,run.pts)};}
+  const word=x=>x.held?"held by the rope":x.ok?(x.to>x.from?"climbed":"waited at the ledge"):x.caught?"slipped onto the hook":x.roped?"fell onto the rope":x.to<x.from?"fell":"came off";
+  const headline=ids.map(id=>`${t.members[id]?.name||"Climber"} ${word(pl[id])}`).join(", ")+".";
   const log=(t.log||[]).slice(-39);
-  log.push({at:Date.now(),text:`P${before+1} ${q.cat}: ${o.headline}`});
+  log.push({at:Date.now(),text:`${q.cat}: ${headline}`});
   if(arrived)log.push({at:Date.now(),text:arrived==="summit"?`Stood on top of ${MT(exp).name}, ${fmt(mAlt(exp,ALT.top))} m!`:`Reached ${arrived}.`});
-  return {...t,exp,stats,log,round:{...r,phase:"reveal",result:{...o,moveText,arrived,from:before,to:exp.pitch},resolvedAt:now()}};}
+  return {...t,exp,stats,log,round:{...r,phase:"reveal",result:{right:o.right,picks:o.picks,pl,jerk,headline,arrived,from:before,to:exp.pitch},resolvedAt:now()}};}
 
 
 /* ============================== ACTIONS ============================== */
@@ -220,7 +228,7 @@ function useChalk(){
     const wrong=[0,1,2,3].filter(i=>r.order[i]!==0).sort(()=>Math.random()-.5).slice(0,2);
     t.exp.chalk--;return {...t,round:{...r,cut:wrong}};});
 }
-// the route scout: a hint that only the belayer sees (or the climber, alone on the rope)
+// the route scout: a hint for the question, shown to both
 function useScout(){
   const rid=S.team.round.id;
   guarded(t=>{const r=t.round;if(r.id!==rid||r.phase!=="answer"||r.scout||t.exp.scout<=0)return null;
@@ -228,7 +236,7 @@ function useScout(){
 }
 // at camp: everything is restocked, and the team picks the route on and one extra piece of gear (each votes, the
 // leader confirms); then the next stage starts straight away
-const BONUS={hook:{name:"Extra hook",desc:"One more hook for the next stage."},chalk:{name:"Extra chalk",desc:"Wipe out two wrong answers once more."},scout:{name:"Extra scout",desc:"A second hint for the belayer."}};
+const BONUS={hook:{name:"Extra hook",desc:"One more hook for the next stage."},chalk:{name:"Extra chalk",desc:"Wipe out two wrong answers once more."},scout:{name:"Extra scout",desc:"A second hint."}};
 function campPick(route,k){
   const rid=S.team.round.id;
   guarded(t=>{const s=t.round.stage??needsChoice(t.exp);
@@ -318,10 +326,10 @@ function renderLobby(invite){
     <div class="card" id="secHow"><h3>How to play</h3>
       <p class="note">You and your partner pick a mountain on the map and climb it together, one question per pitch, from base camp to the summit.</p>
       <ul class="qrules">
-        <li><b>The rope lock.</b> Each pitch is a question with four answers. You both lock in an answer in secret, and they're shown together.</li>
-        <li><b>The leader decides.</b> Leader and belayer swap every pitch. The leader's answer is the one that counts. If you disagree, the rope jerks and costs a hook.</li>
-        <li><b>Hooks.</b> Clip one at any time during a question, and a wrong answer only slips you. Without one, you fall back to your anchor.</li>
-        <li><b>Gear.</b> Chalk wipes out two wrong answers. The route scout gives the belayer a hint. An anchor locks in your height.</li>
+        <li><b>Your own climb.</b> Every question has four answers. You both lock one in, in secret. Answer right and you climb a pitch; wrong, and you fall.</li>
+        <li><b>The rope.</b> You're tied together and can be at most ${MAX_GAP} pitches apart. Get further ahead and the rope jerks and holds you until your partner catches up, so help each other.</li>
+        <li><b>Hooks.</b> Clip one at any time during a question, and a wrong answer only slips whoever gets it wrong. Without one, they fall back to the anchor (the rope catches them ${MAX_GAP} pitches below their partner).</li>
+        <li><b>Gear.</b> Chalk wipes out two wrong answers. The route scout gives a hint. An anchor locks in your height.</li>
         <li><b>Mountains.</b> ${MOUNTAIN_ORDER.map(k=>esc(MOUNTAINS[k].name)).join(", ")}: the higher the mountain, the harder the questions, the less time you get and the fewer hooks you carry.</li>
         <li><b>Camps</b> restock your gear. There you pick the route on, short and hard or long and gentler, and one extra piece of gear.</li>
         <li><b>The rope radio</b> lets you talk when you're apart. Side by side, just talk.</li></ul></div>
@@ -379,6 +387,7 @@ async function takeSeat(code,old){
   try{const {val,etag}=await fb.getTagged("teams/"+code);const t=fixTeam(val);if(!t||!t.members[old])return;
     const m=t.members[old];delete t.members[old];t.members[S.uid]={...m,name:readName()||m.name};
     if(t.round.leader===old)t.round.leader=S.uid;
+    if(t.exp.up[old]!=null){t.exp.up[S.uid]=t.exp.up[old];delete t.exp.up[old];}
     if(t.round.votes[old]){t.round.votes[S.uid]=t.round.votes[old];delete t.round.votes[old];}
     if(!(await fb.put("teams/"+code,t,etag))){err.textContent="The team just changed. Try again.";return;}
     rememberTeam(code,t.name);openTeam(code);
@@ -544,17 +553,19 @@ function leaderOf(t){const r=t.round,ids=memberIds(t);return ["pre","answer","re
 const lookOf=(t,id)=>memberIds(t).indexOf(id)>0?LOOK.mate:LOOK.me;
 const ptag=(t,id)=>"P"+(memberIds(t).indexOf(id)+1);
 function renderHud(t){
-  const e=t.exp,alt=altOf(e,e.pitch),ids=memberIds(t),lead=leaderOf(t),so=stageOf(e,e.pitch);
-  // a heart that was lost since the last render cracks away (a rope jerk or a clipped hook)
+  const e=t.exp,ids=memberIds(t),me=ids.includes(S.uid)?S.uid:ids[0],pos=posOf(e,me),alt=altOf(e,pos),so=stageOf(e,pos),pid=ids.find(i=>i!==me);
+  const gap=pid?pos-posOf(e,pid):0,top=Math.max(...ids.map(i=>posOf(e,i)));
+  // a hook that was spent since the last render cracks away
   const lost=S.prevRope!=null&&S.prevRope>e.rope&&S.prevN===e.n?S.prevRope:e.rope;S.prevRope=e.rope;S.prevN=e.n;
   const n=Math.max(MT(e).hooks,e.rope,lost);
-  const who=ids.map(id=>`<div class="who ${id===lead?"lead":""}"><img class="port" src="${portrait(lookOf(t,id))}" alt=""><div><div class="nm">${ptag(t,id)} ${esc(S.names[id]||nameOf(id))}${id===S.uid?" (you)":""}</div>
-    <span class="role ${id===lead?"lead":"belay"}">${id===lead?"Leader":"Belayer"}</span></div></div>`).join("");
-  const hearts=`<div class="hearts" title="Hooks: clip one during a question and a wrong answer only slips you. A rope jerk costs one." aria-label="${e.rope} hooks left">${
+  // (each climber's own pitch under their name; the one ahead is framed in red)
+  const who=ids.map(id=>{const p=posOf(e,id),s2=stageOf(e,p);return `<div class="who ${pid&&p===top&&gap!==0?"lead":""}"><img class="port" src="${portrait(lookOf(t,id))}" alt=""><div><div class="nm">${ptag(t,id)} ${esc(S.names[id]||nameOf(id))}${id===S.uid?" (you)":""}</div>
+    <span class="role belay">Pitch ${Math.min(s2.i+1,s2.n)}/${s2.n}</span></div></div>`;}).join("");
+  const hearts=`<div class="hearts" title="Hooks: clip one during a question and a wrong answer only slips you." aria-label="${e.rope} hooks left">${
     [...Array(n).keys()].map(i=>i<e.rope?ICON.hook:i<lost?`<span class="crack">${ICON.hook}</span>`:ICON.hookUsed).join("")}</div>`;
   const html=`<div class="hud-l">${who}${hearts}</div>
    <div class="hud-r"><div class="stat">${ICON.mtn}<span class="k">Alt</span><span class="v">${fmt(alt)} m</span></div>
-     <div class="stat">${ICON.rope}<span class="k">Rope</span><span class="v">${fmt(alt-altOf(e,e.anchor))} m</span></div>
+     ${pid?`<div class="stat">${ICON.rope}<span class="k">Rope</span><span class="v">${Math.abs(gap)}/${MAX_GAP}</span></div>`:""}
      <div class="stat">${ICON.flag}<span class="k">Pitch</span><span class="v">${Math.min(so.i+1,so.n)}/${so.n}</span></div></div>`;
   if(S.hudHtml!==html){S.hudHtml=html;$("#hud").innerHTML=html;}
 }
@@ -572,7 +583,7 @@ const pitchLabel=(e,p)=>{const so=stageOf(e,p);return `Stage ${so.s+1} · Pitch 
 
 function renderPanel(t){
   const r=t.round,e=t.exp,panel=$("#panel"),mine=S.answers[S.uid];
-  const key=[r.id,r.phase,!!mine,memberIds(t).length,r.phase==="camp"||r.phase==="map"?JSON.stringify(r.votes||{}):"",JSON.stringify(t.stats?.peaks||{}),r.resolvedAt||"",String(r.cut),!!r.scout,!!r.hook,r.phase==="answer"&&now()<r.startedAt,S.sus===r.id,e.chalk,e.scout,e.rope,Object.values(S.names).join(",")].join("|");
+  const key=[r.id,r.phase,!!mine,memberIds(t).length,r.phase==="camp"||r.phase==="map"?JSON.stringify(r.votes||{}):"",JSON.stringify(t.stats?.peaks||{}),r.resolvedAt||"",String(r.cut),!!r.scout,!!r.hook,r.phase==="answer"&&now()<r.startedAt,S.sus===r.id,e.chalk,e.scout,e.rope,JSON.stringify(e.up||{}),Object.values(S.names).join(",")].join("|");
   if(key===S.panelKey){updateDynamic(t);return;}
   if(S.panelKey&&S.panelKey.split("|")[0]!==String(r.id))S.local={};S.panelKey=key;S.local=S.local||{};
   // a new step of the round starts at its top (on a phone the panel is a sheet that scrolls)
@@ -581,7 +592,7 @@ function renderPanel(t){
   panel.innerHTML=r.phase==="map"?mapView(t):r.phase==="ready"?readyView(t):r.phase==="pre"?`<p class="note">Setting off…</p>`:r.phase==="answer"?answerView(t,mine):r.phase==="reveal"?revealView(t):r.phase==="camp"?campView(t):summitView(t);
   wirePanel(t);updateDynamic(t);
   // the result lands with a sound of its own
-  if(r.phase==="reveal"&&S.sus!==r.id&&S.susDone===r.id&&S.stung!==r.id){S.stung=r.id;sfx(r.result?.correct?"right":"wrong");}
+  if(r.phase==="reveal"&&S.sus!==r.id&&S.susDone===r.id&&S.stung!==r.id){S.stung=r.id;sfx(r.result?.pl?.[S.uid]?.ok?"right":"wrong");}
 }
 function frameQ(t,main){return `<div class="qwrap">${panelArt(t)}<div class="qmain">${main}</div></div>`;}
 function readyView(t){
@@ -593,42 +604,60 @@ function readyView(t){
    ${solo?`<p class="note">Your partner joins with the invite link or the code <strong>${esc(t.code)}</strong>. Climbing alone works too.</p>`:""}
    <div class="actions"><button class="btn rope" id="goBtn">Start the climb</button>${solo?`<button class="btn" id="inviteBtn">Invite partner</button>`:""}</div>`);
 }
+// where the rope stands between you and your partner, as a tag: level, or how far ahead or behind you are
+function gapTag(t){const e=t.exp,pid=partnerId(t);if(!pid)return "";const g=posOf(e,S.uid)-posOf(e,pid),full=Math.abs(g)>=MAX_GAP;
+  return `<span class="role ${full?"lead":"belay"}" title="You're roped together: at most ${MAX_GAP} pitches apart.">${g===0?"Level":`${Math.abs(g)} ${g>0?"ahead":"behind"}`}${full?" · rope tight":""}</span>`;}
 function answerView(t,mine){
-  const r=t.round,q=quizById(r.qid),e=t.exp,ids=memberIds(t),solo=ids.length<2,lead=r.leader===S.uid||solo,cut=r.cut||[];
-  const role=solo?"":`<span class="role ${lead?"lead":"belay"}" title="${lead?"Your answer is the one that counts on this pitch.":"Your leader's answer counts. If yours differs, the rope jerks and costs a hook."}">${lead?"Leader":"Belayer"}</span>`;
+  const r=t.round,q=quizById(r.qid),e=t.exp,ids=memberIds(t),solo=ids.length<2,cut=r.cut||[],pos=posOf(e,S.uid),pid=partnerId(t);
+  const gap=pid?pos-posOf(e,pid):0,atCap=pos>=capOf(e)&&pid&&gap>0;
   // the count before the clock starts: what the question is about and how hard, so both are ready together
-  if(now()<r.startedAt)return frameQ(t,`<div class="qhead"><span>${pitchLabel(e,e.pitch)}</span>${role}</div>
+  const brief=solo?"Answer right to climb a pitch.":atCap?`You're waiting on the ledge for ${esc(nameOf(pid))}. Help them up: talk it over on the radio.`
+    :gap>=MAX_GAP?`The rope is tight: you can't climb until ${esc(nameOf(pid))} catches up. Help them get this one right.`
+    :gap<=-MAX_GAP?`The rope is tight: ${esc(nameOf(pid))} can't climb until you catch up.`:`Answer right to climb. Stay within ${MAX_GAP} pitches of each other.`;
+  if(now()<r.startedAt)return frameQ(t,`<div class="qhead"><span>${pitchLabel(e,pos)}</span>${gapTag(t)}</div>
    <div class="getready"><div><div class="qtitle">${esc(q.cat)}</div>${tierMarks(q.tier)}</div><div class="count" id="count" aria-hidden="true"></div></div>
-   <p class="qsub">${solo?"Get ready.":lead?"You lead: your answer counts. If your partner answers differently, the rope jerks and costs a hook.":`${esc(nameOf(r.leader))} leads: their answer counts. Answer differently and the rope jerks and costs a hook.`}</p>`);
+   <p class="qsub">${brief}</p>`);
   const sel=mine?mine.choice:S.local.choice;
   const opts=r.order.map((k,i)=>`<button class="qopt ${cut.includes(i)?"cut":""} ${sel===i?"sel":""}" data-i="${i}" ${cut.includes(i)||mine?"disabled":""}><b>${LETTERS[i]}</b><span>${esc(q.o[k])}</span></button>`).join("");
-  // the gear, one button each: a hook (either climber, any time while the question is open), chalk, and the scout
-  // (the belayer's, or the climber's alone on the rope)
+  // the gear, one button each, for either climber at any time while the question is open: a hook, chalk, the scout
   const gear=`<div class="qgear">
     <button class="gbtn ${r.hook?"on":""}" id="hookBtn" aria-label="${r.hook?"Hook clipped":`Clip a hook, ${e.rope} left`}" title="Clip a hook: a wrong answer then only slips you, instead of dropping you to your anchor" ${!r.hook&&e.rope>0?"":"disabled"}>${ICON.hook}<span>${r.hook?"Clipped":"Hook"}</span><b>${e.rope}</b></button>
     <button class="gbtn" id="chalkBtn" aria-label="Chalk, ${e.chalk} left" title="Chalk: wipes out two wrong answers" ${e.chalk>0&&!r.cut?"":"disabled"}>${ICON.chalk}<span>Chalk</span><b>${e.chalk}</b></button>
-    ${!lead||solo?`<button class="gbtn" id="scoutBtn" aria-label="Route scout, ${e.scout} left" title="Route scout: a hint only you see" ${e.scout>0&&!r.scout?"":"disabled"}>${ICON.scout}<span>Scout</span><b>${e.scout}</b></button>`:""}</div>`;
-  const hint=!r.scout?"":!lead||solo?`<div class="hint"><b>Scout:</b> ${esc(q.hint)}</div>`:`<p class="note">Your belayer has a hint. Ask on the radio.</p>`;
+    <button class="gbtn" id="scoutBtn" aria-label="Route scout, ${e.scout} left" title="Route scout: a hint for this question" ${e.scout>0&&!r.scout?"":"disabled"}>${ICON.scout}<span>Scout</span><b>${e.scout}</b></button></div>`;
+  const hint=r.scout?`<div class="hint"><b>Scout:</b> ${esc(q.hint)}</div>`:"";
   const hooked=r.hook?`<div class="hooked">${ICON.hook}<span><b>${r.hookBy===S.uid?"You clipped a hook.":`${esc(nameOf(r.hookBy))} clipped a hook.`}</b> A wrong answer now only slips you.</span></div>`:"";
-  return frameQ(t,`<div class="qhead"><span>${pitchLabel(e,e.pitch)} · ${esc(q.cat)}</span>${role}<span class="qtime" id="qtime"></span></div>
+  const tight=!solo&&(gap>=MAX_GAP||atCap)?`<div class="hooked tight">${ICON.rope}<span><b>${atCap?"You're at the ledge.":"The rope is tight."}</b> You can't climb until ${esc(nameOf(pid))} catches up.</span></div>`:"";
+  return frameQ(t,`<div class="qhead"><span>${pitchLabel(e,pos)} · ${esc(q.cat)}</span>${gapTag(t)}<span class="qtime" id="qtime"></span></div>
    <div class="qtext">${esc(q.q)}</div><div class="qopts">${opts}</div>
-   ${hint}${hooked}
+   ${hint}${hooked}${tight}
    <div class="qfoot">${gear}${mine?`<div class="wait">Locked in: <strong>${mine.choice==null?"no answer":LETTERS[mine.choice]}</strong></div>`:`<button class="btn rope" id="lockBtn" ${sel==null?"disabled":""}>Lock in</button>`}<span class="note" id="partnerTxt"></span></div>
    <div class="timer"><i id="timerBar"></i></div>`);
 }
+// how a round went for one climber, in words: [tone, icon, headline, detail]
+function outcomeOf(t,id,o){const x=(o.pl||{})[id]||{},e=t.exp,pid=memberIds(t).find(i=>i!==id),you=id===S.uid,mate=pid?esc(you?nameOf(pid):"their partner"):"",L=lens(e);
+  const where=p=>p===0?"base camp":p===L[0]?"Camp I":L[1]&&p===L[0]+L[1]?"Camp II":p===e.anchor?"the anchor":`${fmt(altOf(e,p))} m`,no=x.none?"No answer":"Wrong";
+  if(x.held)return ["warn",ICON.rope,"Right, but the rope holds you.",`${MAX_GAP} pitches ahead is as far as it goes. Wait for ${mate} to catch up.`];
+  if(x.ok&&x.to>x.from)return ["good",ICON.up,"Right! Up a pitch.",`Up to ${fmt(altOf(e,x.to))} m.`];
+  if(x.ok)return ["good",ICON.tent,"Right! Waiting on the ledge.",`${mate||"Your partner"} still has to get here.`];
+  if(x.caught)return ["warn",ICON.hook,`${no}, but the hook held.`,"You keep your height."];
+  if(x.roped)return ["bad",ICON.rope,`${no}. The rope caught you.`,`Fell to ${where(x.to)}, ${MAX_GAP} pitches below ${mate}.`];
+  if(x.to<x.from)return ["bad",ICON.anchor,`${no}. Off the wall!`,`No hook clipped: fell to ${where(x.to)}.`];
+  return ["bad",ICON.anchor,`${no}. No way up this time.`,`No hook clipped, but you were already at ${where(x.to)}.`];}
 function revealView(t){
-  const r=t.round,o=r.result||{},q=quizById(r.qid),e=t.exp,ids=memberIds(t),bel=ids.find(i=>i!==r.leader),sus=S.sus===r.id;
-  const atCamp=needsChoice(e)>=0,atTop=!atCamp&&e.pitch>=total(e),canAnchor=!atCamp&&!atTop&&o.move>0&&e.anchors>0&&e.anchor!==e.pitch;
+  const r=t.round,o=r.result||{},q=quizById(r.qid),e=t.exp,ids=memberIds(t),sus=S.sus===r.id,picks=o.picks||{},mine=(o.pl||{})[S.uid]||{},pid=partnerId(t);
+  const atCamp=needsChoice(e)>=0,atTop=!atCamp&&e.pitch>=total(e),canAnchor=!atCamp&&!atTop&&e.anchors>0&&e.pitch>e.anchor;
   // (for the beat before the result, both answers show as picked, and nothing says yet which was right)
-  const opts=r.order.map((k,i)=>{const tags=(i===o.lead?`<em class="lead">${ptag(t,r.leader)}</em>`:"")+(bel&&i===o.bel?`<em class="belay">${ptag(t,bel)}</em>`:"");
-    return `<div class="qopt ${sus?(i===o.lead||(bel&&i===o.bel)?"sel":""):i===o.right?"right":i===o.lead?"wrong":""}"><b>${LETTERS[i]}</b><span>${esc(q.o[k])}</span>${tags}</div>`;}).join("");
-  const head=`<div class="qhead"><span>${pitchLabel(e,o.from)} · ${esc(q.cat)}</span>${!sus&&o.jerk?`<span class="jerk">ROPE JERK!</span>`:""}</div>
+  const opts=r.order.map((k,i)=>{const who=ids.filter(id=>picks[id]===i),tags=who.map(id=>`<em class="${id===S.uid?"lead":"belay"}">${ptag(t,id)}</em>`).join("");
+    return `<div class="qopt ${sus?(who.length?"sel":""):i===o.right?"right":who.length?"wrong":""}"><b>${LETTERS[i]}</b><span>${esc(q.o[k])}</span>${tags}</div>`;}).join("");
+  const head=`<div class="qhead"><span>${pitchLabel(e,mine.from??e.pitch)} · ${esc(q.cat)}</span>${!sus&&o.jerk?`<span class="jerk">ROPE JERK!</span>`:""}</div>
    <div class="qtext">${esc(q.q)}</div><div class="qopts">${opts}</div>`;
   if(sus)return frameQ(t,head+`<div class="result wait"><div><b class="dots">The rope goes tight</b></div></div>`);
-  const oc=o.arrived==="summit"?[ICON.flag,"Summit reached!"]:o.arrived?[ICON.tent,`${o.arrived} reached!`]:o.fall&&o.caught?[ICON.hook,o.headline]:o.fall?[ICON.anchor,o.headline]:[ICON.up,o.headline];
-  return frameQ(t,head+`<div class="result ${o.tone||"good"}">${oc[0]}<div><b>${esc(oc[1])}</b><span>${esc(o.moveText||"")}</span></div></div>
+  const oc=o.arrived==="summit"?["good",ICON.flag,"Summit reached!","You both stand on top."]:o.arrived?["good",ICON.tent,`${o.arrived} reached!`,"You're both on the ledge."]:outcomeOf(t,S.uid,o);
+  const other=pid&&!o.arrived?outcomeOf(t,pid,o):null;
+  return frameQ(t,head+`<div class="result ${oc[0]}">${oc[1]}<div><b>${oc[2]}</b><span>${oc[3]}</span></div></div>
+   ${other?`<p class="note mateline"><strong>${esc(nameOf(pid))}:</strong> ${other[2].replace(/ you\b/," them")}</p>`:""}
    ${q.x?`<p class="fact">${esc(q.x)}</p>`:""}
-   <div class="actions">${atCamp?`<button class="btn rope" id="nextBtn">Make camp</button>`:atTop?`<button class="btn rope" id="nextBtn">Stand on top</button>`:`<button class="btn rope" id="nextBtn">Next pitch</button>${canAnchor?`<button class="btn ghost" id="anchorBtn" title="A fall without a hook will drop you no lower than this">Place anchor (${e.anchors} left)</button>`:""}`}</div>`);
+   <div class="actions">${atCamp?`<button class="btn rope" id="nextBtn">Make camp</button>`:atTop?`<button class="btn rope" id="nextBtn">Stand on top</button>`:`<button class="btn rope" id="nextBtn">Next question</button>${canAnchor?`<button class="btn ghost" id="anchorBtn" title="A fall without a hook will drop you no lower than this">Place anchor (${e.anchors} left)</button>`:""}`}</div>`);
 }
 // the map's panel: the three mountains as cards (the map above has them as pins too), the picked one's details,
 // and the way to set off
@@ -663,12 +692,13 @@ function renderWorld(t){const el=$("#world");if(!el)return;const r=t&&t.round,on
     el.querySelectorAll(".wpin").forEach(b=>b.onclick=()=>pickMountain(b.dataset.mtn));}
   fitWorld();}
 // the whole map always shows, in the space the bar and the question box leave: at a whole number of device pixels
-// per map pixel where at least one fits (so its pixels stay even), and otherwise simply as large as fits
+// per map pixel where that fills most of the space (so its pixels stay even), and otherwise simply as large as fits
 function fitWorld(){const el=$("#world"),box=el&&el.querySelector(".wbox"),view=el&&el.querySelector(".wview"),map=el&&el.querySelector(".wmap");if(!map||el.hidden)return;
   const W=innerWidth,H=innerHeight,m=$("#main").getBoundingClientRect(),bar=$("#bar").getBoundingClientRect().bottom,dpr=Math.max(1,window.devicePixelRatio||1);
   const side=m.width<W*.7&&m.height>H*.7,x0=side?m.right:0,y0=bar+4,y1=side?H:m.top-4,avail=Math.max(120,Math.min(W-x0-20,y1-y0-16));
   Object.assign(box.style,{left:x0+"px",top:y0+"px",width:(W-x0)+"px",height:Math.max(80,y1-y0)+"px"});
-  const n=Math.floor(avail/MAP_W*dpr),k=n>=1?n/dpr:avail/MAP_W,size=MAP_W*k;
+  // (a whole number of device pixels per map pixel only where that still fills most of the space)
+  const n=Math.floor(avail/MAP_W*dpr),k=n>=1&&MAP_W*n/dpr>=.8*avail?n/dpr:avail/MAP_W,size=MAP_W*k;
   Object.assign(view.style,{width:size+"px",height:size+"px"});Object.assign(map.style,{width:size+"px",height:size+"px",left:0,top:0});
   map.classList.toggle("tight",k<.95);el.style.setProperty("--bg",MAP_W*Math.ceil(Math.max(W,H)/MAP_W)+"px");}
 addEventListener("resize",()=>fitWorld());
