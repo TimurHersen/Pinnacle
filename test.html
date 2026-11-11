@@ -44,6 +44,7 @@ input[type=text]{cursor:text;width:13em}
   <div class="grp"><span>Go to</span><button id="goBase">Base camp</button>
     <select id="goPitch" aria-label="Go to pitch"><option value="">Pitch…</option></select>
     <button id="goCamp">Camp I</button><button id="goCamp2">Camp II</button><button id="goTop" title="The last pitch before the summit">Last pitch</button><button id="goSummit">Summit</button>
+    <select id="mtn" aria-label="Mountain the jumps use" title="Mountain the jumps use"><option value="moss">Mossback</option><option value="kebne" selected>Kebne Wall</option><option value="frost">Frostfang</option></select>
     <select id="routes" aria-label="Routes the jumps use past Camp I" title="Routes the jumps use past Camp I"><option value="AA">Icefall · Couloir</option><option value="AB">Icefall · North Ridge</option><option value="BA">Shoulder · Couloir</option><option value="BB">Shoulder · North Ridge</option></select></div>
   <div class="grp"><span>Gear</span>
     <select id="hearts" aria-label="Hooks"><option value="">Hooks…</option><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option></select>
@@ -108,7 +109,7 @@ const plan=()=>document.getElementById("routes").value.split("");
 function stops(w){const [a,b]=plan(),L=w.lens({choice:[a,b]});return {a,b,L0:L[0],c2:L[0]+L[1],top:L[0]+L[1]+L[2]};}
 // put the team on the climb at pitch index p, with the planned route chosen for every stage it's in; at a camp the
 // route on isn't chosen yet, so the team picks it there as in the game
-function setPitch(t,w,p,atCamp){const s=stops(w);
+function setPitch(t,w,p,atCamp){const s=stops(w);t.exp.m=document.getElementById("mtn").value;
   t.exp.choice=[p>s.L0||(p===s.L0&&!atCamp)?s.a:null,p>s.c2||(p===s.c2&&!atCamp)?s.b:null];
   t.exp.pitch=p;t.exp.anchor=p>=s.c2?s.c2:p>=s.L0?s.L0:0;Object.assign(t,w.startPitch(t));}
 const pitchSel=document.getElementById("goPitch");

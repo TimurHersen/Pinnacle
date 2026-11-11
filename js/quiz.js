@@ -3,8 +3,7 @@
    per round), a category, a difficulty tier (1 at the foot of the wall up to 4 on the summit push; each route
    sets the tier of its pitches, see FORKS), a hint that only the belayer sees when the team spends a route scout,
    and a line (x) shown with the answer afterwards. */
-const MOUNTAIN = {name:"Kebne Wall",theme:"Nature & geography"};
-const QUIZ_SECS = 45; // per question: time to talk it over, but still a little pressure
+const QUIZ_THEME = "Nature & geography";
 const QUIZ = [
  // tier 1: warm-up pitches
  {id:"everest",tier:1,cat:"Mountains",q:"What is the highest mountain on Earth?",o:["Mount Everest","K2","Kilimanjaro","Mont Blanc"],hint:"It sits on the border of Nepal and China.",x:"Everest stands 8 849 m above sea level."},

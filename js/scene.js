@@ -238,7 +238,8 @@ function drawPines(g,w,h,climb){const P=ART.pines,y=R0(h*.9-P.height*.6+climb*.1
 function texAt(T,x,y){const m=(v,n)=>{n-=2;v=(v%(2*n)+2*n)%(2*n);return 1+(v<n?v:2*n-1-v);},i=(m(y,T.h)*T.w+m(x,T.w))*4;return [T.d[i],T.d[i+1],T.d[i+2]];}
 
 /* ---------- the cliff: granite blocks, moss low down, snow high up, painted once per chunk ---------- */
-const uOf=y=>clamp(y/TOPY,0,1);
+// how high up the wall a point is, 0 to 1 (moved by the mountain's snow line: snow lower on the harder mountains)
+const uOf=y=>clamp(y/TOPY+(FX.snow||0),0,1);
 // the cliff's left edge; over the last stretch it leans right so the route along it runs up into the summit ridge
 const edgeL=y=>R0((fbm(y*.011+3)-.5)*22+(fbm(y*.003+9)-.5)*30+smooth(clamp((y-TOPY-360)/-360,0,1))*36);
 // under each camp the cliff swells out into a buttress that carries the camp's ledge: well out under the ledge
@@ -317,7 +318,7 @@ function laneX(ch,y){const a=ALT.base-y/WK,k=a<=ALT.c1?"A":a<=ALT.c2?(ch[0]||"A"
 const holdXY=(ch,i)=>{const y=R0(-i*HS+(hash(i,5)-.5)*3);return [R0(laneX(ch,y)+10+hash(i,3)*2),y];};
 // bolts go into the rock just in from the holds
 const boltXY=(ch,i)=>[R0(laneX(ch,-i*HS)+15),-i*HS+6];
-const idxOf=(exp,p)=>Math.round(-WY(altOf(exp,p))/HS);
+const idxOf=(exp,p)=>Math.round(-WY(geoAlt(exp,p))/HS);
 function restSpot(i,m){if(i<=0)return {x:m?-74:-26,y:0};
   if(i===IDX_C1||i===IDX_C2)return {x:m?-60:-26,y:-i*HS}; // (the edge spot stays clear of the rock face at x -9)
   if(i>=IDX_TOP){const x=m?SX+48:SX+12;return {x,y:R0(peakTop(x))+2};}return null;}
@@ -1144,7 +1145,7 @@ async function fallRig(r,anchor,back,id,ch,hook){
   function ok(){return FX.ch[ch]===id;}
 }
 // reaching the summit is a celebration; reaching a camp is quieter: a title, then the team gets to work
-function arrive(name,exp,to){const top=name==="summit";title(top?"SUMMIT!":name.toUpperCase(),`${fmt(to*HS/WK+ALT.base)} m`,"camp");
+function arrive(name,exp,to){const top=name==="summit";title(top?"SUMMIT!":name.toUpperCase(),`${fmt(mAlt(exp,to*HS/WK+ALT.base))} m`,"camp");
   if(top){confetti();sfx("summit");FX.A.me.cheer=2.6;}else sfx("thud");}
 async function runEvent(exp,o){
   const id=++FX.ch.main,A=FX.A,me=A.me,mate=A.mate,ok=()=>FX.ch.main===id;
@@ -1159,7 +1160,7 @@ async function runEvent(exp,o){
   // a new leader still on the meadow or a ledge never gets far: a few moves up, then off, landing back on their feet
   if(o.fall&&me.mode==="stand"){const at=me.hi;caption("Off at the first moves!");
     if(!(await climbRig(me,at+LOW+2,280,id)))return;if(!(await fallRig(me,at,at,id,"main",false)))return;}
-  else if(o.fall&&to<me.hi){title("WHOOPS!",`Down to ${fmt(to*HS/WK+ALT.base)} m`,"bad");
+  else if(o.fall&&to<me.hi){title("WHOOPS!",`Down to ${fmt(mAlt(exp,to*HS/WK+ALT.base))} m`,"bad");
     // the partner lowers off to meet them: alongside, when the rope catches the fall on the wall; but when it goes
     // all the way down to the meadow or a camp they hold still until the leader has landed, so nobody falls through them
     const lower=me.rest(to)?Promise.resolve(true):wait(150).then(r=>r&&mate.hi>plan&&climbRig(mate,plan,190,id));
@@ -1175,7 +1176,7 @@ async function runEvent(exp,o){
 }
 async function runSummit(t){++FX.ch.main;const A=FX.A;
   if(A.me.mode!=="stand"||A.me.hi<IDX_TOP)placeTeam(t.exp,IDX_TOP);
-  title("TOP OF THE WORLD!",`${fmt(ALT.top)} m · expedition ${t.exp.n}`,"camp");confetti(44);sfx("summit");
+  title("TOP OF THE WORLD!",`${MT(t.exp).name} · ${fmt(mAlt(t.exp,ALT.top))} m`,"camp");confetti(44);sfx("summit");
   A.me.cheer=3.2;if(!(await wait(400)))return;A.mate.cheer=3;}
 async function runDemo(){ // lobby: a rope team climbs the whole cliff on a loop
   const id=++FX.ch.main,A=FX.A,ok=()=>FX.ch.main===id,tot=total(DEMO);
@@ -1206,9 +1207,11 @@ function drawTopo(t){
   FX.focus=r.phase==="summit"?"summit":"me";
   const tot=total(exp);
   FX.label=r.phase!=="summit"&&exp.pitch<tot&&needsChoice(exp)<0?{i:idxOf(exp,exp.pitch+1),text:`P${stageOf(exp,exp.pitch).i+1}`}:null;
-  const st={n:exp.n,pitch:exp.pitch,res:r.phase==="reveal"?r.resolvedAt:null,phase:r.phase,gear:exp.rope};
+  const st={n:exp.n,m:exp.m||"",pitch:exp.pitch,res:r.phase==="reveal"?r.resolvedAt:null,phase:r.phase,gear:exp.rope};
   const prev=FX.state;FX.state=st;
-  if(FX.mode!=="game"||!prev||prev.n!==st.n){FX.mode="game";FX.litAt={};snap(exp,t);return;}
+  // (the mountain sets the snow line: the wall is repainted when it changes)
+  const sn=MT(exp).snow;if(FX.snow!==sn){FX.snow=sn;FX.chunks.clear();FX.camps={};}
+  if(FX.mode!=="game"||!prev||prev.n!==st.n||prev.m!==st.m){FX.mode="game";FX.litAt={};snap(exp,t);return;}
   // spent hooks leave the rack at once; a restock waits until the leader has pulled onto the camp ledge
   if(st.gear<prev.gear)FX.A.me.gear=st.gear;
   else if(st.gear>prev.gear)setTimeout(()=>{if(FX.mode!=="game"||!FX.state||FX.state.n!==st.n||FX.state.gear!==st.gear)return;const me=FX.A.me;me.gear=st.gear;pop(me,"GEAR RESTOCKED!");sfx("restock");},2600);

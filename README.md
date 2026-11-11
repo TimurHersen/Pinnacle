@@ -7,7 +7,7 @@ Play it at **https://timurhersen.github.io/Pinnacle/**
 ## How it works
 
 - Plain HTML, CSS and JavaScript with no build step: `index.html` loads `css/style.css` and the scripts in `js/` in order.
-  - `js/content.js`: the route (stages, camps, how hard each pitch is)
+  - `js/content.js`: the route (stages, camps, how hard each pitch is) and the three mountains on the map (`MOUNTAINS`: difficulty, time per question, hooks, heights, where each pin sits on `assets/map.png`)
   - `js/quiz.js`: the questions, each with a hint and a line shown with the answer
   - `js/game.js`: team state, Firebase, judging, the lobby, the play panels and the menu
   - `js/audio.js`, `js/music.js`: synthesised sound effects and the theme

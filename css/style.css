@@ -307,6 +307,56 @@ body:has(#main.game2) .hud{left:var(--edge)}
 .conn{position:fixed;z-index:25;left:50%;top:calc(64px + env(safe-area-inset-top,0px));transform:translateX(-50%);padding:6px 12px;background:var(--red);color:#fff;border:2px solid var(--cream);
   box-shadow:var(--frame);font:600 14px/1.3 var(--body);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
 
+/* ---------- the map: where an expedition starts. The painted island floats over a dusky sky in the open part of
+   the screen (js/game.js fitWorld sizes it), a pin on each mountain ---------- */
+.world{position:fixed;inset:0;z-index:1;background:radial-gradient(ellipse at 50% 40%,#1b3448 0,#0b1a26 55%,#040c13 100%)}
+.world::before{content:"";position:absolute;inset:0;opacity:.5;
+  background-image:radial-gradient(1px 1px at 12% 18%,#cfe0ea 50%,transparent 51%),radial-gradient(1px 1px at 78% 12%,#cfe0ea 50%,transparent 51%),
+    radial-gradient(1px 1px at 33% 8%,#9fb6c4 50%,transparent 51%),radial-gradient(1px 1px at 91% 36%,#9fb6c4 50%,transparent 51%),
+    radial-gradient(1px 1px at 6% 52%,#cfe0ea 50%,transparent 51%),radial-gradient(1px 1px at 64% 4%,#cfe0ea 50%,transparent 51%)}
+.world.in .wmap{animation:map-in .5s steps(6) both}
+@keyframes map-in{from{opacity:0;transform:translateY(14px) scale(.96)}}
+.wbox{position:absolute;display:grid;place-items:center}
+.wmap{position:relative;flex:none;filter:drop-shadow(0 10px 0 rgba(0,0,0,.35))}
+.wmap>img{display:block;width:100%;height:100%;image-rendering:pixelated;animation:map-bob 6s ease-in-out infinite}
+@keyframes map-bob{50%{transform:translateY(-3px)}}
+/* a pin: a flag planted on the mountain, its name on a little plate under it */
+.wpin{position:absolute;transform:translate(-50%,-100%);display:grid;justify-items:center;gap:2px;background:none;border:0;padding:0;margin:0;cursor:pointer;color:inherit;z-index:1}
+.wpin .wflag{width:18px;height:24px;background:linear-gradient(var(--fc),var(--fc)) 3px 2px/13px 9px no-repeat,linear-gradient(#0a0d17,#0a0d17) 0 0/3px 24px no-repeat;
+  filter:drop-shadow(2px 2px 0 rgba(0,0,0,.5));animation:flag 1.2s steps(2) infinite;transform-origin:1px 100%}
+@keyframes flag{50%{background-size:11px 9px,3px 24px}}
+.wpin.d1{--fc:var(--good)}.wpin.d2{--fc:var(--gold)}.wpin.d3{--fc:var(--bad)}
+.wpin .wplate{display:grid;justify-items:center;gap:3px;padding:5px 8px 4px;background:var(--panel);border:2px solid var(--cream);box-shadow:var(--frame);white-space:nowrap;
+  position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%)}
+.wpin b{font:400 10px/1 var(--head);color:var(--cream);text-transform:uppercase;letter-spacing:.02em}
+.wpin small{font:600 11px/1 var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:flex;gap:4px;align-items:center}
+.wpin small .px{width:10px;height:10px}.wpin .tier{font-size:9px;letter-spacing:1px}
+.wtags{display:flex;gap:3px}.wtags em{font:400 8px/1 var(--head);font-style:normal;padding:3px 4px;color:var(--gold);border:2px solid var(--gold);background:var(--navy)}
+.wtags em.me{color:#1b1408;background:var(--gold)}
+.wpin.sel{z-index:2}.wpin.sel .wplate{border-color:var(--gold);background:#2a2412}
+/* (on a small map the plates keep to the name and the difficulty marks) */
+.wmap.tight .wpin .lbl{display:none}.wmap.tight .wpin .wplate{padding:3px 5px 2px;gap:2px}.wpin.sel .wflag{animation-duration:.5s}
+.wpin.sel::after{content:"";position:absolute;bottom:-4px;width:22px;height:8px;border:2px solid var(--gold);border-radius:50%;animation:ring 1s steps(4) infinite}
+@keyframes ring{50%{transform:scale(1.4);opacity:.4}}
+@media (hover:hover){.wpin:hover .wplate{border-color:var(--gold)}}
+.wpin:focus-visible{outline:none}.wpin:focus-visible .wplate{outline:2px solid var(--gold);outline-offset:2px}
+.wcamp{position:absolute;transform:translate(-50%,10px);font:400 8px/1 var(--head);text-transform:uppercase;color:#1b1408;background:var(--cream);padding:3px 5px;box-shadow:2px 2px 0 rgba(0,0,0,.5);pointer-events:none}
+/* the mountains as cards in the question box */
+#main.game2 .routes.mts{grid-template-columns:repeat(3,1fr)}
+.mcard.d1 h4{color:var(--good)}.mcard.d3 h4{color:var(--bad)}
+.mcard .tier{letter-spacing:1px}
+.mfacts{font-size:13px;color:var(--muted)}
+.mrec{display:flex;gap:4px;align-items:center;font-size:13px;color:var(--cream)}.mrec .px{width:12px;height:12px}
+/* (on a wide screen the radio keeps to its log and message box while the team chooses, so the map gets the room;
+   its quick calls are for answers) */
+@media (min-width:900px) and (min-height:521px){body.atmap .radio2 .calls{display:none}body.atmap .radio2 .rlog{max-height:72px}}
+@media (prefers-reduced-motion:reduce){.wmap>img,.wpin .wflag,.wpin.sel::after,.world.in .wmap{animation:none}}
+@media (max-width:899px),(max-height:520px){
+  .wpin .wplate{padding:4px 6px 3px}.wpin b{font-size:8px}.wpin small{font-size:10px}
+  .wpin .wflag{width:14px;height:19px;background-size:10px 7px,2px 19px;background-position:2px 2px,0 0}
+  .mcard{padding:6px 8px!important}.mfacts,.mrec{font-size:12px}
+}
+
 /* ---------- the menu over the climb: route map, team record, log, settings, and the way out ---------- */
 .overlay{position:fixed;inset:0;z-index:30;display:grid;grid-template-rows:minmax(0,1fr);place-items:center;background:rgba(2,8,14,.74);
   padding:max(12px,env(safe-area-inset-top,0px)) var(--edgeR) max(12px,env(safe-area-inset-bottom,0px)) var(--edge)}
