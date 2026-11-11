@@ -31,3 +31,10 @@ const MOUNTAINS = {
 const MOUNTAIN_ORDER = ["moss","kebne","frost"];
 const MAP_CAMP = [106,424]; // the team's camp on the map, where every trail starts
 const MAP_W = 512;
+// The map comes in three shapes of the same painting, so that it can fill any screen: wide (desktops), tall (phones
+// held upright) and square. For each: its file and size, where each mountain's pin stands and where the camp is.
+const MAP_ART = {
+ wide:{src:"assets/map-wide.png",w:688,h:384,camp:[232,325],pins:{moss:[115,104],kebne:[342,70],frost:[592,74]}},
+ tall:{src:"assets/map-tall.png",w:384,h:688,camp:[88,420],pins:{moss:[78,202],kebne:[190,148],frost:[325,116]}},
+ sq:  {src:"assets/map.png",     w:512,h:512,camp:[106,424],pins:{moss:[96,152],kebne:[238,96],frost:[404,118]}}
+};

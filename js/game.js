@@ -676,31 +676,41 @@ function mapView(t){
    ${m?`<p class="qsub"><b>${esc(m.name)}.</b> ${esc(m.desc)}</p>`:`<p class="qsub">Tap a mountain on the map${solo?"":", and talk it over with your partner"}.</p>`}
    ${can?`<button class="btn rope" id="setOffBtn">Set off for ${esc(m.name)}</button>`:pick?`<p class="note">Waiting for ${esc(nameOf(ids.find(i=>i!==S.uid)))} to pick ${esc(m.name)} too, or to set off.</p>`:""}`);
 }
-/* the map itself, over the climb while the team chooses: the painted island scaled to the open part of the
-   screen, a pin on each mountain (its name, its difficulty, who picked it, a flag once climbed) and the team's
-   camp at the foot of the trails */
+/* the map itself, while the team chooses: one painting filling the whole screen (the part of it the question box
+   leaves, when that is a column down the side), a pin on each mountain (its name, its difficulty, who picked it, a
+   flag once climbed) and the team's camp at the foot of the trails */
 function renderWorld(t){const el=$("#world");if(!el)return;const r=t&&t.round,on=!!(r&&r.phase==="map");
   if(!on){if(!el.hidden){el.hidden=true;el.innerHTML="";S.worldKey=null;}return;}
-  const votes=r.votes||{},ids=memberIds(t),pk=t.stats?.peaks||{},key=JSON.stringify([votes,pk,ids]);
-  if(el.hidden){el.hidden=false;el.style.setProperty("--map",`url("${new URL(asset("assets/map.png"),location.href).href}")`);el.classList.remove("in");void el.offsetWidth;el.classList.add("in");}
-  if(S.worldKey!==key){S.worldKey=key;
-    const pin=k=>{const m=MOUNTAINS[k],tags=ids.filter(i=>votes[i]?.mtn===k).map(i=>`<em class="${i===S.uid?"me":""}">${ptag(t,i)}</em>`).join("");
-      return `<button class="wpin d${m.diff} ${votes[S.uid]?.mtn===k?"sel":""}" data-mtn="${k}" style="left:${100*m.map[0]/MAP_W}%;top:${100*m.map[1]/MAP_W}%" aria-label="${esc(m.name)}, ${m.label}">
+  const votes=r.votes||{},ids=memberIds(t),pk=t.stats?.peaks||{},shape=mapShape(),key=JSON.stringify([votes,pk,ids,shape]);
+  if(el.hidden){el.hidden=false;el.classList.remove("in");void el.offsetWidth;el.classList.add("in");}
+  if(S.worldKey!==key){S.worldKey=key;const M=MAP_ART[shape];
+    const pin=k=>{const m=MOUNTAINS[k],[x,y]=M.pins[k],tags=ids.filter(i=>votes[i]?.mtn===k).map(i=>`<em class="${i===S.uid?"me":""}">${ptag(t,i)}</em>`).join("");
+      return `<button class="wpin d${m.diff} ${votes[S.uid]?.mtn===k?"sel":""}" data-mtn="${k}" style="left:${100*x/M.w}%;top:${100*y/M.h}%" aria-label="${esc(m.name)}, ${m.label}">
         <span class="wflag" aria-hidden="true"></span><span class="wplate"><b>${esc(m.name)}</b><small>${diffMarks(m.diff)}<span class="lbl"> ${m.label}</span>${pk[k]?ICON.flag:""}</small>${tags?`<span class="wtags">${tags}</span>`:""}</span></button>`;};
-    el.innerHTML=`<div class="wbox"><div class="wview"><div class="wmap"><img src="${asset("assets/map.png")}" alt="A painted map of a mountain range: a green hill, a granite peak and an ice giant above a valley with a lake">
-      <span class="wcamp" style="left:${100*MAP_CAMP[0]/MAP_W}%;top:${100*MAP_CAMP[1]/MAP_W}%">Camp</span>${MOUNTAIN_ORDER.map(pin).join("")}</div></div></div>`;
+    el.innerHTML=`<div class="wmap" data-shape="${shape}"><img src="${asset(M.src)}" alt="A painted map of a mountain range: a green hill, a granite peak and an ice giant above a valley with a lake">
+      <span class="wcamp" style="left:${100*M.camp[0]/M.w}%;top:${100*M.camp[1]/M.h}%">Camp</span>${MOUNTAIN_ORDER.map(pin).join("")}</div>`;
     el.querySelectorAll(".wpin").forEach(b=>b.onclick=()=>pickMountain(b.dataset.mtn));}
   fitWorld();}
-// the whole map always shows, in the space the bar and the question box leave: at a whole number of device pixels
-// per map pixel where that fills most of the space (so its pixels stay even), and otherwise simply as large as fits
-function fitWorld(){const el=$("#world"),box=el&&el.querySelector(".wbox"),view=el&&el.querySelector(".wview"),map=el&&el.querySelector(".wmap");if(!map||el.hidden)return;
-  const W=innerWidth,H=innerHeight,m=$("#main").getBoundingClientRect(),bar=$("#bar").getBoundingClientRect().bottom,dpr=Math.max(1,window.devicePixelRatio||1);
-  const side=m.width<W*.7&&m.height>H*.7,x0=side?m.right:0,y0=bar+4,y1=side?H:m.top-4,avail=Math.max(120,Math.min(W-x0-20,y1-y0-16));
-  Object.assign(box.style,{left:x0+"px",top:y0+"px",width:(W-x0)+"px",height:Math.max(80,y1-y0)+"px"});
-  // (a whole number of device pixels per map pixel only where that still fills most of the space)
-  const n=Math.floor(avail/MAP_W*dpr),k=n>=1&&MAP_W*n/dpr>=.8*avail?n/dpr:avail/MAP_W,size=MAP_W*k;
-  Object.assign(view.style,{width:size+"px",height:size+"px"});Object.assign(map.style,{width:size+"px",height:size+"px",left:0,top:0});
-  map.classList.toggle("tight",k<.95);el.style.setProperty("--bg",MAP_W*Math.ceil(Math.max(W,H)/MAP_W)+"px");}
+// where the map goes: the whole window, or (a phone on its side, where the question box is a column down the left)
+// the part beside the box; `vis` is how much of its height the question box leaves uncovered
+function mapRect(){const W=innerWidth,H=innerHeight,m=$("#main").getBoundingClientRect(),side=m.width>0&&m.width<W*.7&&m.height>H*.7;
+  return side?{x:m.right,y:0,w:W-m.right,h:H,vis:H}:{x:0,y:0,w:W,h:H,vis:m.height>0?Math.max(120,m.top):H};}
+function mapShape(){const R=mapRect(),ar=R.w/R.h;return ar<.85?"tall":ar>1.25?"wide":"sq";}
+// the painting covers its space, at a whole number of device pixels per painted pixel where that still keeps all
+// three mountains in view; it is slid so the mountains sit clear of the top bar and, if it can, the camp stays
+// above the question box
+function fitWorld(){const el=$("#world"),map=el&&el.querySelector(".wmap");if(!map||el.hidden)return;
+  if(map.dataset.shape!==mapShape()){S.worldKey=null;if(S.team)renderWorld(S.team);return;}
+  const R=mapRect(),M=MAP_ART[map.dataset.shape],dpr=Math.max(1,window.devicePixelRatio||1),bar=$("#bar").getBoundingClientRect().bottom;
+  const xs=Object.values(M.pins).map(q=>q[0]),ys=Object.values(M.pins).map(q=>q[1]),x0=Math.min(...xs),x1=Math.max(...xs),yTop=Math.min(...ys);
+  const cover=Math.max(R.w/M.w,R.h/M.h),whole=Math.ceil(cover*dpr-1e-6)/dpr;
+  const s=(x1-x0)*whole+110<=R.w&&(M.camp[1]-yTop)*whole+bar+70<=R.vis?whole:cover,w=M.w*s,h=M.h*s,snap=v=>Math.round(v*dpr)/dpr;
+  const x=Math.min(0,Math.max(R.w-w,R.w/2-(x0+x1)/2*s));
+  // (down far enough that the highest pin's flag clears the bar; up far enough, if that allows, to show the camp)
+  let y=Math.min(0,R.vis-34-M.camp[1]*s);y=Math.max(y,R.h-h);y=Math.min(0,Math.max(y,Math.min(0,bar+44-yTop*s)));
+  Object.assign(el.style,{left:R.x+"px",top:R.y+"px",width:R.w+"px",height:R.h+"px"});
+  Object.assign(map.style,{width:w+"px",height:h+"px",left:snap(x)+"px",top:snap(y)+"px"});
+  map.classList.toggle("tight",R.w<430);}
 addEventListener("resize",()=>fitWorld());
 // at camp: two rows of cards, the route on and the bonus gear; each climber's picks are shown under the cards
 function campView(t){
