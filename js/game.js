@@ -561,14 +561,11 @@ function renderHud(t){
 // seconds left on a question's clock: more than its length during the count before it starts, below zero once it's over
 function remaining(r){return (r.startedAt+r.dur*1000-now())/1000;}
 const clock=rem=>{const s=Math.max(0,Math.ceil(rem));return `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;};
-// the question panel's picture: the lumberjack on a scrap of the mountain's granite, painted once the art is in
-let PITCH_ART=null;
-function pitchArt(){if(PITCH_ART)return PITCH_ART;const R=ART.rocks&&ART.rocks[0],A=LOOK.me.art;if(!R||!A||!A.ready)return asset("assets/emblem.png");
-  const [c,g]=mk(72,56);C.sky.forEach((col,i)=>rect(g,0,R0(i*56/C.sky.length),72,56,col));
-  const id=g.getImageData(0,0,72,56),d=id.data,T=R.lo;
-  for(let y=0;y<56;y++)for(let x=0;x<72;x++){if(x<44+((hash(y>>2,9)*5)|0))continue;const i=(y*72+x)*4,j=(((y+30)%T.h)*T.w+(x%T.w))*4;d[i]=T.d[j];d[i+1]=T.d[j+1];d[i+2]=T.d[j+2];d[i+3]=255;}
-  g.putImageData(id,0,0);const fr=A.clips.climb[2],b=boxOf(fr),w=b.x1-b.x0+1;g.drawImage(fr,b.x0,b.y0,w,54,48-w,3,w,54);
-  return PITCH_ART=c.toDataURL();}
+// the question panel's picture: the mountain being climbed, cut from the map at its own pixel size (the camp while
+// the team is still choosing)
+function panelArt(t){const m=t.exp.m&&MOUNTAINS[t.exp.m],[cx,cy]=m?[m.map[0],m.map[1]+26]:MAP_CAMP;
+  const x=Math.max(0,Math.min(MAP_W-112,cx-56)),y=Math.max(0,Math.min(MAP_W-88,cy-44));
+  return `<div class="qart"><i style="background-image:url('${asset("assets/map.png")}');background-position:${-x}px ${-y}px"></i></div>`;}
 const tierMarks=k=>`<span class="tier" aria-label="difficulty ${k} of 4">${"▲".repeat(k)}<i>${"▲".repeat(4-k)}</i></span>`;
 // "Stage 2 · Pitch 3/5": where a pitch sits on the whole climb
 const pitchLabel=(e,p)=>{const so=stageOf(e,p);return `Stage ${so.s+1} · Pitch ${Math.min(so.i+1,so.n)}/${so.n}`;};
@@ -586,7 +583,7 @@ function renderPanel(t){
   // the result lands with a sound of its own
   if(r.phase==="reveal"&&S.sus!==r.id&&S.susDone===r.id&&S.stung!==r.id){S.stung=r.id;sfx(r.result?.correct?"right":"wrong");}
 }
-function frameQ(t,main){return `<div class="qwrap"><div class="qart"><img src="${pitchArt()}" alt=""></div><div class="qmain">${main}</div></div>`;}
+function frameQ(t,main){return `<div class="qwrap">${panelArt(t)}<div class="qmain">${main}</div></div>`;}
 function readyView(t){
   const solo=memberIds(t).length<2;
   const m=MT(t.exp);
@@ -661,17 +658,19 @@ function renderWorld(t){const el=$("#world");if(!el)return;const r=t&&t.round,on
     const pin=k=>{const m=MOUNTAINS[k],tags=ids.filter(i=>votes[i]?.mtn===k).map(i=>`<em class="${i===S.uid?"me":""}">${ptag(t,i)}</em>`).join("");
       return `<button class="wpin d${m.diff} ${votes[S.uid]?.mtn===k?"sel":""}" data-mtn="${k}" style="left:${100*m.map[0]/MAP_W}%;top:${100*m.map[1]/MAP_W}%" aria-label="${esc(m.name)}, ${m.label}">
         <span class="wflag" aria-hidden="true"></span><span class="wplate"><b>${esc(m.name)}</b><small>${diffMarks(m.diff)}<span class="lbl"> ${m.label}</span>${pk[k]?ICON.flag:""}</small>${tags?`<span class="wtags">${tags}</span>`:""}</span></button>`;};
-    el.innerHTML=`<div class="wbox"><div class="wmap"><img src="${asset("assets/map.png")}" alt="A painted map of a mountain range: a green hill, a granite peak and an ice giant above a valley with a lake">
-      <span class="wcamp" style="left:${100*MAP_CAMP[0]/MAP_W}%;top:${100*MAP_CAMP[1]/MAP_W}%">Camp</span>${MOUNTAIN_ORDER.map(pin).join("")}</div></div>`;
+    el.innerHTML=`<div class="wbox"><div class="wview"><div class="wmap"><img src="${asset("assets/map.png")}" alt="A painted map of a mountain range: a green hill, a granite peak and an ice giant above a valley with a lake">
+      <span class="wcamp" style="left:${100*MAP_CAMP[0]/MAP_W}%;top:${100*MAP_CAMP[1]/MAP_W}%">Camp</span>${MOUNTAIN_ORDER.map(pin).join("")}</div></div></div>`;
     el.querySelectorAll(".wpin").forEach(b=>b.onclick=()=>pickMountain(b.dataset.mtn));}
   fitWorld();}
-// the map fills the space the bar and the question box leave, at a whole-pixel scale where it fits
-function fitWorld(){const el=$("#world"),box=el&&el.querySelector(".wbox"),map=el&&el.querySelector(".wmap");if(!map||el.hidden)return;
-  const W=innerWidth,H=innerHeight,m=$("#main").getBoundingClientRect(),bar=$("#bar").getBoundingClientRect().bottom;
-  const side=m.width<W*.7&&m.height>H*.7,x0=side?m.right:0,y0=bar+4,y1=side?H:m.top-4;
+// the whole map always shows, in the space the bar and the question box leave: at a whole number of device pixels
+// per map pixel where at least one fits (so its pixels stay even), and otherwise simply as large as fits
+function fitWorld(){const el=$("#world"),box=el&&el.querySelector(".wbox"),view=el&&el.querySelector(".wview"),map=el&&el.querySelector(".wmap");if(!map||el.hidden)return;
+  const W=innerWidth,H=innerHeight,m=$("#main").getBoundingClientRect(),bar=$("#bar").getBoundingClientRect().bottom,dpr=Math.max(1,window.devicePixelRatio||1);
+  const side=m.width<W*.7&&m.height>H*.7,x0=side?m.right:0,y0=bar+4,y1=side?H:m.top-4,avail=Math.max(120,Math.min(W-x0-20,y1-y0-16));
   Object.assign(box.style,{left:x0+"px",top:y0+"px",width:(W-x0)+"px",height:Math.max(80,y1-y0)+"px"});
-  const avail=Math.min(W-x0-20,y1-y0-16)/MAP_W,k=avail>=1?Math.floor(avail):Math.max(.4,Math.floor(avail*8)/8);
-  map.style.width=map.style.height=MAP_W*k+"px";map.classList.toggle("tight",k<.95);}
+  const n=Math.floor(avail/MAP_W*dpr),k=n>=1?n/dpr:avail/MAP_W,size=MAP_W*k;
+  Object.assign(view.style,{width:size+"px",height:size+"px"});Object.assign(map.style,{width:size+"px",height:size+"px",left:0,top:0});
+  map.classList.toggle("tight",k<.95);el.style.setProperty("--bg",MAP_W*Math.ceil(Math.max(W,H)/MAP_W)+"px");}
 addEventListener("resize",()=>fitWorld());
 // at camp: two rows of cards, the route on and the bonus gear; each climber's picks are shown under the cards
 function campView(t){

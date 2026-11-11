@@ -146,25 +146,31 @@ function drawCloud(g,x,y,s,seed){
 
 /* ---------- generated art (PixelLab): the valley backdrop, a near treeline and two granite textures ----------
    Each loads in the background; until it has, the painted version above (and the painted rock below) stands in. */
-const ART={},CLOUD_N=3;
+const ART={},CLOUD_N=3,TENT_UP=9;
 (function loadArt(){
   const pixels=im=>{const [,g]=mk(im.width,im.height);g.drawImage(im,0,0);return {w:im.width,h:im.height,d:g.getImageData(0,0,im.width,im.height).data};},
     rgb=(p,x,y)=>{const i=(y*p.w+x)*4;return `rgb(${p.d[i]},${p.d[i+1]},${p.d[i+2]})`;},
     load=(src,fn)=>{const im=new Image();im.onload=()=>fn(im);im.src=src;};
-  load(asset("assets/valley.png"),im=>{ART.sky=rgb(pixels(im),im.width>>1,0);ART.valley=im;});
-  load(asset("assets/pines.png"),im=>{ART.pineBase=rgb(pixels(im),im.width>>1,im.height-1);ART.pines=im;});
+  load(asset("assets/valley.png"),im=>{const p=pixels(im);ART.sky=rgb(p,im.width>>1,0);ART.valleyFoot=rgb(p,4,im.height-1);ART.valley=im;});
   // high on the mountain the same art turns wintry: moss and grass (green-dominant pixels) become snow by brightness,
   // and the rock is cooled halfway to a blue-grey of its own brightness
   const wintry=d=>{for(let i=0;i<d.length;i+=4){if(!d[i+3])continue;const r=d[i],gr=d[i+1],b=d[i+2],l=r*.3+gr*.59+b*.11;
     if(gr>r+8&&gr>b+8){const s=l>110?[242,245,247]:l>70?[191,210,230]:[142,170,204];d[i]=s[0];d[i+1]=s[1];d[i+2]=s[2];}
     else{d[i]=R0(lerp(r,l*.86,.5));d[i+1]=R0(lerp(gr,l*.94,.5));d[i+2]=Math.min(255,R0(lerp(b,l*1.12,.5)));}}};
-  // one granite texture for the whole wall: mossy low down, its wintry copy high up; rock chunks painted before it
-  // arrived repaint with it
-  // three granite textures (from one generation, so they match), each with its wintry copy; the wall is painted
-  // once all three are in, and chunks painted before that repaint with them
-  ART.rocks=[];let rockLeft=3;
-  ["cliff-low","cliff-b","cliff-c"].forEach((n,i)=>load(asset(`assets/${n}.png`),im=>{const hi=pixels(im);wintry(hi.d);ART.rocks[i]={lo:pixels(im),hi};
-    if(!--rockLeft){ART.rockLo=ART.rocks[0].lo;ART.rockHi=ART.rocks[0].hi;FX.chunks.clear();}}));
+  // the wall's three kinds of rock, bottom to top, all from one painted texture so they share their shapes: warm
+  // mossy granite as painted; bare pale granite (the same, greyed and lightened, its moss gone to lichen); and its
+  // wintry copy, cold and dark with snow where the moss was. Each carries its average colour, which the wall is
+  // pulled toward a little so the climbers stand out against it
+  load(asset("assets/rock-low.png"),im=>{const lo=pixels(im),mid=pixels(im),hi=pixels(im);
+    for(let i=0,d=mid.d;i<d.length;i+=4){const r=d[i],g=d[i+1],b=d[i+2],l=r*.3+g*.59+b*.11,moss=g>r+6&&g>b+6,v=moss?l*.9+50:l*.92+38;
+      d[i]=Math.min(255,v*1.02);d[i+1]=Math.min(255,v);d[i+2]=Math.min(255,v*.95);}
+    wintry(hi.d);
+    {const d=hi.d,W=hi.w,H=hi.h,src=lo.d,L=k=>src[k]*.3+src[k+1]*.59+src[k+2]*.11;
+      for(let y=2;y<H-3;y++)for(let x=0;x<W;x++){const k=(y*W+x)*4;
+        if(L(k)>95&&L(k-W*4)<62){const n=2+((x*7+y*3)%3);for(let j=0;j<n;j++){const q=k+j*W*4;if(L(q)<62)break;
+          const c=j<n-1?[242,245,247]:[191,210,230];d[q]=c[0];d[q+1]=c[1];d[q+2]=c[2];}}}}
+    for(const p of [lo,mid,hi]){let r=0,g=0,b=0;const N=p.w*p.h;for(let k=0;k<N*4;k+=4){r+=p.d[k];g+=p.d[k+1];b+=p.d[k+2];}p.mean=[r/N,g/N,b/N];}
+    ART.zones=[lo,mid,hi];ART.rockLo=lo;FX.chunks.clear();});
   // the walkable surface of a platform image: the first opaque row down its middle
   const surface=p=>{const x=p.w>>1;for(let y=0;y<p.h;y++)if(p.d[(y*p.w+x)*4+3]>40)return y;return 0;};
   // camp ledges: Camp I as drawn; Camp II with its grass and moss turned to snow and its rock cooled to blue-grey
@@ -184,6 +190,9 @@ const ART={},CLOUD_N=3;
     const canvasOf=()=>{const [c,g]=mk(p.w,p.h),id=g.createImageData(p.w,p.h);id.data.set(d);g.putImageData(id,0,0);return c;};
     ART.ledge=canvasOf();wintry(d);ART.ledgeSnow=canvasOf();FX.camps={};});
   load(asset("assets/tent.png"),im=>{ART.tent=im;FX.camps={};FX.base=null;});
+  // the tent going up: eight frames from a flat heap of canvas and poles to (the ninth) the pitched tent above,
+  // all on the pitched tent's own canvas
+  {const fr=[];let left=TENT_UP-1;for(let n=0;n<TENT_UP-1;n++)load(asset(`assets/tent/${n}.png`),im=>{fr[n]=im;if(!--left)ART.tentUp=fr;});}
   // two tall trees (a broad old spruce and a slender pine), well over twice a climber's height
   ART.trees=[];["tree-a","tree-b"].forEach((n,t)=>load(asset(`assets/${n}.png`),im=>{ART.trees[t]=im;FX.base=null;}));
   // camp props: a coil of rope, a cooking pot, a lantern and a supply crate
@@ -198,17 +207,17 @@ const ART={},CLOUD_N=3;
   load(asset("assets/ground.png"),im=>{const p=pixels(im);ART.groundTop=surface(p);let y=p.h-1;
     const full=y=>{for(let x=0;x<p.w;x++)if(p.d[(y*p.w+x)*4+3]<250)return false;return true;};
     while(y>ART.groundTop&&!full(y))y--;ART.ground=im;ART.soilAt=y;ART.soil=rgb(p,p.w>>1,y);FX.base=null;});})();
-const valleyY=(h,climb)=>R0(h-ART.valley.height+climb*.05);
+// the backdrop is one tall painting: the valley at the bottom, a sea of clouds above it and the high sky above that.
+// At base camp its foot stands just under the meadow, in the open part of the screen; as the team climbs the view
+// pans up it, through the clouds, so that at the summit its top is at the top of the screen
+function valleyY(h,climb){const A=FX.area,ab=A?R0((A.y+A.h)/FX.px):h,V=ART.valley.height,foot=ab-30,span=-TOPY+80;
+  return R0(Math.min(0,foot-V+clamp(climb,0,span)/span*(V-foot)));}
 // the backdrop sinks slowly as the team climbs, with its own sky colour above it and mirrored copies either side
 // when the view is wider than the picture; the lake sits in the open air left of the cliff
 function drawValley(g,w,h,climb){const V=ART.valley,y=valleyY(h,climb),x0=R0(FX.ox-V.width*.6);
-  rect(g,0,0,w,Math.max(0,y),ART.sky);
+  rect(g,0,0,w,Math.max(0,y),ART.sky);if(y+V.height<h)rect(g,0,y+V.height,w,h-y-V.height,ART.valleyFoot);
   for(let k=-2;k<=2;k++){const x=x0+k*V.width;if(x>=w||x+V.width<=0)continue;
     if(k&1){g.save();g.translate(x+V.width,y);g.scale(-1,1);g.drawImage(V,0,0);g.restore();}else g.drawImage(V,x,y);}}
-// the near treeline, sinking faster, solid forest below it
-function drawPines(g,w,h,climb){const P=ART.pines,y=R0(h*.9-P.height*.6+climb*.17);if(y>=h)return;
-  for(let x=FX.ox%P.width-P.width;x<w;x+=P.width)g.drawImage(P,x,y);
-  rect(g,0,y+P.height,w,h-y-P.height,ART.pineBase);}
 // a texture pixel, the texture mirrored at every edge so neighbouring tiles always meet; its outermost pixel ring
 // (a flat border line on some generated images) is left out, so a mirror never doubles it into a stripe
 function texAt(T,x,y){const m=(v,n)=>{n-=2;v=(v%(2*n)+2*n)%(2*n);return 1+(v<n?v:2*n-1-v);},i=(m(y,T.h)*T.w+m(x,T.w))*4;return [T.d[i],T.d[i+1],T.d[i+2]];}
@@ -250,26 +259,24 @@ function rockAt(wx,wy){
   if(top&&!snowy&&e<4.5+hash(wx,id)*2.5&&hash(id,5)<.5-u*.6)c=e<2.4?C.mossL:e<3.6?(hash(wx,1)<.3?C.mossH:C.mossL):hash(wx,wy)<.5?C.moss:C.mossD;
   if(top&&snowy&&e<4+hash(wx,id)*3)c=e<3?C.snow:C.snowS;
   return c;}
-// The granite wall as irregular cells (a jittered grid, Voronoi-style): each cell shows a patch of one of the three
-// textures, picked, offset and maybe flipped by the cell's own hash, centred on the texture so it never reaches a
-// texture edge; a thin dark crack runs along the borders between cells, so they read as fractures in the rock.
-// (No mirroring and no straight seams, so the wall has no repeating symmetric shapes.) High up the wintry copies
-// are used, with a ragged seam between the zones.
-const RC_W=46,RC_H=38;
+// The wall as big irregular slabs (a jittered grid, Voronoi-style): each slab is one kind of rock, by its height on
+// the mountain (with a little luck, so the zones meet slab by slab and not along a line), and shows a patch of that
+// rock's texture, offset and maybe flipped by the slab's own hash. A soft dark crack runs between slabs. The colours
+// are pulled a little toward the rock's average and dimmed, so the wall sits back behind the climbers and the rope.
+const RC_W=96,RC_H=78,ZONE_MID=.36,ZONE_HIGH=.7;
+const zoneOf=(u,id)=>{const z=u+(hash(id,9)-.5)*.14;return z<ZONE_MID?0:z<ZONE_HIGH?1:2;};
 function rockCell(wx,wy){
   const gx=Math.floor(wx/RC_W),gy=Math.floor(wy/RC_H);let d1=1e9,d2=1e9,sx=0,sy=0,id=0;
   for(let j=-1;j<=1;j++)for(let i=-1;i<=1;i++){const cx=gx+i,cy=gy+j,
     px=(cx+.2+hash(cx,cy*7+3)*.6)*RC_W,py=(cy+.2+hash(cx*5,cy+11)*.6)*RC_H,dx=wx-px,dy=(wy-py)*1.1,d=Math.hypot(dx,dy);
     if(d<d1){d2=d1;d1=d;sx=px;sy=py;id=cx*7919+cy*104729;}else if(d<d2)d2=d;}
-  const R=ART.rocks[Math.floor(hash(id,1)*ART.rocks.length)],T=uOf(wy)>.6+(hash(wx>>2,wy>>2)-.5)*.06?R.hi:R.lo;
-  const fx=hash(id,2)<.5?-1:1,ox=R0((hash(id,3)-.5)*28),oy=R0((hash(id,4)-.5)*28);
+  const T=ART.zones[zoneOf(uOf(sy),id)],fx=hash(id,2)<.5?-1:1,ox=R0((hash(id,3)-.5)*90),oy=R0((hash(id,4)-.5)*90);
   const tx=clamp(R0((wx-sx)*fx+T.w/2+ox),1,T.w-2),ty=clamp(R0(wy-sy+T.h/2+oy),1,T.h-2),i=(ty*T.w+tx)*4;
-  let c=[T.d[i],T.d[i+1],T.d[i+2]];
-  const e=d2-d1;if(e<1.2)c=c.map(k=>k*.28|0);else if(e<2.4)c=c.map(k=>k*.62|0);
-  return c;}
+  const e=d2-d1,k=e<1.3?.5:e<2.6?.8:1,m=T.mean;
+  return [(T.d[i]*.74+m[0]*.26)*.9*k|0,(T.d[i+1]*.74+m[1]*.26)*.9*k|0,(T.d[i+2]*.74+m[2]*.26)*.92*k|0];}
 function paintChunk(ci){
   const yTop=-(ci+1)*CHK,w=FX.wallW,[c,g]=mk(w+40,CHK);if(yTop+CHK<TOPY-40)return c;
-  const id=g.createImageData(w+40,CHK),d=id.data,cache={},tex=ART.rockLo&&ART.rocks.length===3;
+  const id=g.createImageData(w+40,CHK),d=id.data,cache={},tex=ART.rockLo&&ART.zones;
   const hex=h=>cache[h]||(cache[h]=[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]);
   for(let py=0;py<CHK;py++){const wy=yTop+py,L=rockEdge(wy);if(wy>0)continue;
     for(let px=0;px<w+40;px++){const wx=px-40;let col=null,v=null;
@@ -376,7 +383,7 @@ function loadClimber(L){const who=CLIMBER_ART[L.name],A=L.art={clips:{},ready:0}
   extra("look",STAND_N,a=>extra("drink",STAND_N,b=>extra("land",LAND_N,c=>{A.clips.idle.push(...a,...b,...c);A.stand=1;})));}
 loadClimber(LOOK.me);loadClimber(LOOK.mate);
 // all of the climb's pictures are in (until then the scene draws simple stand-ins; the loading screen waits for this)
-const artReady=()=>!!(ART.valley&&ART.pines&&ART.rockLo&&ART.ledge&&ART.tent&&ART.trees[0]&&ART.trees[1]&&ART.ground&&LOOK.me.art.ready&&LOOK.mate.art.ready);
+const artReady=()=>!!(ART.valley&&ART.rockLo&&ART.ledge&&ART.tent&&ART.trees[0]&&ART.trees[1]&&ART.ground&&LOOK.me.art.ready&&LOOK.mate.art.ready);
 function ik(rx,ry,tx,ty,a,b,bend){let dx=tx-rx,dy=ty-ry,d=Math.hypot(dx,dy)||1e-4;const m=a+b-.01;if(d>m){tx=rx+dx/d*m;ty=ry+dy/d*m;d=m;}
   const ang=Math.atan2(ty-ry,tx-rx),j=ang+bend*Math.acos(clamp((a*a+d*d-b*b)/(2*a*d),-1,1));return [rx+Math.cos(j)*a,ry+Math.sin(j)*a,tx,ty];}
 // sprite box and the hips' place in it; HANG is where the near hand sits (from the hips) when hanging on a hold
@@ -762,7 +769,7 @@ function campLayer(k,cy){if(FX.camps[k])return FX.camps[k];
   // the ledge waits empty but for its sign: the team pitches its own camp when it gets here
   // (the sign stands at the ledge's far end, before where the tent will go)
   const sx=ART.ledge&&ART.ledgeWalk?ledgeL()+ART.ledgeWalk[0]+6:-122;
-  drawSign(g,signpost(k==="c1"?"CAMP I":"CAMP II",26,{snow}),X(sx),Y(cy));
+  drawSign(g,signpost(k==="c1"?"CAMP I":"CAMP II",46,{snow}),X(sx),Y(cy));
   return FX.camps[k]={c,x0,y0};}
 // where things go on a camp ledge, from the ledge's walkable span: the tent at the outer end, where each climber
 // kneels to work (one at each of its corners) and the tent's door
@@ -771,21 +778,10 @@ function campSpots(){const L=ART.ledge,T=ART.tent;
   // (the tent faces out of the screen, so its door is in the middle; one climber pegs out each corner)
   const tentL=walk0+22,tentR=tentL+tw;
   return {tentX:tentL-tb.x0,tentR,meWork:tentL+18,mateWork:tentR-18,door:tentL+(tw>>1)};}
-// The tent appears the cartoon way: in five pieces (bottom left and right, middle left and right, then the top with
-// its poles), each popping in with a dust poof and a little drop-and-settle. Packing up pops them away again.
-const BOUNCE=.22;
-// how far a piece that appeared at time `at` still sits above where it lands (it drops in and settles)
-const dropOf=at=>{const e=clamp((FX.time-at)/BOUNCE,0,1);return -R0(7*(1-e)*(1-e));};
-// the tent's pieces as [x0,x1,y0,y1) boxes in its image, in the order they appear
-function tentPieces(){const b=boxOf(ART.tent),h=b.y1+1-b.y0,cx=(b.x0+b.x1+1)>>1,m1=b.y0+R0(h/3),m2=b.y0+R0(h*2/3),r=b.x1+1,f=b.y1+1;
-  return [[b.x0,cx,m2,f],[cx,r,m2,f],[b.x0,cx,m1,m2],[cx,r,m1,m2],[b.x0,r,b.y0,m1]];}
-// the tent with its first n pieces in place (n=5: the whole tent)
-function drawTentRise(g,x,y,n,at){if(n<=0)return;if(!ART.tent){if(n>=5)drawTent(g,x,y);return;}
-  const T=ART.tent,b=boxOf(T),top=y-(b.y1+1);
-  if(n>=5&&(!at||FX.time-at[4]>BOUNCE)){g.drawImage(T,x,top);return;}
-  tentPieces().slice(0,n).forEach(([x0,x1,y0,y1],i)=>{const d=at?dropOf(at[i]):0;g.drawImage(T,x0,y0,x1-x0,y1-y0,x+x0,top+y0+d,x1-x0,y1-y0);});}
-// the world box of tent piece i (for its poof), from the tent's left x and the ground y
-function tentPieceAt(i,x,y){const [x0,x1,y0,y1]=tentPieces()[i],top=y-(boxOf(ART.tent).y1+1);return {x:x+((x0+x1)>>1),y:top+y1,w:x1-x0};}
+// the tent at stage n of going up: 0 nothing, 1 the canvas and poles in a heap, and so on up to TENT_UP, pitched
+function drawTentRise(g,x,y,n){if(n<=0)return;const T=ART.tent;
+  if(n>=TENT_UP||!T||!ART.tentUp){if(n>=TENT_UP)drawTent(g,x,y);return;}
+  g.drawImage(ART.tentUp[n-1],x,y-(boxOf(T).y1+1));}
 // dust poofs: the generated cloud bursting and fading over about half a second, its foot at (x,y); until it loads,
 // three cream puffs shrinking away
 function poof(x,y,big){FX.poofs.push({x,y,t0:FX.time,big});sfx("pop");}
@@ -795,9 +791,9 @@ function drawPoofs(g,ox,oy){FX.poofs=FX.poofs.filter(p=>FX.time-p.t0<.5);
     else for(const [dx,r] of [[-7,5],[0,7],[7,5]])pdisc(g,R0(p.x+dx*(1+k))+ox,R0(p.y-6-k*6)+oy,Math.max(1,R0(r*(1-k))),C.cloud);}}
 function drawCamp(g,k,cy,t,ox,oy){const L=campLayer(k,cy);g.drawImage(L.c,L.x0+ox,L.y0+oy);
   const C2=FX.camp;if(!C2||C2.k!==k)return;const S=campSpots();
-  drawTentRise(g,S.tentX+ox,cy+oy,C2.tent,C2.tentAt);
+  drawTentRise(g,S.tentX+ox,cy+oy,C2.tent);
   // once the tent is up, in front of it: the cooking pot, a lantern at the door and the rope, coiled
-  if(C2.tent>=5){prop(g,"pot",S.tentR+4+ox,cy+1+oy);prop(g,"lantern",S.door-18+ox,cy+1+oy);prop(g,"coil",S.tentR-18+ox,cy+1+oy);}
+  if(C2.tent>=TENT_UP){prop(g,"pot",S.tentR+4+ox,cy+1+oy);prop(g,"lantern",S.door-18+ox,cy+1+oy);prop(g,"coil",S.tentR-18+ox,cy+1+oy);}
 }
 // a camp prop standing on the ground at y, its left edge at x
 function prop(g,n,x,y){const im=ART.props&&ART.props[n];if(im)g.drawImage(im,R0(x),R0(y)-im.height);}
@@ -810,11 +806,15 @@ function baseLayer(){const ox=FX.ox,w=FX.vw;if(FX.base&&FX.base.ox===ox&&FX.base
   const x0=-ox-8,x1=w-ox+8,y0=-215,y1=120,[c,g]=mk(x1-x0,y1-y0),X=x=>x-x0,Y=y=>y-y0;
   // distant pines first, then the meadow, then the big pines in front of the cliff foot
   // (once the generated pine is in, the generated treeline behind stands in for these painted ones)
-  if(!ART.pines)for(let x=x0;x<-30;x+=9+(hash(x,1)*8|0)){const h=22+(hash(x,2)*26|0),s=pineSprite(h,x*7,{l:C.pineL,m:C.pine,d:C.pineD,h:C.pineH});g.drawImage(s,X(x)-(s.width>>1),Y(2-h));}
+  if(!ART.trees[0])for(let x=x0;x<-30;x+=9+(hash(x,1)*8|0)){const h=22+(hash(x,2)*26|0),s=pineSprite(h,x*7,{l:C.pineL,m:C.pine,d:C.pineD,h:C.pineH});g.drawImage(s,X(x)-(s.width>>1),Y(2-h));}
   // the generated meadow strip, its grass rising a few pixels above the ground line, soil below it
   if(ART.ground){const G=ART.ground,gy=-6-ART.groundTop;
     rect(g,0,Y(gy+ART.soilAt),x1-x0,y1-gy-ART.soilAt,ART.soil);
-    for(let x=x0-((x0%G.width)+G.width)%G.width;x<x1;x+=G.width)g.drawImage(G,X(x),Y(gy));}
+    for(let x=x0-((x0%G.width)+G.width)%G.width;x<x1;x+=G.width){g.drawImage(G,X(x),Y(gy));
+    }
+    // (below the strip the earth just darkens, in a few dithered steps, down into the dark)
+    for(let k=0;k<5;k++){const yy=Y(gy+ART.soilAt+6+k*9);g.fillStyle=`rgba(6,5,9,${(.22+k*.17).toFixed(2)})`;g.fillRect(0,yy,x1-x0,y1);
+      for(let x=(k&1)*2;x<x1-x0;x+=4)g.fillRect(x,yy-2,2,2);}}
   else for(let x=x0;x<x1;x++){const top=hash(x>>1,3)<.3?-1:0;
     for(let y=top;y<y1;y++){let col=y<=0?C.grassL:y<4?C.grass:y<7?(hash(x,y)<.5?C.grass:C.dirt):y<40?(hash(x,y)<.08?C.dirtD:C.dirt):C.dirtD;
       if(y>=1&&y<4&&hash(x*3,y)<.12)col=C.mossH;dot(g,X(x),Y(y),col);}
@@ -852,7 +852,7 @@ function drawHook(g,ox,oy){if(FX.hookIx==null||!FX.exp)return;const [bx,by]=bolt
 // mountain, with a dab of chalk once a hand has been on it
 function holds(g,ox,oy,vy0,vy1){if(!FX.exp||FX.mode!=="game"||!FX.A)return;const ch=FX.exp.choice,used=Math.max(FX.A.me.hi,FX.A.mate.hi);
   for(let i=Math.max(1,Math.floor(-vy1/HS)-1);i<=Math.min(IDX_TOP-1,Math.ceil(-vy0/HS)+1);i++){if(i===IDX_C1||i===IDX_C2)continue;
-    const [hx,hy]=holdXY(ch,i),x=hx+ox,y=hy+oy,snowy=uOf(hy)>.62,w=4+(hash(i,41)*3|0);
+    const [hx,hy]=holdXY(ch,i),x=hx+ox,y=hy+oy,snowy=uOf(hy)>ZONE_HIGH,w=4+(hash(i,41)*3|0);
     rect(g,x-1,y+2,w+2,2,"#241a14");rect(g,x,y,w,2,snowy?C.snowS:"#b39c7c");rect(g,x,y,w-1,1,snowy?C.snow:"#e0cfae");
     if(i<=used){dot(g,x+1,y,"#ffffff");dot(g,x+2,y+1,"#f4f1e8");}}}
 function hardware(g,ox,oy,vy0,vy1){if(!FX.exp||FX.mode!=="game")return;const ch=FX.exp.choice,clipped=FX.clips||[];
@@ -966,15 +966,14 @@ function paint(t){
   // screen = world + (ox, oy): every offset is a whole pixel, so nothing ever shimmers
   const oyF=c.my-c.y,ox=FX.ox+shk(),oy=R0(oyF)+shk(),vy0=-oy,vy1=h-oy,u=uOf(c.y);
   // the valley sinks as the team climbs: each layer by its own share of the camera's height
-  const climb=-c.y,art=ART.valley&&ART.pines;
+  const climb=-c.y,art=ART.valley;
   if(art)drawValley(g,w,h,climb);else drawSky(g,w,h,u);
   // drifting clouds stay in the open sky (over the backdrop, only above its peaks)
-  const cloudMax=art?valleyY(h,climb)+60:h*.7;
+  const cloudMax=h*.7;
   for(let k=0;k<6;k++){const cx=R0(((hash(k,1)*w*1.6+t*(1.2+hash(k,3)*1.5))%(w*1.6))-w*.3),cy=R0(h*(.08+hash(k,4)*.3)+climb*.03);
     if(cy<cloudMax)drawCloud(g,cx,cy,.8+hash(k,2)*.6,k);}
   for(const b of FX.birds)for(let i=0;i<b.n;i++)g.drawImage(sprites().bird[Math.floor(b.t*7+i*1.3)%4],R0(b.x-i*13),R0(b.y*h+(i%2?5:-2)*i+Math.sin(b.t*1.4+i)*2));
-  if(art)drawPines(g,w,h,climb);
-  else for(const L of FX.layers){const y=R0(climb*L.par);if(y<h)g.drawImage(L.c,0,y);}
+  if(!art)for(const L of FX.layers){const y=R0(climb*L.par);if(y<h)g.drawImage(L.c,0,y);}
   if(vy1>-215){const B=baseLayer();g.drawImage(B.c,B.x0+ox,B.y0+oy);}
   const [c1,c2]=chunkRange(vy0,vy1);for(let ci=c1;ci<=c2;ci++)g.drawImage(chunk(ci),-40+ox,-(ci+1)*CHK+oy);
   if(vy1>-215)drawFrontPines(g,ox,oy);
@@ -1005,7 +1004,7 @@ function drawNight(g,w,h,t,ox,oy){const n=FX.night,cp=FX.camp;
   // it would show it through them)
   if(cp.tent>0&&cp.sleep){g.globalAlpha=.55*n;drawTentRise(g,S.tentX+ox,cy+oy,cp.tent);g.globalAlpha=1;}
   // (the lantern at the tent door burns through the night)
-  if(cp.tent>=5&&ART.props&&ART.props.lantern){const lx=S.door-12+ox,ly=cy-9+oy;
+  if(cp.tent>=TENT_UP&&ART.props&&ART.props.lantern){const lx=S.door-12+ox,ly=cy-9+oy;
     for(const [r,a] of [[13,.10],[8,.16],[4,.22]]){g.globalAlpha=a*n;pdisc(g,lx,ly,r,"#ffd27a");}g.globalAlpha=1;prop(g,"lantern",S.door-18+ox,cy+1+oy);}}
 
 /* ---------- overlays: pixel title cards, captions and confetti ---------- */
@@ -1032,12 +1031,12 @@ const campOf=ix=>ix===IDX_C1?"c1":ix===IDX_C2?"c2":null;
 // corner, so neither walks through the other) and pitch it; dusk falls, and they walk to the door and turn in
 async function makeCamp(ix,ch="main"){const k=campOf(ix);if(!k)return true;const A=FX.A,S=campSpots(),cy=-ix*HS;
   const [me,mate]=A.me.N.x<=A.mate.N.x?[A.me,A.mate]:[A.mate,A.me]; // (one at each corner of the tent)
-  FX.camp={k,ix,cy,tent:0,tentAt:[],sleep:false};FX.leaving=null;const cp=FX.camp;
+  FX.camp={k,ix,cy,tent:0,sleep:false};FX.leaving=null;const cp=FX.camp;
   const walk=Math.max(me.walkTo(S.meWork),mate.walkTo(S.mateWork));if(!(await wait(walk+150,ch)))return false;
   me.work(1);mate.work(-1);
-  // the tent goes up piece by piece, each popping in with a poof
-  const pieceIn=i=>{cp.tent=i+1;cp.tentAt[i]=FX.time;if(ART.tent){const p=tentPieceAt(i,S.tentX,cy);poof(p.x,p.y);}};
-  for(const [ms,a] of [[300,0],[500,1],[500,2],[450,3],[600,4]]){if(!(await wait(ms,ch)))return false;pieceIn(a);}
+  // the canvas and poles are thrown down in a puff of dust, and the tent rises between the two of them
+  if(!(await wait(350,ch)))return false;poof(S.door,cy,true);
+  for(let n=1;n<=TENT_UP;n++){cp.tent=n;if(n===TENT_UP)sfx("thud");if(!(await wait(n===1?420:230,ch)))return false;}
   if(!(await wait(700,ch)))return false;
   me.standAt(me.N.x,cy);mate.standAt(mate.N.x,cy);if(!(await wait(500,ch)))return false;
   if(!(await play(2400,p=>{FX.night=smooth(p);},ch)))return false;
@@ -1051,10 +1050,10 @@ function leaveCamp(ch="main"){if(!FX.camp)return Promise.resolve(true);if(FX.lea
     me.hidden=mate.hidden=false;cp.sleep=false;me.standAt(S.door+8,cp.cy);mate.standAt(S.door,cp.cy);me.hi=mate.hi=ix;
     if(!(await play(1800,p=>{FX.night=1-smooth(p);},ch)))return false;
     const w=mate.walkTo(S.meWork);if(!(await wait(w+100,ch)))return false;
-    // the tent pops away piece by piece, top first
-    mate.work(1);cp.tentAt=null;
-    const pieceOut=i=>{cp.tent=i;if(ART.tent){const p=tentPieceAt(i,S.tentX,cp.cy);poof(p.x,p.y);}};
-    for(const [ms,a] of [[350,4],[300,3],[300,2],[300,1],[300,0]]){if(!(await wait(ms,ch)))return false;pieceOut(a);}
+    // the tent comes down the way it went up, and its heap is packed away in a puff of dust
+    mate.work(1);
+    for(let n=TENT_UP-1;n>=1;n--){if(!(await wait(n===TENT_UP-1?350:190,ch)))return false;cp.tent=n;}
+    if(!(await wait(350,ch)))return false;cp.tent=0;poof(S.door,cp.cy,true);if(!(await wait(300,ch)))return false;
     mate.standAt(mate.N.x,cp.cy);const w3=Math.max(me.walkTo(me.rest(ix).x),mate.walkTo(mate.rest(ix).x));
     if(!(await wait(w3+100,ch)))return false;
     me.standAt(me.rest(ix).x,cp.cy);mate.standAt(mate.rest(ix).x,cp.cy);FX.camp=null;FX.night=0;return true;})();}
@@ -1172,7 +1171,7 @@ async function runDemo(){ // lobby: a rope team climbs the whole cliff on a loop
 // (opened or reloaded while the team is at a camp: the camp is already up and they are asleep in it)
 function snap(exp,t){FX.ch.main++;const A=FX.A,ix=idxOf(exp,exp.pitch);placeTeam(exp,ix);
   A.me.gear=exp.rope;if(t.round.phase==="summit"){A.me.cheer=2;A.mate.cheer=2;}
-  else if(campOf(ix)){FX.camp={k:campOf(ix),ix,cy:-ix*HS,tent:5,sleep:true};FX.night=1;A.me.hidden=A.mate.hidden=true;}
+  else if(campOf(ix)){FX.camp={k:campOf(ix),ix,cy:-ix*HS,tent:TENT_UP,sleep:true};FX.night=1;A.me.hidden=A.mate.hidden=true;}
   FX.cam=null;}
 
 function drawTopo(t){

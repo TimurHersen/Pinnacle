@@ -119,8 +119,10 @@ const TFX=(()=>{
   const rnd=(a,b)=>a+Math.random()*(b-a);
   function layer(cls){const c=document.createElement("canvas");c.width=BG_W;c.height=BG_H;c.className="tfx "+cls;document.querySelector(".scene").appendChild(c);return c;}
   // lay both layers over the painting exactly as object-fit:cover places it
-  function place(){if(!light)return;const W=innerWidth,H=innerHeight,s=Math.max(W/BG_W,H/BG_H),w=BG_W*s,h=BG_H*s,x=(W-w)*BG_POS[0],y=(H-h)*BG_POS[1];
-    for(const c of [light,air])Object.assign(c.style,{left:x+"px",top:y+"px",width:w+"px",height:h+"px"});}
+  // (the painting covers the window at a whole number of device pixels per painted pixel, so its pixels stay even)
+  function place(){if(!light)return;const W=innerWidth,H=innerHeight,dpr=Math.max(1,window.devicePixelRatio||1),s=Math.ceil(Math.max(W/BG_W,H/BG_H)*dpr)/dpr,
+      w=BG_W*s,h=BG_H*s,x=Math.round((W-w)*BG_POS[0]*dpr)/dpr,y=Math.round((H-h)*BG_POS[1]*dpr)/dpr,bg=document.getElementById("menubg");
+    for(const c of [light,air,bg])if(c)Object.assign(c.style,{left:x+"px",top:y+"px",width:w+"px",height:h+"px",right:"auto",bottom:"auto"});}
   // read the painting once: where the night sky is (for stars) and how the firelight falls on the camp
   function survey(img){const c=document.createElement("canvas");c.width=BG_W;c.height=BG_H;const g=c.getContext("2d");g.drawImage(img,0,0);
     const d=g.getImageData(0,0,BG_W,BG_H).data,px=(x,y)=>{const i=(y*BG_W+x)*4;return [d[i],d[i+1],d[i+2]];};
