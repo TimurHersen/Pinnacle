@@ -7,10 +7,10 @@ let failed=0;
 function test(name,fn){try{fn();console.log("ok   "+name);}catch(e){failed++;console.log("FAIL "+name+"\n     "+(e.message||e).split("\n").join("\n     "));}}
 
 // a two-climber team mid-question: a joined first, so a is player 1. The right answer is in slot 0.
-function team({pitch=0,anchor=0,up={},m="kebne",choice=[null,null],hook=false}={}){
-  const exp=g.newExp(1);Object.assign(exp,{m,pitch,anchor,up,choice});
+function team({pitch=0,anchor=0,up={},m="kebne",choice=[null,null],hooks=[]}={}){
+  const exp=g.newExp(1);Object.assign(exp,{m,pitch,anchor,up,choice,hooks});
   return g.fixTeam({name:"T",code:"ABC123",members:{a:{name:"Ann",joined:1},b:{name:"Bo",joined:2}},exp,
-    round:{id:5,phase:"answer",qid:QUIZ[0].id,leader:"a",order:[0,1,2,3],startedAt:0,dur:45,hook},log:[],stats:{}});}
+    round:{id:5,phase:"answer",qid:QUIZ[0].id,leader:"a",order:[0,1,2,3],startedAt:0,dur:45},log:[],stats:{}});}
 const RIGHT=0,WRONG=1;
 const play=(t,a,b)=>g.applyOutcome(t,{right:0,picks:{a,b}});
 const pos=(t,id)=>g.posOf(t.exp,id);
@@ -19,7 +19,7 @@ test("both right: both climb a pitch",()=>{
   const n=play(team({pitch:1}),RIGHT,RIGHT);
   assert.equal(pos(n,"a"),2);assert.equal(pos(n,"b"),2);assert.equal(n.exp.run.right,2);assert.equal(n.exp.run.synced,1);});
 
-test("wrong without a hook: a fall to the anchor",()=>{
+test("wrong with no hook below: a fall to the last camp",()=>{
   const n=play(team({pitch:2,anchor:1}),RIGHT,WRONG);
   assert.equal(pos(n,"a"),3);assert.equal(pos(n,"b"),1);assert.equal(n.exp.run.falls,1);assert.equal(n.round.result.pl.b.fall,true);});
 
@@ -27,9 +27,18 @@ test("no answer counts as wrong",()=>{
   const n=g.applyOutcome(team({pitch:2,anchor:2}),{right:0,picks:{a:0}});
   assert.equal(pos(n,"b"),2);assert.equal(n.round.result.pl.b.none,true);assert.equal(n.round.result.pl.b.ok,false);});
 
-test("a hook: a wrong answer only slips, keeping the height",()=>{
-  const n=play(team({pitch:2,anchor:0,hook:true}),WRONG,WRONG);
+test("a hook where they hang: a wrong answer only slips, keeping the height",()=>{
+  const n=play(team({pitch:2,anchor:0,hooks:[2]}),WRONG,WRONG);
   assert.equal(pos(n,"a"),2);assert.equal(pos(n,"b"),2);assert.equal(n.exp.run.slips,2);assert.equal(n.exp.run.falls,0);});
+
+test("a hook stays in the wall: a fall from above stops at the highest hook below",()=>{
+  const n=play(team({pitch:1,up:{a:2},hooks:[1,2]}),WRONG,RIGHT);   // a at 3 falls to the hook at 2; b climbs 1 -> 2
+  assert.equal(pos(n,"a"),2);assert.equal(pos(n,"b"),2);assert.equal(n.round.result.pl.a.hooked,true);assert.equal(n.exp.run.falls,1);
+  assert.deepEqual([...n.exp.hooks],[1,2]);});
+
+test("a hook above a climber does not catch them",()=>{
+  const n=play(team({pitch:1,up:{a:2},hooks:[3]}),RIGHT,WRONG);     // b at 1 falls to base camp; the rope catches at a-3
+  assert.equal(pos(n,"b"),Math.max(0,pos(n,"a")-MAX_GAP));assert.equal(n.round.result.pl.b.caught,undefined);});
 
 test(`the rope jerk: nobody gets more than ${MAX_GAP} pitches ahead`,()=>{
   const n=play(team({pitch:0,up:{a:MAX_GAP}}),RIGHT,WRONG);

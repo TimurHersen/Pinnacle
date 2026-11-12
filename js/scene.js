@@ -886,9 +886,11 @@ function drawSummit(g,t,ox,oy){const fx=SX-18,fy=R0(peakTop(fx))+1,F=pennant(15,
 const QD=[0,9]; // where the rope runs, from the bolt
 // a clipped hook: on the bolt-in-from-the-hold of its index, the rope running through its carabiner
 const hookXY=(ch,i)=>{const b=boltXY(ch,i);return [b[0]+QD[0],b[1]+QD[1]];};
-function drawHook(g,ox,oy){if(FX.hookIx==null||!FX.exp)return;const [bx,by]=boltXY(FX.exp.choice,FX.hookIx),x=bx+ox,y=by+oy;
+// the hooks the team has clipped into the wall (FX.hooks: the hold each one is at), where the rope is attached
+function drawHook(g,ox,oy){if(!FX.exp||!FX.hooks)return;for(const i of FX.hooks)drawHook1(g,ox,oy,i);}
+function drawHook1(g,ox,oy,i){const [bx,by]=boltXY(FX.exp.choice,i),x=bx+ox,y=by+oy;
   // (it pops in with a little drop when clipped)
-  const k=clamp((FX.time-(FX.hookAt||0))/.25,0,1),d=-R0(5*(1-k)*(1-k));
+  const k=i===FX.hookNew?clamp((FX.time-(FX.hookAt||0))/.25,0,1):1,d=-R0(5*(1-k)*(1-k));
   rect(g,x-2,y-2,5,5,INK);rect(g,x-1,y-1,3,3,C.metal);dot(g,x,y,INK);
   rect(g,x-1,y+2+d,3,5,INK);rect(g,x,y+2+d,1,5,C.red);
   rect(g,x-3,y+6+d,7,8,INK);rect(g,x-2,y+7+d,5,6,C.gold);rect(g,x-1,y+8+d,3,4,INK);dot(g,x-2,y+7+d,"#fff1cf");dot(g,x+2,y+12+d,"#b5741c");}
@@ -899,14 +901,6 @@ function holds(g,ox,oy,vy0,vy1){if(!FX.exp||FX.mode!=="game"||!FX.A)return;const
     const [hx,hy]=holdXY(ch,i),x=hx+ox,y=hy+oy,snowy=uOf(hy)>ZONE_HIGH,w=4+(hash(i,41)*3|0);
     rect(g,x-1,y+2,w+2,2,"#241a14");rect(g,x,y,w,2,snowy?C.snowS:"#b39c7c");rect(g,x,y,w-1,1,snowy?C.snow:"#e0cfae");
     if(i<=used){dot(g,x+1,y,"#ffffff");dot(g,x+2,y+1,"#f4f1e8");}}}
-function hardware(g,ox,oy,vy0,vy1){if(!FX.exp||FX.mode!=="game")return;const ch=FX.exp.choice,clipped=FX.clips||[];
-  for(let i=Math.max(2,Math.floor(-vy1/HS));i<=Math.min(IDX_TOP-2,Math.ceil(-vy0/HS));i++){if(i%4!==2||i===IDX_C1||i===IDX_C2)continue;
-    const [bx,by]=boltXY(ch,i),x=bx+ox,y=by+oy;
-    rect(g,x-2,y-2,5,5,INK);rect(g,x-1,y-1,3,3,C.metalD);dot(g,x-1,y-1,C.metal);dot(g,x,y,INK);
-    if(!clipped.includes(i))continue;
-    rect(g,x-1,y+2,3,5,INK);rect(g,x,y+2,1,5,C.red);                       // the sling
-    rect(g,x-3,y+6,7,7,INK);rect(g,x-2,y+7,5,5,C.metal);rect(g,x-1,y+8,3,3,INK);dot(g,x-2,y+7,"#ffffff");dot(g,x+2,y+11,C.metalD);} // the carabiner
-}
 /* ---------- setup, loop and frame ---------- */
 function ensureScene(){
   const cv=$("#topo");if(!cv)return false;if(FX.cv===cv)return true;
@@ -991,9 +985,10 @@ function frame(now){
     const ch=FX.exp.choice,pm=A.mate.tie(),pl=A.me.tie(),path=[[pm.x,pm.y]],clips=[];
     // the rope runs through the clipped bolts between the two only while the leader is on the wall (once the leader
     // has topped out onto a ledge they belay from there), and only bolts that lie between them on the way up
-    const hk=FX.hookIx!=null&&(A.me.mode==="climb"||A.me.mode==="fall")?hookXY(ch,FX.hookIx):null;
-    if(A.me.mode==="climb"||hk)for(let i=A.mate.hi+1;i<A.me.hi;i++)if(i%4===2&&i!==FX.hookIx){const b=boltXY(ch,i);if(b[1]<pm.y-6&&b[1]>pl.y+6&&(!hk||b[1]>hk[1])){path.push([b[0]+QD[0],b[1]+QD[1]]);clips.push(i);}}
-    if(hk&&hk[1]<pm.y-6)path.push(hk);
+    // (it hangs free between the two, and runs through the hooks clipped into the wall between them, and through one
+    // just above a leader who has dropped onto it)
+    let hk=null;
+    for(const i of FX.hooks||[]){const h=hookXY(ch,i);if(h[1]<pm.y-6&&(h[1]>pl.y+6||(A.me.mode==="fall"&&h[1]>pl.y-90))){path.push(h);clips.push(i);hk=h;}}
     // (off a leader on the wall the rope first drops straight down from the harness, between them and the rock,
     // so it never cuts across behind their pack on its way to the belayer)
     if(A.me.mode==="climb"&&pm.y>pl.y+30&&!(hk&&hk[1]>pl.y))path.push([pl.x+1,pl.y+20]);
@@ -1039,7 +1034,7 @@ function paint(t){
   // (the climbers keep the camera's fraction of a pixel, so the one it follows holds still on screen rather than
   // flickering a pixel up and down as their rounding and the camera's take turns)
   FX.sub=oyF-R0(oyF);
-  holds(g,ox,oy,vy0,vy1);hardware(g,ox,oy,vy0,vy1);drawHook(g,ox,oy);FX.rope.draw(g,ox,oy);
+  holds(g,ox,oy,vy0,vy1);drawHook(g,ox,oy);FX.rope.draw(g,ox,oy);
   FX.A.mate.draw(g,t,ox,oy);FX.A.me.draw(g,t,ox,oy);
   drawPoofs(g,ox,oy);
   if(FX.night>0)drawNight(g,w,h,t,ox,oy);
@@ -1149,7 +1144,7 @@ function caught(r,vr){FX.ropeJerk=FX.time;FX.shake=Math.max(FX.shake,clamp(vr/12
 // a fall. Slipping with a hook clipped, the climber drops a body length, the rope catches them and they swing back
 // to the rock. Without one they fall to the anchor: past a bolt on the wall the rope catches them below it, and
 // they hang and swing a moment before climbing back to it; down to the meadow or a camp they land on their feet
-async function fallRig(r,anchor,back,id,ch,hook){
+async function fallRig(r,anchor,back,id,ch,hook,hookIdx){
   const rs=r.rest(anchor),near=r===FX.A.me;pebbles(r);if(near)sfx("whistle");
   // (well out from the wall over the meadow, so the fall clears a partner on the rock below; only a little over a
   // camp ledge, so it lands on it)
@@ -1161,9 +1156,9 @@ async function fallRig(r,anchor,back,id,ch,hook){
   // (caught below an anchor, the rope holds them a little out from the wall, so they hang clear of a partner below)
   // (onto a clipped hook: the rope runs through its carabiner, so they drop past it by as far as they were above
   // it, and the rope catches them below it)
-  const hp=hook&&FX.hookIx!=null&&r===FX.A.me?hookXY(FX.exp.choice,FX.hookIx):null;
+  const hp=hookIdx!=null?hookXY(FX.exp.choice,hookIdx):null;
   const [hx,ay]=r.hold(anchor),ax=hp?hp[0]:hook?hx:hx-24,ayy=hp?hp[1]:ay+(hook?8:0);
-  if(hook)r.catchWord="HOOK HELD!";
+  if(hook||hp)r.catchWord="HOOK HELD!";
   r.startFall(ax,ayy,hook?Math.hypot(r.N.x-ax,r.N.y-ayy)+10:30,hook?22:60);
   if(!(await wait(hook?1300:2100,ch)))return false;
   r.reachFrom(clamp(Math.round(-(r.N.y+HANG[1])/HS),2,IDX_TOP-1),.3);
@@ -1177,6 +1172,8 @@ function arrive(name,exp,to){const top=name==="summit";title(top?"SUMMIT!":name.
 // a round plays out: a beat while both chalk up; the rope jerks whoever it holds back; whoever got it wrong comes
 // off (onto the hook, the rope or down to the anchor); whoever got it right climbs to their next pitch, the higher
 // one first; and if that brings both onto a camp ledge or the top, they arrive
+// the hold a hook clipped at pitch p is on: just under the hands of a climber hanging there (none on a ledge)
+const hookIdxAt=(exp,p)=>{const i=idxOf(exp,p);return i>1&&i!==IDX_C1&&i!==IDX_C2&&i<IDX_TOP?i-1:null;};
 async function runEvent(exp,o,t){
   const id=++FX.ch.main,A=FX.A,ok=()=>FX.ch.main===id,T=rigTargets(t);
   const who=memberIds(t).map(u=>({r:rigOfId(t,u),x:(o.pl||{})[u]||{}})).filter(w=>w.r);
@@ -1197,8 +1194,9 @@ async function runEvent(exp,o,t){
     if(r.mode==="stand"){const at=r.hi;
       if(r.stumbledAt===at&&r.L.art&&r.L.art.slump){caption("No way up this time");r.play([["slump",SLUMP_MS],["stand",650],["stand2",650]],1);r.calm();}
       else{r.stumbledAt=at;caption("Off at the first moves!");side.push(climbRig(r,at+LOW+2,280,id).then(z=>z&&fallRig(r,at,at,id,"main",false)));}}
-    else if(w.x.caught||tg>=r.hi){caption(w.x.caught?"Wrong hold, but the hook holds":"Wrong hold!");if(!(await fallRig(r,r.hi-1,r.hi,id,"main",true)))return;}
-    else{title("WHOOPS!",`Down to ${fmt(mAlt(exp,tg*HS/WK+ALT.base))} m`,"bad");if(!(await fallRig(r,tg,tg,id,"main",false)))return;}}
+    else if(w.x.caught||tg>=r.hi){caption(w.x.caught?"Wrong hold, but the hook holds":"Wrong hold!");if(!(await fallRig(r,r.hi-1,r.hi,id,"main",true,w.x.caught?hookIdxAt(exp,w.x.to):null)))return;}
+    else{title("WHOOPS!",w.x.hooked?`Onto the hook at ${fmt(mAlt(exp,tg*HS/WK+ALT.base))} m`:`Down to ${fmt(mAlt(exp,tg*HS/WK+ALT.base))} m`,"bad");
+      if(!(await fallRig(r,tg,tg,id,"main",false,w.x.hooked?hookIdxAt(exp,w.x.to):null)))return;}}
   const ups=who.filter(w=>!w.x.fall&&T.get(w.r)>w.r.hi).sort((a,b)=>T.get(b.r)-T.get(a.r));
   const jobs=ups.map((w,k)=>wait(k*700).then(z=>z&&climbRig(w.r,T.get(w.r),stepMsFor(T.get(w.r)-w.r.hi),id)).then(z=>{if(z&&!o.arrived)pop(w.r,"HUP!");return z;}));
   for(const j of [...jobs,...side])if(!(await j))return;
@@ -1240,11 +1238,10 @@ function drawTopo(t){
   if(!t){FX.focus="me";FX.label=null;FX.lit={c1:1,c2:1};FX.litAt={};FX.A.me.gear=3;
     if(FX.mode!=="lobby"){FX.mode="lobby";FX.exp=DEMO;FX.cam=null;runDemo();}return;}
   const exp=t.exp,r=t.round;FX.exp=exp;setLead(t);
-  // a hook clipped this pitch: a quickdraw on the hold just below the leader, the rope running through it, from the
-  // moment it's clipped until the pitch is played out (clipped on the meadow or a ledge, there's nothing to clip to)
-  if(r.hook&&(r.phase==="answer"||r.phase==="reveal")&&FX.A){if(FX.hookRound!==r.id){FX.hookRound=r.id;const me=FX.A.me;
-      FX.hookIx=me.mode==="climb"&&me.hi>1?me.hi-1:null;if(FX.hookIx!=null&&FX.mode==="game"&&r.phase==="answer"){pop(me,"CLIPPED!");sfx("grab");FX.hookAt=FX.time;}}}
-  else if(FX.hookRound!==r.id||!(r.phase==="answer"||r.phase==="reveal")){FX.hookRound=null;FX.hookIx=null;}
+  // the hooks in the wall, each where it was clipped; a new one drops in with a word from whoever clipped it
+  {const hs=(exp.hooks||[]).map(p=>hookIdxAt(exp,p)).filter(i=>i!=null),old=FX.hooks||[],fresh=hs.filter(i=>!old.includes(i));
+    if(fresh.length&&FX.mode==="game"&&r.phase==="answer"&&FX.hooksOf===exp.n){FX.hookNew=fresh[fresh.length-1];FX.hookAt=FX.time;sfx("grab");const who=rigOfId(t,r.hookBy);if(who)pop(who,"CLIPPED!");}
+    FX.hooks=hs;FX.hooksOf=exp.n;}
   const reached=Math.max(idxOf(exp,exp.pitch),idxOf(exp,exp.anchor));
   for(const [k,ix] of [["c1",IDX_C1],["c2",IDX_C2]]){const on=reached>=ix;if(on&&!FX.lit[k]&&FX.mode==="game")FX.litAt[k]=FX.time+1.6;FX.lit[k]=on;}
   FX.focus=r.phase==="summit"?"summit":"me";

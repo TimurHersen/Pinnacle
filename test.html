@@ -150,7 +150,8 @@ document.getElementById("gearNone").onclick=()=>jump(t=>Object.assign(t.exp,{rop
 function forceAnswers(kind){
   const w=eng();let t=w.fixTeam(team());if(!t)return;const r=t.round;
   if(r.phase!=="answer"){note("Go to a pitch first: answers can only be forced on a question.");return;}
-  if(document.getElementById("withHook").checked&&!r.hook&&t.exp.rope>0){t.exp.rope--;r.hook=true;save(t);}
+  if(document.getElementById("withHook").checked&&t.exp.rope>0){ // (a hook for each climber, where they hang)
+    for(const id of Object.keys(t.members)){const at=w.posOf(t.exp,id);if(t.exp.rope>0&&at>(t.exp.anchor||0)&&!t.exp.hooks.includes(at)){t.exp.rope--;t.exp.hooks=[...t.exp.hooks,at].sort((a,b)=>a-b);r.hook=true;r.hookBy=id;r.hookAt=at;}}save(t);}
   const R=t.round;
   if(kind==="time"){R.startedAt=Date.now()-R.dur*1000-3000;save(t);return;}
   const right=R.order.indexOf(0),wrong=(right+1)%4,lead="p1",bel=t.members.p2?"p2":null;
