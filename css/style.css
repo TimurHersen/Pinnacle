@@ -495,3 +495,6 @@ body.home #topo{visibility:hidden} /* (the game's own scene; the painting and it
 /* the simulated partner's hit-rate buttons in the menu */
 .simnote{margin:0;color:var(--muted);font-size:15px;line-height:1.35}
 .simrow{flex-wrap:wrap;gap:8px;margin-top:8px}.simrow .btn{min-width:64px;flex:1 1 auto}
+
+/* on a phone a camp's arrival title keeps to the very top and drops its altitude plate (the panel says it), so it never covers the climbers */
+@media (max-width:700px){.tcard.camp{padding-top:1%}.tcard.camp small{display:none}}

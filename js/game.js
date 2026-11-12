@@ -700,7 +700,7 @@ function revealView(t){
   return frameQ(t,head+`<div class="result ${oc[0]}">${oc[1]}<div><b>${oc[2]}</b><span>${oc[3]}</span></div></div>
    ${other?`<p class="note mateline"><strong>${esc(nameOf(pid))}:</strong> ${other[2].replace(/ you\b/," them")}</p>`:""}
    ${q.x?`<p class="fact">${esc(q.x)}</p>`:""}
-   <div class="actions">${atCamp?`<button class="btn rope" id="nextBtn">Make camp</button>`:atTop?`<button class="btn rope" id="nextBtn">Stand on top</button>`:`<button class="btn rope" id="nextBtn">Next question</button>${canAnchor?`<button class="btn ghost" id="anchorBtn" title="A fall without a hook will drop you no lower than this">Place anchor (${e.anchors} left)</button>`:""}`}</div>`);
+   <div class="actions">${atCamp?`<button class="btn rope" id="nextBtn">Make camp</button>`:atTop?`<button class="btn rope" id="nextBtn">Stand on top</button>`:`<button class="btn rope" id="nextBtn">Next question<span id="nextIn"></span></button>${canAnchor?`<button class="btn ghost" id="anchorBtn" title="A fall without a hook will drop you no lower than this">Place anchor (${e.anchors} left)</button>`:""}`}</div>`);
 }
 // the map's panel: the three mountains as cards (the map above has them as pins too), the picked one's details,
 // and the way to set off
@@ -855,10 +855,17 @@ function updateDynamic(t){
 }
 
 /* ============================== TICK ============================== */
+// after an ordinary pitch the next question comes by itself, a few seconds after the result (the button counts down
+// and still works; a camp or the summit waits for a press, and so does an open menu)
+const AUTO_NEXT_MS=11000;
+function autoNext(t){const r=t.round,el=$("#nextIn");
+  if(r.phase!=="reveal"||!r.resolvedAt||r.result?.arrived||S.sus===r.id){if(el)el.textContent="";return;}
+  const left=Math.ceil((r.resolvedAt+AUTO_NEXT_MS-now())/1000);if(el)el.textContent=left>0?` · ${left}`:"";
+  const menu=$("#menu");if(left<=0&&S._auto!==r.id&&!(menu&&!menu.hidden)&&t.members[S.uid]){S._auto=r.id;advance(false);}}
 let tickN=0;
 setInterval(()=>{
   if(++tickN%40===0)updateOnline();
-  const t=S.team;if(!t)return;simTick(t);if(t.round.phase!=="answer"){updateDynamic(t);return;}
+  const t=S.team;if(!t)return;simTick(t);autoNext(t);if(t.round.phase!=="answer"){updateDynamic(t);return;}
   renderPanel(t); // (the count gives way to the question; otherwise this only moves the clock)
   const r=t.round,rem=remaining(r);
   // out of time: whatever is selected is locked in (or no answer)
