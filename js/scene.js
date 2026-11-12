@@ -337,7 +337,10 @@ function setLead(t){if(!FX.rigs||t.round.phase==="map")return;const ids=memberId
 // (five holds) below the first (never so low their boots would be in a ledge). Alone on the rope, the partner drawn with them
 // follows as a belayer would
 function rigTargets(t){const exp=t.exp,ids=memberIds(t),T=new Map(),A=FX.A;
-  if(ids.length<2){const r=rigOfId(t,ids[0])||A.me,o=FX.rigs.find(x=>x!==r),ix=idxOf(exp,posOf(exp,ids[0]));T.set(r,ix);T.set(o,mateIdx(ix,o.hi));return T;}
+  if(ids.length<2){const r=rigOfId(t,ids[0])||A.me,o=FX.rigs.find(x=>x!==r),ix=idxOf(exp,posOf(exp,ids[0]));T.set(r,ix);
+    // (alone on the rope, the figure drawn as the partner is only company: it follows a pitch below, never left
+    // standing at the bottom as if it were a second player who had stopped)
+    const f=mateIdx(ix,null),base=ix>IDX_C2?IDX_C2:ix>IDX_C1?IDX_C1:0,g=ix-8;T.set(o,f===ix?ix:g-base>=LOW+1?g:base);return T;}
   const a=idxOf(exp,posOf(exp,ids[0])),b=idxOf(exp,posOf(exp,ids[1]));
   if(a===b&&!isLedge(a)){const lo=Math.max(a-5,ledgeBelow(a)+LOW),hi=Math.max(a,lo+5);T.set(A.me,hi);T.set(A.mate,lo);}
   else{T.set(rigOfId(t,ids[0]),a);T.set(rigOfId(t,ids[1]),b);}
