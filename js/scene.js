@@ -369,7 +369,13 @@ const ART_POSE={hang:["climb",0],chalk:["climb",0],shake1:["climb",0],shake2:["c
   pull:["climb",4],crouch:["climb",5],reachL:["climb",6],mantle:["climb",7],look:["idle",1],hop:["idle",3],
   yank1:["yank",1],yank2:["yank",2],yank3:["yank",3],yank4:["yank",4],yank5:["yank",5]};
 const HANG_ART=["fall",2]; // hanging back in the harness
-const TIE=[72,63];          // the front of the belt in the climbing frames (where the rope ties in)
+const TIE=[68,66];          // the front of the belt in the climbing frames (where the rope ties in)
+/* Climbing: the clip is an in-place cycle (reach with one hand as the opposite foot steps up, pull, then the other
+   side). So that a hand or boot on the rock stays where it is while the body moves, the frame is taken from the
+   climber's height and the sprite is drawn in steps of CLIMB_STEP pixels, one per frame: each new frame, the body is
+   that much higher and the planted limbs that much lower in it. Climbing down runs it backwards. */
+const CLIMB_STEP=7,CLIMB_X1=93; // (CLIMB_X1: the frames' rightmost pixel, a hand or a toe, which goes into the rock)
+const climbQ=y=>Math.round(y/CLIMB_STEP);
 const REST_N=9,REST_MS=1700; // the resting and dangling clips: nine frames each, the rest played once through
 // the pull-up onto a ledge: nine frames on a tall canvas, the first the hanging climb frame, the last standing up
 // on top. `hang` is where the climb clip's frame sits in that canvas and `stand` where the idle clip's does.
@@ -392,7 +398,6 @@ function loadClimber(L){const who=CLIMBER_ART[L.name],A=L.art={clips:{},ready:0}
   // the extra clips ride at the end of the clips whose placement they share: both rests after the climb's frames
   // (hand up as in frame 3, then as in frame 7), the dangle after the fall's
   const extra=(dir,n,done)=>{const fr=[];let k=n;for(let i=0;i<n;i++){const im=new Image();im.onload=()=>{if(!--k)done(fr);};im.src=asset(`assets/climbers/${who}/${dir}/${i}.png`);fr.push(im);}};
-  extra("rest3",REST_N,a=>extra("rest7",REST_N,b=>{A.clips.climb.push(...a,...b);A.rest=1;}));
   extra("dangle",REST_N,a=>{A.clips.fall.push(...a);A.dangle=1;});
   extra("mantle",MANTLE_N,a=>{A.mantle=a;A.mantleAt=MANTLE[who];});
   extra("look",STAND_N,a=>extra("drink",STAND_N,b=>extra("land",LAND_N,c=>{A.clips.idle.push(...a,...b,...c);A.stand=1;})));}
@@ -527,7 +532,7 @@ class Rig{
   grab(i){this.mode="climb";this.fall=null;this.mv=null;this.hi=i;const p=this.hangAt(i);this.N.x=p.x;this.N.y=p.y;this.play([["hang",1e9]]);this.calm();this.pin();}
   // one move up the wall: the free hand reaches for the next hold while the body stays put, then the climber pulls
   // up onto it in one quick, eased heave (the climb clip plays across both halves, see artFrame)
-  stepUp(d){const n=++this.hi,p=this.hangAt(n),ms=d*1000;this.mode="climb";this.slide(p.x,p.y,d,0,REACH_PULL);
+  stepUp(d){const n=++this.hi,p=this.hangAt(n),ms=d*1000;this.mode="climb";this.slide(p.x,p.y,d);
     this.play([[n%2?"reachR":"reachL",ms*.5],["pull",ms*.5],["hang",1e9]]);this.calm();}
   dyno(d){const ms=d*1000;this.hi+=2;const p=this.hangAt(this.hi);this.mode="climb";this.slide(p.x,p.y,d*.6,d*.3);
     this.play([["crouch",ms*.3],["jump",ms*.6],["pull",ms*.1],["hang",1e9]]);this.calm();}
@@ -606,13 +611,7 @@ class Rig{
   artFrame(t){
     // jolted on the wall (the rope jerked): snapped back off the rock, arms out, for a moment before grabbing on again
     // (while a move off a ledge or a fall waits to start, the body keeps the frame it had, so it never dips first)
-    if(this.mode==="climb"&&this.mv&&this.mv.wait>0&&this.lastArt)return this.lastArt;
-    if(this.mode==="climb"){const half=CLIP_N.climb>>1,base=(this.hi&1)*half,m=this.mv;
-      // resting between moves: the lower hand drops and shakes out, then goes back to its grip (the frames follow
-      // the climb clip's own, so they are placed on the wall the same way)
-      if(this.pose==="rest"&&this.clip&&!m&&this.L.art.rest)return ["climb",CLIP_N.climb+(this.hi&1)*REST_N+Math.min(REST_N-1,Math.floor(this.clip.t/REST_MS*REST_N))];
-      if(m&&m.wait<=0)return ["climb",(base+Math.min(half-1,Math.floor(m.t/m.d*half)))%CLIP_N.climb];
-      return ["climb",(base+half-1+(this.pose==="shake2"?1:0))%CLIP_N.climb];}
+    if(this.mode==="climb"){const n=CLIP_N.climb,q=climbQ(this.N.y);return ["climb",((-q)%n+n)%n];}
     // a fall: tipping back off the wall (two frames), then flailing on a loop; once the rope has caught them, they
     // hang back in the harness
     if(this.mode==="fall"){const F=this.fall,ft=FX.time-(F?F.t0:0);
@@ -657,10 +656,11 @@ class Rig{
       // rock at their own height, so the climber hugs the face; a falling climber keeps the hand anchor)
       // (but out on the overhang under a camp ledge the rock at the boots lies well in from the hands, so there the
       // hands set it, as they do for the rope and the holds)
-      const f=k==="climb"&&this.mode==="climb"&&FX.exp?feetOf(fr[0]):null,wy=f&&R0(this.N.y+HANG[1]-1-b.y0+f.y);
-      if(f&&!this.mantling&&Math.abs(laneX(FX.exp.choice,wy)-laneX(FX.exp.choice,R0(this.N.y+HANG[1])))<6)
-        this.blit(g,img,R0(laneX(FX.exp.choice,wy)+8)+(x-R0(this.N.x))+3-f.x,y+HANG[1]-1-b.y0,"wall",ox,oy);
-      else if(k==="climb")this.blit(g,img,x+HANG[0]+2-b.x1,y+HANG[1]-1-b.y0,"hand",ox,oy);
+      // (on the wall: in steps with the frames, and far enough right that the reaching hand and the toes sit a
+      // few pixels into the rock, so the climber is on the face, not beside it)
+      if(k==="climb"&&this.mode==="climb"&&!this.mantling){const yq=climbQ(this.N.y)*CLIMB_STEP+R0(FX.sub||0)+oy+jo;
+        this.blit(g,img,x+HANG[0]+9-CLIMB_X1,yq+HANG[1]-1-b.y0,"wall",ox,oy);}
+      else if(k==="climb")this.blit(g,img,x+HANG[0]+9-CLIMB_X1,y+HANG[1]-1-b.y0,"wall",ox,oy);
       else this.blit(g,img,x-(flip?W-1-((b.x0+b.x1)>>1):(b.x0+b.x1)>>1),y+LEG-b.y1,"feet:"+k+(flip?"<":">"),ox,oy);
       // (the harness: on the wall at the belt's front in the climbing frames; standing, just ahead of the hips)
       this.tieW=k==="climb"?{x:this.at[0]-ox+TIE[0],y:this.at[1]-oy+TIE[1]}:{x:x-ox+4*this.dir,y:y-oy+3};}
