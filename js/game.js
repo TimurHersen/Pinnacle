@@ -377,7 +377,9 @@ async function joinTeam(){
     if(!t){err.textContent="No rope team with that code.";return;}
     const ids=Object.keys(t.members);
     if(ids.includes(S.uid)){rememberTeam(code,t.name);openTeam(code);return;}
-    if(ids.length>=2){
+    if(ids.length>=2&&simOf(t)){delete t.members[SIM];if(t.exp.up[SIM]!=null){t.exp.up[S.uid]=t.exp.up[SIM];delete t.exp.up[SIM];}
+      if(t.round.leader===SIM)t.round.leader=S.uid;if(t.round.votes[SIM]){t.round.votes[S.uid]=t.round.votes[SIM];delete t.round.votes[SIM];}}
+    else if(ids.length>=2){
       err.textContent="This rope team already has two climbers. Playing on a new device? Take over your own place:";
       $("#seats").innerHTML=`<div class="actions" style="margin-top:8px">${ids.map(id=>`<button class="btn ghost" data-id="${esc(id)}">I'm ${esc(t.members[id].name||"this climber")}</button>`).join("")}</div>`;
       $("#seats").querySelectorAll("button").forEach(b=>b.onclick=()=>takeSeat(code,b.dataset.id));
@@ -430,7 +432,7 @@ const WAKE={lock:null,
       if(!S.code)WAKE.off();}catch(e){WAKE.lock=null;}},
   off(){const l=WAKE.lock;WAKE.lock=null;if(l)l.release().catch(()=>{});}};
 document.addEventListener("visibilitychange",()=>{if(S.code)WAKE.on();});
-function updateOnline(){const n=now();S.online=new Set(Object.entries(S.pres||{}).filter(([,v])=>n-v<60000).map(([k])=>k));if(S.team)renderBar();}
+function updateOnline(){const n=now();S.online=new Set(Object.entries(S.pres||{}).filter(([,v])=>n-v<60000).map(([k])=>k));if(simOf(S.team))S.online.add(SIM);if(S.team)renderBar();}
 function openTeam(code){
   closeTeam();S.code=code;hideHome();$("#main").hidden=false;if(typeof MUSIC!=="undefined")MUSIC.want(true,"climb");try{history.replaceState(null,"","#t-"+code);}catch(e){}
   const main=$("#main");main.className="";main.innerHTML=`<div class="panel"><p class="note">Clipping in…</p></div>`;
@@ -516,11 +518,39 @@ function openMenu(){const t=S.team,el=$("#menu");if(!t||!el)return;
       <section><h3>Team record</h3><div class="lines">${row("Summits",st.summits||0)}${b?row("Best ascent",`${stars(b)} ${b.right}/${b.q} right${b.ms?` · ${fmtDur(b.ms)}`:""}`):""}${row("Questions",st.rounds||0)}${two?row("In sync",st.synced||0):""}${row("Falls",st.falls||0)}</div></section>
       <section><h3>Expedition log</h3><ol class="log">${t.log.slice(-12).reverse().map(l=>`<li>${esc(l.text)}</li>`).join("")}</ol></section>
       <section><h3>Settings</h3>${settingsHtml()}</section>
+      ${simHtml(t)}
     </div>
     <div class="actions mfoot"><button class="btn rope" id="menuBack">Back to the climb</button><button class="btn" id="menuInvite">${two?"Share invite link":"Invite partner"}</button><button class="btn ghost" id="menuLeave">Leave to title</button></div></div>`;
   el.hidden=false;syncSettings();sfx("pop");
+  el.querySelectorAll("[data-sim]").forEach(b=>b.onclick=()=>setSim(b.dataset.sim==="off"?null:+b.dataset.sim));
   $("#menuX").onclick=$("#menuBack").onclick=closeMenu;$("#menuInvite").onclick=invite;$("#menuLeave").onclick=goLobby;
   el.onclick=e=>{if(e.target===el)closeMenu();};$("#menuBack").focus({preventScroll:true});}
+/* A simulated partner, for trying the two-climber game alone: a member of the team (id SIM) that this player's
+   game answers for, right as often as the chosen hit rate, and that votes the way this player does on the map and
+   at camp. A real partner who joins takes its place on the rope. */
+const SIM="sim",SIM_RATES=[25,50,75,100];
+const simOf=t=>t&&t.members&&t.members[SIM]&&t.members[SIM].sim!=null?t.members[SIM]:null;
+function simHtml(t){const sm=simOf(t),n=memberIds(t).length;if(!sm&&n>1)return "";
+  return `<section><h3>Simulated partner</h3><p class="simnote">${sm?"A stand-in is on the rope with you. It answers right this often:":"Try the two-climber game alone: a stand-in answers for the second climber. How often should it be right?"}</p>
+    <div class="actions simrow">${SIM_RATES.map(r=>`<button class="btn ${sm&&sm.sim===r?"rope":"ghost"}" data-sim="${r}">${r}%</button>`).join("")}${sm?`<button class="btn ghost" data-sim="off">Remove</button>`:""}</div></section>`;}
+function setSim(rate){
+  guarded(t=>{const sm=simOf(t);
+    if(rate==null){if(!sm)return null;delete t.members[SIM];if(t.exp.up)delete t.exp.up[SIM];delete t.round.votes[SIM];if(t.round.leader===SIM)t.round.leader=S.uid;
+      t.log=t.log.slice(-39);t.log.push({at:Date.now(),text:"The simulated partner left the rope."});return t;}
+    if(sm){sm.sim=rate;return t;}
+    if(memberIds(t).length>1)return null;
+    t.members[SIM]={name:"Sim climber",joined:Date.now(),sim:rate};
+    t.log=t.log.slice(-39);t.log.push({at:Date.now(),text:`A simulated partner clipped in (right ${rate}% of the time).`});return t;}).then(()=>{closeMenu();setTimeout(updateOnline,600);toast(rate==null?"Simulated partner removed":`Simulated partner: right ${rate}% of the time`);});}
+// (run from the tick, by the one real climber: the stand-in's answer a few seconds into the question, and its votes)
+function simTick(t){const sm=simOf(t);if(!sm||!t.members[S.uid])return;const r=t.round;
+  if(r.phase==="answer"){if(S.answers[SIM]||S._simSent===r.id)return;
+    if(S._simFor!==r.id){S._simFor=r.id;S._simAt=r.startedAt+Math.min(2000+Math.random()*6000,Math.max(500,r.dur*1000-1500));}
+    if(now()<S._simAt)return;S._simSent=r.id;
+    const right=r.order.indexOf(0),cut=Array.isArray(r.cut)?r.cut:[],wrong=[0,1,2,3].filter(i=>i!==right&&!cut.includes(i)),ok=Math.random()*100<sm.sim;
+    fb.put(`answers/${S.code}/${r.id}/${SIM}`,{roundId:r.id,uid:SIM,at:Date.now(),choice:ok||!wrong.length?right:wrong[Math.floor(Math.random()*wrong.length)]}).catch(()=>{S._simSent=null;});}
+  else if(r.phase==="map"||r.phase==="camp"){const mine=(r.votes||{})[S.uid],its=(r.votes||{})[SIM],k=JSON.stringify(mine||null);
+    if(mine&&k!==JSON.stringify(its||null)&&S._simVote!==r.id+k&&Date.now()-(S._simVoteAt||0)>800){S._simVote=r.id+k;S._simVoteAt=Date.now();
+      fb.put(`teams/${S.code}/round/votes/${SIM}`,mine).catch(()=>{S._simVote=null;});}}}
 function closeMenu(){const el=$("#menu");if(el&&!el.hidden){el.hidden=true;el.innerHTML="";}}
 addEventListener("keydown",e=>{if(e.key==="Escape")closeMenu();});
 // the invite: on a phone it goes out through the share sheet (messages, mail…); elsewhere the link is copied
@@ -828,13 +858,13 @@ function updateDynamic(t){
 let tickN=0;
 setInterval(()=>{
   if(++tickN%40===0)updateOnline();
-  const t=S.team;if(!t)return;if(t.round.phase!=="answer"){updateDynamic(t);return;}
+  const t=S.team;if(!t)return;simTick(t);if(t.round.phase!=="answer"){updateDynamic(t);return;}
   renderPanel(t); // (the count gives way to the question; otherwise this only moves the clock)
   const r=t.round,rem=remaining(r);
   // out of time: whatever is selected is locked in (or no answer)
   if(rem<=0&&!S.answers[S.uid]&&S._autoSent!==r.id){S._autoSent=r.id;submit({choice:S.local.choice??null});}
   const all=memberIds(t).every(id=>S.answers[id]);
   // the pitch's leader judges; the partner steps in if the leader is away or slow
-  const mine=r.leader===S.uid||!t.members[r.leader]||!S.online.has(r.leader)||rem<=-10;
+  const mine=r.leader===S.uid||!t.members[r.leader]||!S.online.has(r.leader)||r.leader===SIM||rem<=-10;
   if((all||rem<=-2)&&mine&&Date.now()-(S._lastTry||0)>2500){S._lastTry=Date.now();tryResolve();}
 },250);

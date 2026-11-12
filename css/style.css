@@ -491,3 +491,7 @@ body.home #topo{visibility:hidden} /* (the game's own scene; the painting and it
   .conn{left:calc(var(--side) + (100% - var(--side))/2);top:calc(56px + env(safe-area-inset-top,0px))}
   .toast{left:calc(var(--side) + (100% - var(--side))/2)}
 }
+
+/* the simulated partner's hit-rate buttons in the menu */
+.simnote{margin:0;color:var(--muted);font-size:15px;line-height:1.35}
+.simrow{flex-wrap:wrap;gap:8px;margin-top:8px}.simrow .btn{min-width:64px;flex:1 1 auto}
