@@ -5,22 +5,59 @@
     "teams": {
       "$code": {
         ".read": true,
-        ".write": true,
-        ".validate": "$code.matches(/^[A-Z0-9]{6}$/)"
+        ".write": "newData.exists()",
+        ".validate": "$code.matches(/^[A-Z0-9]{6}$/) && newData.hasChildren(['name', 'members', 'exp', 'round'])",
+        "name": { ".validate": "newData.isString() && newData.val().length <= 64" },
+        "code": { ".validate": "newData.val() === $code" },
+        "members": {
+          "$uid": {
+            ".validate": "$uid.matches(/^[a-z0-9]{1,32}$/) && newData.hasChild('name')",
+            "name": { ".validate": "newData.isString() && newData.val().length <= 40" },
+            "joined": { ".validate": "newData.isNumber()" }
+          }
+        },
+        "round": {
+          ".validate": "newData.hasChild('id') && newData.hasChild('phase')",
+          "id": { ".validate": "newData.isNumber()" },
+          "phase": { ".validate": "newData.isString() && newData.val().length <= 12" }
+        },
+        "log": {
+          "$i": {
+            "text": { ".validate": "newData.isString() && newData.val().length <= 1000" }
+          }
+        }
       }
     },
     "answers": {
       "$code": {
         ".read": true,
         ".write": true,
-        ".validate": "$code.matches(/^[A-Z0-9]{6}$/)"
+        ".validate": "$code.matches(/^[A-Z0-9]{6}$/)",
+        "$rid": {
+          ".validate": "$rid.matches(/^[0-9]{1,9}$/)",
+          "_talk": {
+            "$msg": {
+              ".validate": "newData.hasChildren(['uid', 'text', 'at'])",
+              "text": { ".validate": "newData.isString() && newData.val().length <= 60" },
+              "$other": { ".validate": "$other === 'uid' || $other === 'at'" }
+            }
+          },
+          "$uid": {
+            ".validate": "$uid.matches(/^[a-z0-9]{1,32}$/) && newData.hasChildren(['roundId', 'uid', 'at'])",
+            "choice": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
+            "$other": { ".validate": "$other === 'roundId' || $other === 'uid' || $other === 'at'" }
+          }
+        }
       }
     },
     "presence": {
       "$code": {
         ".read": true,
-        ".write": true,
-        ".validate": "$code.matches(/^[A-Z0-9]{6}$/)"
+        ".validate": "$code.matches(/^[A-Z0-9]{6}$/)",
+        "$uid": {
+          ".write": true,
+          ".validate": "$uid.matches(/^[a-z0-9]{1,32}$/) && newData.isNumber()"
+        }
       }
     }
   }

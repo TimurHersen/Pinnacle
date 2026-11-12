@@ -330,7 +330,7 @@ body:has(#main.game2) .hud{left:var(--edge)}
   position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%)}
 .wpin b{font:400 10px/1 var(--head);color:var(--cream);text-transform:uppercase;letter-spacing:.02em}
 .wpin small{font:600 11px/1 var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:flex;gap:4px;align-items:center}
-.wpin small .px{width:10px;height:10px}.wpin .tier{font-size:9px;letter-spacing:1px}
+.wpin small .px{width:10px;height:10px}.wpin .tier{font-size:11px;letter-spacing:1px}
 .wtags{display:flex;gap:3px}.wtags em{font:400 8px/1 var(--head);font-style:normal;padding:3px 4px;color:var(--gold);border:2px solid var(--gold);background:var(--navy)}
 .wtags em.me{color:#1b1408;background:var(--gold)}
 .wpin.sel{z-index:2}.wpin.sel .wplate{border-color:var(--gold);background:#2a2412}
@@ -422,6 +422,9 @@ body:has(#main.game2) .hud{left:var(--edge)}
 }
 @media (max-width:340px){.qopts,#main.game2 .routes,#main.game2 .routes.bonus{grid-template-columns:1fr}}
 
+/* text for screen readers only */
+.sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
 /* ---------- the title screen (js/title.js): the dusk painting, a pixel-art logo and a pixel-art menu ----------
    --u is the size of one of the painting's pixels on screen, so every frame and label lines up with it */
 #menubg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:88% 60%;image-rendering:pixelated;display:none}
@@ -455,7 +458,9 @@ body.home #topo{visibility:hidden} /* (the game's own scene; the painting and it
 #main.lobby .back{justify-self:start}
 @media (min-width:900px) and (min-height:521px){#main.lobby{left:calc(50% - 120px);width:min(460px,calc(100% - 2*var(--edge)));bottom:auto;max-height:calc(100% - 100px)}}
 @media (max-width:899px),(max-height:520px){#home.away .pmenu{opacity:0;pointer-events:none}}
-@media (max-width:600px) and (orientation:portrait){.pmenu{left:50%;transform:translateX(-50%);bottom:auto;top:46%}.pbtn::before{display:none}}
+/* (upright phones: centred under the logo, and on shorter screens lifted so it ends above the climbers by the fire,
+   who stand from about 72% of the way down; four items are about 67 painting pixels tall) */
+@media (max-width:600px) and (orientation:portrait){.pmenu{left:50%;transform:translateX(-50%);bottom:auto;top:min(46%,calc(72% - 67*var(--u)))}.pbtn::before{display:none}}
 /* short, wide screens: the menu and the logo side by side, both centred top to bottom (titleScale sets .side and --lx) */
 #home.side .tlogo{top:50%;transform:translate(-50%,-50%)}
 #home.side .pmenu{top:50%;bottom:auto;left:calc(16*var(--u));transform:translateY(-50%)}

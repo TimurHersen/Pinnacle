@@ -15,8 +15,11 @@ const clone=o=>JSON.parse(JSON.stringify(o));
 const fmt=n=>Math.round(n).toLocaleString("en-US").replace(/,/g," ");
 // an art file's address at the art's version (see index.html), so a changed picture is fetched fresh
 const asset=p=>window.AV?`${p}?${window.AV}`:p;
-// a crevasse number as written: a bare count or year (no unit) without the thousands space, so 1523 never reads "1 523"
-const qnum=(n,q)=>q&&!q.u?String(Math.round(n)):fmt(n);
+// a line for screen readers (the live region #sr), said once per key so a re-render never repeats it
+// (html: the line is markup from the panels, read as plain text through DOMParser, which never runs anything in it)
+function say(text,key,html){if(key!=null){if(say._k===key)return;say._k=key;}const el=$("#sr");if(!el)return;
+  if(html)text=new DOMParser().parseFromString(text,"text/html").body.textContent.replace(/\s+/g," ").trim();
+  el.textContent="";setTimeout(()=>{el.textContent=text;},50);}
 function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,2600);}
 // in the order they joined, so whoever made the team is player 1
 const memberIds=t=>{const m=t.members||{};return Object.keys(m).sort((a,b)=>(m[a].joined||0)-(m[b].joined||0)||(a<b?-1:a>b?1:0));};
@@ -38,7 +41,8 @@ const fb={
     const r=await fetch(fb.url(p),{method:"PUT",headers:h,body:JSON.stringify(v)});
     if(r.status===412)return false;if(!r.ok)throw new Error("put "+r.status);return true;},
   async patch(p,v){const r=await fetch(fb.url(p),{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(v)});if(!r.ok)throw new Error("patch "+r.status);},
-  del(p){return fetch(fb.url(p),{method:"DELETE"}).catch(()=>{});},
+  // (keepalive lets a delete sent as the page closes still go through)
+  del(p,keepalive){return fetch(fb.url(p),{method:"DELETE",keepalive:!!keepalive}).catch(()=>{});},
   listen(p,cb){
     let tree=null;const es=new EventSource(fb.url(p));
     const isObj=x=>x&&typeof x==="object";
@@ -278,7 +282,9 @@ async function tryResolve(){
     if(!t||t.round.id!==rid||t.round.phase!=="answer")return;
     const ans=(await fb.get(`answers/${S.code}/${rid}`))||{};
     const ok=await fb.put("teams/"+S.code,applyOutcome(t,judge(t,ans)),etag);
-    if(ok)fb.del(`answers/${S.code}/${rid-3}`);
+    // (rounds without a question, at camp or on the map, keep radio messages too, so the ten rounds below the last
+    // two are cleared in one go)
+    if(ok){const old={};for(let i=rid-12;i<=rid-3;i++)if(i>=0)old[i]=null;if(Object.keys(old).length)fb.patch(`answers/${S.code}`,old).catch(()=>{});}
   }catch(e){console.error(e);}
   finally{S.resolving=false;}
 }
@@ -358,7 +364,7 @@ async function createTeam(){
   const name=($("#tname").value||"").trim()||"Rope Team";const code=randCode();
   const btn=$("#createBtn");btn.disabled=true;
   const t={name,code,createdAt:Date.now(),createdBy:S.uid,members:{[S.uid]:{name:me,joined:Date.now()}},
-    exp:newExp(1),round:{id:0,phase:"map",votes:{}},log:[{at:Date.now(),text:`${name} roped up and opened the map.`}],stats:{rounds:0,summits:0,wins:0,echoes:0,falls:0}};
+    exp:newExp(1),round:{id:0,phase:"map",votes:{}},log:[{at:Date.now(),text:`${name} roped up and opened the map.`}],stats:{rounds:0,summits:0,falls:0}};
   try{await fb.put("teams/"+code,t);rememberTeam(code,name);openTeam(code);}
   catch(e){err.textContent="Couldn't create the team. Check your connection and try again.";btn.disabled=false;}
 }
@@ -395,7 +401,11 @@ async function takeSeat(code,old){
 }
 
 /* ============================== GAME SESSION ============================== */
+// leaving a rope team (or closing the page) takes this climber off its online list straight away
+const leavePresence=keepalive=>{if(S.code&&S.uid)fb.del(`presence/${S.code}/${S.uid}`,keepalive);};
+addEventListener("pagehide",()=>leavePresence(true));
 function closeTeam(){
+  leavePresence(false);
   WAKE.off();S.unsubTeam?.();S.unsubAns?.();S.unsubPres?.();clearInterval(S.presTimer);
   S.unsubTeam=S.unsubAns=S.unsubPres=null;S.team=null;S.code=null;S.answers={};S.ansRound=null;S.panelKey=null;S.online=new Set();S.pres={};
   S.sus=S.seen=S.step=null;S.unread=0;S.radioOpen=false;closeMenu();const rb=$("#radioBtn"),bb=$("#rbubble");if(rb)rb.hidden=true;if(bb)bb.hidden=true;
@@ -578,7 +588,8 @@ const clock=rem=>{const s=Math.max(0,Math.ceil(rem));return `${Math.floor(s/60)}
 function panelArt(t){const m=t.exp.m&&MOUNTAINS[t.exp.m],[cx,cy]=m?[m.map[0],m.map[1]+26]:MAP_CAMP;
   const x=Math.max(0,Math.min(MAP_W-112,cx-56)),y=Math.max(0,Math.min(MAP_W-88,cy-44));
   return `<div class="qart"><i style="background-image:url('${asset("assets/map.png")}');background-position:${-x}px ${-y}px"></i></div>`;}
-const tierMarks=k=>`<span class="tier" aria-label="difficulty ${k} of 4">${"▲".repeat(k)}<i>${"▲".repeat(4-k)}</i></span>`;
+// difficulty as filled and empty triangles: k of n (questions and routes out of 4, mountains out of 3)
+const tierMarks=(k,n=4)=>`<span class="tier" aria-label="difficulty ${k} of ${n}">${"▲".repeat(k)}<i>${"▲".repeat(n-k)}</i></span>`;
 // "Stage 2 · Pitch 3/5": where a pitch sits on the whole climb
 const pitchLabel=(e,p)=>{const so=stageOf(e,p);return `Stage ${so.s+1} · Pitch ${Math.min(so.i+1,so.n)}/${so.n}`;};
 
@@ -655,6 +666,7 @@ function revealView(t){
   if(sus)return frameQ(t,head+`<div class="result wait"><div><b class="dots">The rope goes tight</b></div></div>`);
   const oc=o.arrived==="summit"?["good",ICON.flag,"Summit reached!","You both stand on top."]:o.arrived?["good",ICON.tent,`${o.arrived} reached!`,"You're both on the ledge."]:outcomeOf(t,S.uid,o);
   const other=pid&&!o.arrived?outcomeOf(t,pid,o):null;
+  if(!sus)say([oc[2],oc[3],other?`${esc(nameOf(pid))}: ${other[2].replace(/ you\b/," them")}`:"",`The answer was ${esc(q.o[0])}.`].filter(Boolean).join(" "),"reveal"+r.id,true);
   return frameQ(t,head+`<div class="result ${oc[0]}">${oc[1]}<div><b>${oc[2]}</b><span>${oc[3]}</span></div></div>
    ${other?`<p class="note mateline"><strong>${esc(nameOf(pid))}:</strong> ${other[2].replace(/ you\b/," them")}</p>`:""}
    ${q.x?`<p class="fact">${esc(q.x)}</p>`:""}
@@ -662,13 +674,12 @@ function revealView(t){
 }
 // the map's panel: the three mountains as cards (the map above has them as pins too), the picked one's details,
 // and the way to set off
-const diffMarks=k=>`<span class="tier" aria-label="difficulty ${k} of 3">${"▲".repeat(k)}<i>${"▲".repeat(3-k)}</i></span>`;
 function mapView(t){
   const r=t.round,votes=r.votes||{},ids=memberIds(t),solo=ids.length<2,lead=solo||leaderOf(t)===S.uid,mine=votes[S.uid]?.mtn,pk=t.stats?.peaks||{};
   const pick=mapPick(t),agreed=ids.every(i=>votes[i]?.mtn===pick),can=pick&&(lead||agreed);
   const who=k=>ids.filter(i=>votes[i]?.mtn===k).map(i=>esc(nameOf(i))).join(", ")||"&nbsp;";
   const card=k=>{const m=MOUNTAINS[k],rec=pk[k];return `<button class="route mcard d${m.diff} ${mine===k?"sel":""}" data-mtn="${k}">
-    <h4>${esc(m.name)}</h4><span class="rmeta">${diffMarks(m.diff)} ${m.label}</span>
+    <h4>${esc(m.name)}</h4><span class="rmeta">${tierMarks(m.diff,3)} ${m.label}</span>
     <span class="mfacts">${fmt(m.alt.top)} m · ${m.secs} s · ${m.hooks} hooks</span>
     ${rec?`<span class="mrec">${ICON.flag} Climbed ${rec.n}×</span>`:""}<span class="votes">${who(k)}</span></button>`;};
   const m=pick&&MOUNTAINS[pick];
@@ -687,7 +698,7 @@ function renderWorld(t){const el=$("#world");if(!el)return;const r=t&&t.round,on
   if(S.worldKey!==key){S.worldKey=key;const M=MAP_ART[shape];
     const pin=k=>{const m=MOUNTAINS[k],[x,y]=M.pins[k],tags=ids.filter(i=>votes[i]?.mtn===k).map(i=>`<em class="${i===S.uid?"me":""}">${ptag(t,i)}</em>`).join("");
       return `<button class="wpin d${m.diff} ${votes[S.uid]?.mtn===k?"sel":""}" data-mtn="${k}" style="left:${100*x/M.w}%;top:${100*y/M.h}%" aria-label="${esc(m.name)}, ${m.label}">
-        <span class="wflag" aria-hidden="true"></span><span class="wplate"><b>${esc(m.name)}</b><small>${diffMarks(m.diff)}<span class="lbl"> ${m.label}</span>${pk[k]?ICON.flag:""}</small>${tags?`<span class="wtags">${tags}</span>`:""}</span></button>`;};
+        <span class="wflag" aria-hidden="true"></span><span class="wplate"><b>${esc(m.name)}</b><small>${tierMarks(m.diff,3)}<span class="lbl"> ${m.label}</span>${pk[k]?ICON.flag:""}</small>${tags?`<span class="wtags">${tags}</span>`:""}</span></button>`;};
     el.innerHTML=`<div class="wmap" data-shape="${shape}"><img src="${asset(M.src)}" alt="A painted map of a mountain range: a green hill, a granite peak and an ice giant above a valley with a lake">
       <span class="wcamp" style="left:${100*M.camp[0]/M.w}%;top:${100*M.camp[1]/M.h}%">Camp</span>${MOUNTAIN_ORDER.map(pin).join("")}</div>`;
     el.querySelectorAll(".wpin").forEach(b=>b.onclick=()=>pickMountain(b.dataset.mtn));}
@@ -801,10 +812,13 @@ function wirePanel(t){
 function updateDynamic(t){
   const r=t.round;updateRadio(t);if(r.phase!=="answer")return;
   // the count before the clock starts, a tick for each number
-  if(now()<r.startedAt){const c=$("#count"),n=String(Math.ceil((r.startedAt-now())/1000));if(c&&c.textContent!==n){c.textContent=n;sfx("tick");}return;}
+  if(now()<r.startedAt){const c=$("#count"),n=String(Math.ceil((r.startedAt-now())/1000));if(c&&c.textContent!==n){c.textContent=n;sfx("tick");}
+    say(`Next question in ${n} seconds.`,"count"+r.id);return;}
+  {const q=quizById(r.qid);if(q)say(`${q.q} ${r.order.map((k,i)=>`${LETTERS[i]}: ${q.o[k]}.`).join(" ")}`,"q"+r.id);}
   const rem=remaining(r),bar=$("#timerBar"),txt=$("#qtime"),ptx=$("#partnerTxt");
   if(bar)bar.style.width=Math.max(0,Math.min(100,100*rem/r.dur))+"%";
   if(txt){txt.textContent=clock(rem);txt.classList.toggle("low",rem<=10);}
+  if(rem>0&&rem<=10&&!S.answers[S.uid])say("Ten seconds left.","low"+r.id);
   // the last five seconds tick, for whoever hasn't locked in yet
   const s=Math.ceil(rem);if(rem>0&&s<=5&&!S.answers[S.uid]&&S._beep!==r.id+":"+s){S._beep=r.id+":"+s;sfx("tick");}
   const pid=partnerId(t);if(ptx)ptx.textContent=pid?(S.answers[pid]?`${nameOf(pid)} is locked in`:`${nameOf(pid)} is thinking…`):"";

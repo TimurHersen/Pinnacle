@@ -20,10 +20,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pixelify+Sans:wght@400;500;600;700&display=swap">
 <script>
-/* GitHub Pages lets browsers keep every file for ten minutes, so after an update a browser could go on running the
-   old game. The game's own files (styles, scripts and art) are fetched with a version that changes every minute
-   instead, so an update reaches everyone within a minute or so. */
-window.V="v="+Math.floor(Date.now()/6e4);
+/* GitHub Pages lets browsers keep every file for ten minutes. The game's styles and scripts are fetched at one code
+   version, so a browser keeps them between visits and never mixes files from two updates: raise the number with every
+   change to css/ or js/, and everyone gets the new files the next time this page loads. */
+window.V="code=1";
 /* The art (everything under assets/) changes rarely and is most of the download, so it keeps one version, which
    browsers may hold on to: raise the number whenever a picture is changed or added. */
 window.AV="art=10";
@@ -61,7 +61,9 @@ document.write('<link rel="stylesheet" href="css/style.css?'+V+'">');
 <div class="rbubble" id="rbubble" hidden></div>
 <div class="conn" id="conn" role="status" hidden>Reconnecting…</div>
 <div class="overlay" id="menu" hidden></div>
-<div class="toast" id="toast" hidden></div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<!-- read out by screen readers only: the count, the question, time running out and each result (say() in js/game.js) -->
+<div class="sr" id="sr" aria-live="polite" aria-atomic="true"></div>
 
 <script>
 // the scripts, in order, at this minute's version (written in, so they still load and run one after another)
