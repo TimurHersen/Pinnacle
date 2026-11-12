@@ -252,7 +252,7 @@ function campPick(route,k){
     return startPitch(t);});
 }
 // a camp vote is two picks: the route and the bonus
-async function campVote(part,val){
+async function campVote(part,val){if(TV())return;
   try{await fb.patch(`teams/${S.code}/round/votes/${S.uid}`,{[part]:val});}catch(e){toast("Couldn't save your vote.");}
 }
 // on the map: each climber taps a mountain (their pick shows to both); the leader of the first pitch sets off, or
@@ -306,6 +306,14 @@ function rememberTeam(code,name){
 function readName(){const el=$("#myname");const v=((el?el.value:S.myName)||"").trim().slice(0,24);if(v){S.myName=v;LS.set("name",v);}return v;}
 function randCode(){const a="ABCDEFGHJKMNPQRSTUVWXYZ23456789";let s="";for(let i=0;i<6;i++)s+=a[Math.floor(Math.random()*a.length)];return s;}
 const inviteLink=code=>location.origin+location.pathname+"#t-"+code;
+/* Two ways to play. On your own device: the whole game on each climber's screen. On a big screen: one screen (a TV,
+   a laptop) shows the climb and the questions and a QR code; each climber scans it and their phone becomes the
+   controller, with only the question and the buttons on it. The big screen is not a climber: it only watches the
+   team (S.mode "tv"); a phone that joined by the code is a climber like any other, laid out as a controller ("pad"). */
+const TV=()=>S.mode==="tv",PAD=()=>S.mode==="pad";
+const padLink=code=>location.origin+location.pathname+"#pad-"+code;
+const setMode=m=>{S.mode=m||null;document.body.classList.toggle("tv",m==="tv");document.body.classList.toggle("pad",m==="pad");};
+const qrHtml=code=>typeof QR!=="undefined"?QR.svg(padLink(code),{label:"QR code to join with your phone"}):"";
 function renderLobby(invite){
   if(typeof MUSIC!=="undefined")MUSIC.want(true,"home"); // the full theme on the home screen (js/music.js)
   $("#teambar").innerHTML="";$("#homeBtn").hidden=true;$("#hud").hidden=true;
@@ -314,7 +322,7 @@ function renderLobby(invite){
   // The name card shows with every panel that needs it (data-for)
   main.innerHTML=`
     <button class="linkbtn back" id="backBtn">◀ Back</button>
-    ${invite?`<div class="card" data-for="secJoin"><h3>You're invited</h3><p class="note">Join <strong>${esc(invite.name)}</strong>: add your name below, then press Join.</p></div>`:""}
+    ${invite?`<div class="card" data-for="secJoin"><h3>${invite.pad?"Your phone is the controller":"You're invited"}</h3><p class="note">${invite.pad?"The climb plays on the big screen. Add your name below, then press Join.":`Join <strong>${esc(invite.name)}</strong>: add your name below, then press Join.`}</p></div>`:""}
     <div class="card" data-for="secNew secJoin secCont"><h3>Your name</h3>
       <input type="text" id="myname" maxlength="24" placeholder="What your partner sees" value="${esc(S.myName)}" autocomplete="nickname">
     </div>
@@ -328,6 +336,13 @@ function renderLobby(invite){
       <input type="text" id="tname" maxlength="32" placeholder="e.g. Kebnekaise Kids">
       <button class="btn ${invite?"":"rope"}" id="createBtn">Create rope team</button>
       <div class="err" id="createErr"></div>
+    </div>
+    <div class="card" id="secTv"><h3>Play on a big screen</h3>
+      <p class="note">This screen shows the climb and the questions. Each climber scans a QR code with their phone, and the phone becomes the controller.</p>
+      <button class="btn rope" id="tvBtn">Show the QR code</button>
+      <p class="note" style="margin-top:14px">Already climbing? Put a team on this screen with its code:</p>
+      <div class="row"><input type="text" id="tvcode" maxlength="6" placeholder="Team code" autocomplete="off" style="text-transform:uppercase"><button class="btn" id="tvOpenBtn">Show team</button></div>
+      <div class="err" id="tvErr"></div>
     </div>
     <div class="card" id="secHow"><h3>How to play</h3>
       <p class="note">You and your partner pick a mountain on the map and climb it together, one question per pitch, from base camp to the summit.</p>
@@ -345,6 +360,9 @@ function renderLobby(invite){
   drawTopo(null);
   $("#myname").onchange=readName;
   $("#createBtn").onclick=createTeam;
+  $("#tvBtn").onclick=()=>openScreen(randCode());
+  const tvOpen=()=>{const c=($("#tvcode").value||"").trim().toUpperCase();if(!/^[A-Z0-9]{6}$/.test(c)){$("#tvErr").textContent="Team codes are 6 letters and digits.";return;}openScreen(c);};
+  $("#tvOpenBtn").onclick=tvOpen;$("#tvcode").onkeydown=e=>{if(e.key==="Enter")tvOpen();};
   $("#joinBtn").onclick=()=>joinTeam();
   $("#jcode").onkeydown=e=>{if(e.key==="Enter")joinTeam();};
   main.querySelectorAll(".teamrow").forEach(b=>b.onclick=()=>openTeam(b.dataset.code));
@@ -354,7 +372,7 @@ function renderLobby(invite){
   const close=()=>{main.hidden=true;homeMenu(true);};
   $("#backBtn").onclick=()=>{sfx("pop");close();};
   main.onkeydown=e=>{if(e.key==="Escape")close();};
-  showHome([...(S.myTeams.length?[{id:"secCont",label:"Continue"}]:[]),{id:"secNew",label:"New expedition"},{id:"secJoin",label:"Join team"},
+  showHome([...(S.myTeams.length?[{id:"secCont",label:"Continue"}]:[]),{id:"secNew",label:"New expedition"},{id:"secTv",label:"Big screen"},{id:"secJoin",label:"Join team"},
     {id:"secHow",label:"How to play"},{id:"secSet",label:"Settings"}],open);
   if(invite)open("secJoin");
   syncSettings();
@@ -374,6 +392,11 @@ async function joinTeam(){
   const me=readName();if(!me){err.textContent="Add your name first.";$("#myname").focus();return;}
   try{
     const {val,etag}=await fb.getTagged("teams/"+code);const t=fixTeam(val);
+    if(!t&&S.wantPad===code){ // (the big screen only shows the code: the first phone to scan it makes the team)
+      const nt={name:"Rope Team",code,createdAt:Date.now(),createdBy:S.uid,members:{[S.uid]:{name:me,joined:Date.now()}},
+        exp:newExp(1),round:{id:0,phase:"map",votes:{}},log:[{at:Date.now(),text:`${me} roped up and opened the map.`}],stats:{rounds:0,summits:0,falls:0}};
+      if(!(await fb.put("teams/"+code,nt,etag))){err.textContent="Someone else just joined. Press Join again.";return;}
+      rememberTeam(code,nt.name);openTeam(code);return;}
     if(!t){err.textContent="No rope team with that code.";return;}
     const ids=Object.keys(t.members);
     if(ids.includes(S.uid)){rememberTeam(code,t.name);openTeam(code);return;}
@@ -407,7 +430,7 @@ async function takeSeat(code,old){
 const leavePresence=keepalive=>{if(S.code&&S.uid)fb.del(`presence/${S.code}/${S.uid}`,keepalive);};
 addEventListener("pagehide",()=>leavePresence(true));
 function closeTeam(){
-  leavePresence(false);
+  leavePresence(false);setMode(null);
   WAKE.off();S.unsubTeam?.();S.unsubAns?.();S.unsubPres?.();clearInterval(S.presTimer);
   S.unsubTeam=S.unsubAns=S.unsubPres=null;S.team=null;S.code=null;S.answers={};S.ansRound=null;S.panelKey=null;S.online=new Set();S.pres={};
   S.sus=S.seen=S.step=null;S.unread=0;S.radioOpen=false;closeMenu();const rb=$("#radioBtn"),bb=$("#rbubble");if(rb)rb.hidden=true;if(bb)bb.hidden=true;
@@ -434,7 +457,8 @@ const WAKE={lock:null,
 document.addEventListener("visibilitychange",()=>{if(S.code)WAKE.on();});
 function updateOnline(){const n=now();S.online=new Set(Object.entries(S.pres||{}).filter(([,v])=>n-v<60000).map(([k])=>k));if(simOf(S.team))S.online.add(SIM);if(S.team)renderBar();}
 function openTeam(code){
-  closeTeam();S.code=code;hideHome();$("#main").hidden=false;if(typeof MUSIC!=="undefined")MUSIC.want(true,"climb");try{history.replaceState(null,"","#t-"+code);}catch(e){}
+  const pad=S.wantPad===code;closeTeam();setMode(pad?"pad":null);
+  S.code=code;hideHome();$("#main").hidden=false;if(typeof MUSIC!=="undefined")MUSIC.want(true,"climb");try{history.replaceState(null,"",(pad?"#pad-":"#t-")+code);}catch(e){}
   const main=$("#main");main.className="";main.innerHTML=`<div class="panel"><p class="note">Clipping in…</p></div>`;
   let first=true;
   S.unsubTeam=fb.listen("teams/"+code,raw=>{
@@ -445,6 +469,24 @@ function openTeam(code){
     if(t.round.id!==S.ansRound)subAnswers(t.round.id);
     render();if(t.round.phase==="pre")climbOn();
   });
+  beat();S.presTimer=setInterval(beat,25000);WAKE.on();
+  S.unsubPres=fb.listen(`presence/${code}`,p=>{S.pres=p||{};updateOnline();});
+}
+// the big screen: watches a team without being on its rope. Until a first phone has scanned the code there is no
+// team yet, and the screen shows the QR code large
+function openScreen(code){
+  closeTeam();setMode("tv");S.code=code;S.wantPad=null;hideHome();if(typeof MUSIC!=="undefined")MUSIC.want(true,"climb");try{history.replaceState(null,"","#tv-"+code);}catch(e){}
+  const main=$("#main");main.hidden=false;
+  const waiting=()=>{S.team=null;S.panelKey=null;$("#hud").hidden=true;document.body.classList.remove("atmap");renderWorld(null);drawTopo(null);$("#teambar").innerHTML="";$("#homeBtn").hidden=false;
+    main.className="tvwait";main.innerHTML=`<div class="panel tvcard"><div class="tvqr">${qrHtml(code)}</div>
+      <div><div class="clabel">Play on this screen</div><div class="qtitle">Scan to climb</div>
+      <ol class="tvsteps"><li>Point your phone's camera at the code.</li><li>Add your name and press Join.</li><li>Your phone is the controller; the climb plays here.</li></ol>
+      <p class="note">Two climbers can rope up. No camera? Open the game on your phone, choose Join team and type <strong>${esc(code)}</strong>.</p></div></div>`;};
+  waiting();
+  S.unsubTeam=fb.listen("teams/"+code,raw=>{const t=fixTeam(raw);
+    if(!t||!memberIds(t).length){if(S.team||main.className!=="tvwait")waiting();return;}
+    S.team=t;S.names={};for(const [id,m] of Object.entries(t.members))S.names[id]=m.name||"Climber";
+    if(t.round.id!==S.ansRound)subAnswers(t.round.id);render();});
   beat();S.presTimer=setInterval(beat,25000);WAKE.on();
   S.unsubPres=fb.listen(`presence/${code}`,p=>{S.pres=p||{};updateOnline();});
 }
@@ -530,7 +572,7 @@ function openMenu(){const t=S.team,el=$("#menu");if(!t||!el)return;
    at camp. A real partner who joins takes its place on the rope. */
 const SIM="sim",SIM_RATES=[25,50,75,100];
 const simOf=t=>t&&t.members&&t.members[SIM]&&t.members[SIM].sim!=null?t.members[SIM]:null;
-function simHtml(t){const sm=simOf(t),n=memberIds(t).length;if(!sm&&n>1)return "";
+function simHtml(t){const sm=simOf(t),n=memberIds(t).length;if(TV()||(!sm&&n>1))return "";
   return `<section><h3>Simulated partner</h3><p class="simnote">${sm?"A stand-in is on the rope with you. It answers right this often:":"Try the two-climber game alone: a stand-in answers for the second climber. How often should it be right?"}</p>
     <div class="actions simrow">${SIM_RATES.map(r=>`<button class="btn ${sm&&sm.sim===r?"rope":"ghost"}" data-sim="${r}">${r}%</button>`).join("")}${sm?`<button class="btn ghost" data-sim="off">Remove</button>`:""}</div></section>`;}
 function setSim(rate){
@@ -574,7 +616,7 @@ function renderBar(){
    <span class="climbers">${ids.map(id=>`<span class="climber"><i class="dot ${id===S.uid||S.online.has(id)?"on":""}"></i>${esc(nameOf(id))}</span>`).join("")}${ids.length<2?'<span class="climber"><i class="dot"></i>Waiting for partner</span>':""}</span>`;
   $("#codeChip").onclick=invite;
   // (phones: the radio opens from the bar, where a dot shows a message waiting)
-  const rb=$("#radioBtn");if(rb){rb.hidden=ids.length<2;rb.classList.toggle("unread",!!S.unread&&!S.radioOpen);rb.setAttribute("aria-pressed",!!S.radioOpen);}
+  const rb=$("#radioBtn");if(rb){rb.hidden=ids.length<2||TV();rb.classList.toggle("unread",!!S.unread&&!S.radioOpen);rb.setAttribute("aria-pressed",!!S.radioOpen);}
   $("#homeBtn").hidden=false;
 }
 function render(){
@@ -625,16 +667,16 @@ const pitchLabel=(e,p)=>{const so=stageOf(e,p);return `Stage ${so.s+1} · Pitch 
 
 function renderPanel(t){
   const r=t.round,e=t.exp,panel=$("#panel"),mine=S.answers[S.uid];
-  const key=[r.id,r.phase,!!mine,memberIds(t).length,r.phase==="camp"||r.phase==="map"?JSON.stringify(r.votes||{}):"",JSON.stringify(t.stats?.peaks||{}),r.resolvedAt||"",String(r.cut),!!r.scout,!!r.hook,r.phase==="answer"&&now()<r.startedAt,S.sus===r.id,e.chalk,e.scout,e.rope,JSON.stringify(e.up||{}),Object.values(S.names).join(",")].join("|");
+  const key=[S.mode||"",r.id,r.phase,!!mine,memberIds(t).length,r.phase==="camp"||r.phase==="map"?JSON.stringify(r.votes||{}):"",JSON.stringify(t.stats?.peaks||{}),r.resolvedAt||"",String(r.cut),!!r.scout,!!r.hook,r.phase==="answer"&&now()<r.startedAt,S.sus===r.id,e.chalk,e.scout,e.rope,JSON.stringify(e.up||{}),Object.values(S.names).join(",")].join("|");
   if(key===S.panelKey){updateDynamic(t);return;}
-  if(S.panelKey&&S.panelKey.split("|")[0]!==String(r.id))S.local={};S.panelKey=key;S.local=S.local||{};
+  if(S.panelKey&&S.panelKey.split("|")[1]!==String(r.id))S.local={};S.panelKey=key;S.local=S.local||{};
   // a new step of the round starts at its top (on a phone the panel is a sheet that scrolls)
   // (and its parts ease in)
   const step=r.id+"|"+r.phase;if(S.step!==step){S.step=step;$("#main").scrollTop=0;panel.classList.remove("enter");void panel.offsetWidth;panel.classList.add("enter");}
   panel.innerHTML=r.phase==="map"?mapView(t):r.phase==="ready"?readyView(t):r.phase==="pre"?`<p class="note">Setting off…</p>`:r.phase==="answer"?answerView(t,mine):r.phase==="reveal"?revealView(t):r.phase==="camp"?campView(t):summitView(t);
   wirePanel(t);updateDynamic(t);
   // the result lands with a sound of its own
-  if(r.phase==="reveal"&&S.sus!==r.id&&S.susDone===r.id&&S.stung!==r.id){S.stung=r.id;sfx(r.result?.pl?.[S.uid]?.ok?"right":"wrong");}
+  if(r.phase==="reveal"&&S.sus!==r.id&&S.susDone===r.id&&S.stung!==r.id){S.stung=r.id;sfx((TV()?Object.values(r.result?.pl||{}).some(x=>x.ok):r.result?.pl?.[S.uid]?.ok)?"right":"wrong");}
 }
 function frameQ(t,main){return `<div class="qwrap">${panelArt(t)}<div class="qmain">${main}</div></div>`;}
 function readyView(t){
@@ -649,7 +691,18 @@ function readyView(t){
 // where the rope stands between you and your partner, as a tag: level, or how far ahead or behind you are
 function gapTag(t){const e=t.exp,pid=partnerId(t);if(!pid)return "";const g=posOf(e,S.uid)-posOf(e,pid),full=Math.abs(g)>=MAX_GAP;
   return `<span class="role ${full?"lead":"belay"}" title="You're roped together: at most ${MAX_GAP} pitches apart.">${g===0?"Level":`${Math.abs(g)} ${g>0?"ahead":"behind"}`}${full?" · rope tight":""}</span>`;}
-function answerView(t,mine){
+// the big screen's question: the same, with nothing to press and both climbers' progress under it
+function tvAnswerView(t){const r=t.round,q=quizById(r.qid),e=t.exp,cut=r.cut||[];
+  if(now()<r.startedAt)return frameQ(t,`<div class="qhead"><span>${pitchLabel(e,e.pitch)}</span></div>
+   <div class="getready"><div><div class="qtitle">${esc(q.cat)}</div>${tierMarks(q.tier)}</div><div class="count" id="count" aria-hidden="true"></div></div>
+   <p class="qsub">Answer on your phones. Right answers climb; stay within ${MAX_GAP} pitches of each other.</p>`);
+  const opts=r.order.map((k,i)=>`<div class="qopt ${cut.includes(i)?"cut":""}"><b>${LETTERS[i]}</b><span>${esc(q.o[k])}</span></div>`).join("");
+  return frameQ(t,`<div class="qhead"><span>${pitchLabel(e,e.pitch)} · ${esc(q.cat)}</span><span class="qtime" id="qtime"></span></div>
+   <div class="qtext">${esc(q.q)}</div><div class="qopts">${opts}</div>
+   ${r.scout?`<div class="hint"><b>Scout:</b> ${esc(q.hint)}</div>`:""}${r.hook?`<div class="hooked">${ICON.hook}<span><b>${esc(S.names[r.hookBy]||"A climber")} clipped a hook.</b> A wrong answer now only slips.</span></div>`:""}
+   <div class="qfoot"><span class="note" id="partnerTxt"></span></div><div class="timer"><i id="timerBar"></i></div>`);}
+const third=s=>String(s).replace(/\byou were\b/g,"they were").replace(/\bYou keep\b/g,"They keep").replace(/\bYour partner\b/g,"Their partner").replace(/\byou\b/g,"them");
+function answerView(t,mine){if(TV())return tvAnswerView(t);
   const r=t.round,q=quizById(r.qid),e=t.exp,ids=memberIds(t),solo=ids.length<2,cut=r.cut||[],pos=posOf(e,S.uid),pid=partnerId(t);
   const gap=pid?pos-posOf(e,pid):0,atCap=pos>=capOf(e)&&pid&&gap>0;
   // the count before the clock starts: what the question is about and how hard, so both are ready together
@@ -695,6 +748,9 @@ function revealView(t){
    <div class="qtext">${esc(q.q)}</div><div class="qopts">${opts}</div>`;
   if(sus)return frameQ(t,head+`<div class="result wait"><div><b class="dots">The rope goes tight</b></div></div>`);
   const oc=o.arrived==="summit"?["good",ICON.flag,"Summit reached!","You both stand on top."]:o.arrived?["good",ICON.tent,`${o.arrived} reached!`,"You're both on the ledge."]:outcomeOf(t,S.uid,o);
+  if(TV()){const rows=o.arrived?`<div class="result ${oc[0]}">${oc[1]}<div><b>${oc[2]}</b><span>${o.arrived==="summit"?"Both stand on top.":"Both are on the ledge."}</span></div></div>`
+      :ids.map(id=>{const c=outcomeOf(t,id,o);return `<div class="result ${c[0]} tvres">${c[1]}<div><b>${ptag(t,id)} ${esc(S.names[id]||"Climber")}: ${third(c[2])}</b><span>${third(c[3])}</span></div></div>`;}).join("");
+    return frameQ(t,head+rows+`${q.x?`<p class="fact">${esc(q.x)}</p>`:""}<p class="note">${atCamp?"Press Make camp on a phone.":atTop?"Press Stand on top on a phone.":`Next question<span id="nextIn"></span>`}</p>`);}
   const other=pid&&!o.arrived?outcomeOf(t,pid,o):null;
   if(!sus)say([oc[2],oc[3],other?`${esc(nameOf(pid))}: ${other[2].replace(/ you\b/," them")}`:"",`The answer was ${esc(q.o[0])}.`].filter(Boolean).join(" "),"reveal"+r.id,true);
   return frameQ(t,head+`<div class="result ${oc[0]}">${oc[1]}<div><b>${oc[2]}</b><span>${oc[3]}</span></div></div>
@@ -705,7 +761,7 @@ function revealView(t){
 // the map's panel: the three mountains as cards (the map above has them as pins too), the picked one's details,
 // and the way to set off
 function mapView(t){
-  const r=t.round,votes=r.votes||{},ids=memberIds(t),solo=ids.length<2,lead=solo||leaderOf(t)===S.uid,mine=votes[S.uid]?.mtn,pk=t.stats?.peaks||{};
+  const r=t.round,votes=r.votes||{},ids=memberIds(t),solo=ids.length<2,lead=solo||leaderOf(t)===S.uid||leaderOf(t)===SIM,mine=votes[S.uid]?.mtn,pk=t.stats?.peaks||{};
   const pick=mapPick(t),agreed=ids.every(i=>votes[i]?.mtn===pick),can=pick&&(lead||agreed);
   const who=k=>ids.filter(i=>votes[i]?.mtn===k).map(i=>esc(nameOf(i))).join(", ")||"&nbsp;";
   const card=k=>{const m=MOUNTAINS[k],rec=pk[k];return `<button class="route mcard d${m.diff} ${mine===k?"sel":""}" data-mtn="${k}">
@@ -716,7 +772,7 @@ function mapView(t){
   return frameQ(t,`<div class="qhead"><span>Expedition ${t.exp.n} · Choose a mountain</span></div>
    <div class="routes mts">${MOUNTAIN_ORDER.map(card).join("")}</div>
    ${m?`<p class="qsub"><b>${esc(m.name)}.</b> ${esc(m.desc)}</p>`:`<p class="qsub">Tap a mountain on the map${solo?"":", and talk it over with your partner"}.</p>`}
-   ${can?`<button class="btn rope" id="setOffBtn">Set off for ${esc(m.name)}</button>`:pick?`<p class="note">Waiting for ${esc(nameOf(ids.find(i=>i!==S.uid)))} to pick ${esc(m.name)} too, or to set off.</p>`:""}`);
+   ${TV()?`<p class="note">Pick a mountain on your phones.</p>`:can?`<button class="btn rope" id="setOffBtn">Set off for ${esc(m.name)}</button>`:pick?`<p class="note">Waiting for ${esc(nameOf(ids.find(i=>i!==S.uid)))} to pick ${esc(m.name)} too, or to set off.</p>`:""}`);
 }
 /* the map itself, while the team chooses: one painting filling the whole screen (the part of it the question box
    leaves, when that is a column down the side), a pin on each mountain (its name, its difficulty, who picked it, a
@@ -756,7 +812,7 @@ function fitWorld(){const el=$("#world"),map=el&&el.querySelector(".wmap");if(!m
 addEventListener("resize",()=>fitWorld());
 // at camp: two rows of cards, the route on and the bonus gear; each climber's picks are shown under the cards
 function campView(t){
-  const r=t.round,s=r.stage??needsChoice(t.exp),F=FORKS[s],votes=r.votes||{},ids=memberIds(t),solo=ids.length<2,lead=solo||leaderOf(t)===S.uid,my=votes[S.uid]||{};
+  const r=t.round,s=r.stage??needsChoice(t.exp),F=FORKS[s],votes=r.votes||{},ids=memberIds(t),solo=ids.length<2,lead=solo||leaderOf(t)===S.uid||leaderOf(t)===SIM,my=votes[S.uid]||{};
   const who=(part,k)=>ids.filter(i=>votes[i]?.[part]===k).map(i=>esc(nameOf(i))).join(", ")||"&nbsp;";
   const route=k=>`<button class="route ${my.route===k?"sel":""}" data-part="route" data-k="${k}"><h4>${F[k].name}</h4><span>${F[k].desc}</span>
     <span class="rmeta">${F[k].tiers.length} pitches ${tierMarks(Math.round(F[k].tiers.reduce((a,b)=>a+b,0)/F[k].tiers.length))}</span><span class="votes">${who("route",k)}</span></button>`;
@@ -764,10 +820,10 @@ function campView(t){
   const ready=my.route&&my.bonus;
   return frameQ(t,`<div class="qhead"><span>${F.camp} · ${fmt(mAlt(t.exp,s?ALT.c2:ALT.c1))} m</span></div>
    <div class="qtitle">Rest at ${F.camp}</div>
-   <p class="qsub">Gear restocked. Pick the way to ${F.next} and one extra piece of gear${solo?"":`; ${lead?"you make":"your partner makes"} the call`}.</p>
+   <p class="qsub">Gear restocked. Pick the way to ${F.next} and one extra piece of gear${solo||TV()?"":`; ${lead?"you make":"your partner makes"} the call`}.</p>
    <div class="clabel">Route to ${F.next}</div><div class="routes">${route("A")}${route("B")}</div>
    <div class="clabel">Extra gear</div><div class="routes bonus">${bonus("hook")}${bonus("chalk")}${bonus("scout")}</div>
-   ${lead?`<button class="btn rope" id="campBtn" ${ready?"":"disabled"}>${ready?`Climb on via ${F[my.route].name}`:"Pick a route and a piece of gear"}</button>`:`<p class="note">Waiting for your partner to decide.</p>`}`);
+   ${TV()?`<p class="note">Choose on your phones.</p>`:lead?`<button class="btn rope" id="campBtn" ${ready?"":"disabled"}>${ready?`Climb on via ${F[my.route].name}`:"Pick a route and a piece of gear"}</button>`:`<p class="note">Waiting for your partner to decide.</p>`}`);
 }
 // the end of the expedition: the summit, how the team climbed (a grade in stars, the numbers behind it), and a way
 // to tell someone
@@ -780,7 +836,7 @@ function summitView(t){const e=t.exp,st=e.run||{},two=memberIds(t).length>1;
    <div class="grade">${stars(st)}<b>${grade}</b>${st.best?`<span class="chip0 new">New team best</span>`:""}</div>
    ${via?`<p class="qsub">By way of ${esc(via)}.</p>`:""}
    <div class="sgrid">${cell("Right",`${st.right||0}/${st.q||0}`)}${two?cell("In sync",st.synced||0)+cell("Rope jerks",st.jerks||0):""}${cell("Hooks held",st.slips||0)}${cell("Falls",st.falls||0)}${st.ms?cell("Time",fmtDur(st.ms)):""}</div>
-   <div class="actions"><button class="btn rope" id="newExpBtn">Back to the map</button><button class="btn" id="shareBtn">Share</button></div>`);
+   ${TV()?`<p class="note">Press Back to the map on a phone for another climb.</p>`:`<div class="actions"><button class="btn rope" id="newExpBtn">Back to the map</button><button class="btn" id="shareBtn">Share</button></div>`}`);
 }
 async function shareSummit(){const t=S.team;if(!t)return;const st=t.exp.run||{},f=st.falls||0;
   const text=`We stood on top of ${MT(t.exp).name} (${MT(t.exp).label.toLowerCase()}) in Pinnacle: ${st.right||0} of ${st.q||0} questions right, ${f===1?"1 fall":f+" falls"}${st.ms?`, ${fmtDur(st.ms)}`:""}.`,url=location.origin+location.pathname;
@@ -790,7 +846,13 @@ async function shareSummit(){const t=S.team;if(!t)return;const st=t.exp.run||{},
 /* the rope radio: messages and quick calls between the two, kept beside the round's answers (answers/<team>/<round>/_talk) */
 const talkOf=()=>Object.values(S.answers._talk||{}).filter(m=>m&&m.text).sort((a,b)=>a.at-b.at);
 const CALLS=["A?","B?","C?","D?","Not sure","Trust me","Clip a hook","Save it"];
-function renderRadio(t){
+// (on the big screen the radio's place holds the way in: the QR code and who is on the rope)
+function renderTvJoin(t){const el=$("#radio"),ids=memberIds(t),full=ids.filter(i=>i!==SIM).length>=2,key="tv|"+ids.map(i=>i+(S.online.has(i)?1:0)+S.names[i]).join(",");
+  if(S.radioKey===key)return;S.radioKey=key;el.classList.add("tvjoin");el.classList.remove("solo");
+  el.innerHTML=`<div class="rhead"><span>${full?"On the rope":"Scan to join"}</span><span>${esc(t.code)}</span></div>
+    ${full?"":`<div class="tvqr small">${qrHtml(t.code)}</div>`}
+    <div class="tvwho">${ids.map(i=>`<span class="climber"><i class="dot ${S.online.has(i)?"on":""}"></i>${ptag(t,i)} · ${esc(S.names[i]||"Climber")}</span>`).join("")}${full?"":`<span class="climber"><i class="dot"></i>Waiting for a second climber</span>`}</div>`;}
+function renderRadio(t){if(TV()){renderTvJoin(t);return;}
   const el=$("#radio"),solo=memberIds(t).length<2,key=[t.round.id,solo].join("|");
   if(S.radioKey===key){updateRadio(t);return;}S.radioKey=key;
   el.classList.toggle("solo",solo);el.classList.toggle("open",!!S.radioOpen);
@@ -812,7 +874,7 @@ function bubble(html){const b=$("#rbubble");if(!b)return;b.innerHTML=html;b.hidd
 async function sendTalk(text){text=String(text||"").trim().replace(/\s+/g," ").slice(0,60);if(!text||!S.team)return;
   const r=S.team.round,k=talkOf().filter(m=>m.uid===S.uid).length;
   try{await fb.put(`answers/${S.code}/${r.id}/_talk/${S.uid}_${k}`,{uid:S.uid,text,at:Date.now()});}catch(e){toast("Couldn't send that over the radio.");}}
-function updateRadio(t){const rl=$("#rlog");if(!rl)return;const msgs=talkOf();
+function updateRadio(t){if(TV()){renderTvJoin(t);return;}const rl=$("#rlog");if(!rl)return;const msgs=talkOf();
   if(rl.dataset.n!==String(msgs.length)){const fresh=msgs.length>(+rl.dataset.n||0);rl.dataset.n=msgs.length;
     rl.innerHTML=msgs.map(m=>`<div class="msg ${m.uid===S.uid?"me":""}"><b>${ptag(t,m.uid)}</b>${esc(m.text)}</div>`).join("")||`<div class="note">Nothing on the radio yet.</div>`;
     const last=msgs[msgs.length-1];rl.scrollTop=rl.scrollHeight;
@@ -848,10 +910,11 @@ function updateDynamic(t){
   const rem=remaining(r),bar=$("#timerBar"),txt=$("#qtime"),ptx=$("#partnerTxt");
   if(bar)bar.style.width=Math.max(0,Math.min(100,100*rem/r.dur))+"%";
   if(txt){txt.textContent=clock(rem);txt.classList.toggle("low",rem<=10);}
-  if(rem>0&&rem<=10&&!S.answers[S.uid])say("Ten seconds left.","low"+r.id);
+  if(rem>0&&rem<=10&&!S.answers[S.uid]&&!TV())say("Ten seconds left.","low"+r.id);
   // the last five seconds tick, for whoever hasn't locked in yet
-  const s=Math.ceil(rem);if(rem>0&&s<=5&&!S.answers[S.uid]&&S._beep!==r.id+":"+s){S._beep=r.id+":"+s;sfx("tick");}
-  const pid=partnerId(t);if(ptx)ptx.textContent=pid?(S.answers[pid]?`${nameOf(pid)} is locked in`:`${nameOf(pid)} is thinking…`):"";
+  const s=Math.ceil(rem);if(rem>0&&s<=5&&(TV()?!memberIds(t).every(i=>S.answers[i]):!S.answers[S.uid])&&S._beep!==r.id+":"+s){S._beep=r.id+":"+s;sfx("tick");}
+  const pid=partnerId(t);
+  if(ptx)ptx.textContent=TV()?memberIds(t).map(i=>`${ptag(t,i)} ${S.names[i]||"Climber"}: ${S.answers[i]?"locked in":"thinking…"}`).join("   ·   "):pid?(S.answers[pid]?`${nameOf(pid)} is locked in`:`${nameOf(pid)} is thinking…`):"";
 }
 
 /* ============================== TICK ============================== */
@@ -861,7 +924,7 @@ const AUTO_NEXT_MS=11000;
 function autoNext(t){const r=t.round,el=$("#nextIn");
   if(r.phase!=="reveal"||!r.resolvedAt||r.result?.arrived||S.sus===r.id){if(el)el.textContent="";return;}
   const left=Math.ceil((r.resolvedAt+AUTO_NEXT_MS-now())/1000);if(el)el.textContent=left>0?` · ${left}`:"";
-  const menu=$("#menu");if(left<=0&&S._auto!==r.id&&!(menu&&!menu.hidden)&&t.members[S.uid]){S._auto=r.id;advance(false);}}
+  const menu=$("#menu");if(left<=0&&S._auto!==r.id&&!(menu&&!menu.hidden)&&(t.members[S.uid]||TV())){S._auto=r.id;advance(false);}}
 let tickN=0;
 setInterval(()=>{
   if(++tickN%40===0)updateOnline();
@@ -869,9 +932,9 @@ setInterval(()=>{
   renderPanel(t); // (the count gives way to the question; otherwise this only moves the clock)
   const r=t.round,rem=remaining(r);
   // out of time: whatever is selected is locked in (or no answer)
-  if(rem<=0&&!S.answers[S.uid]&&S._autoSent!==r.id){S._autoSent=r.id;submit({choice:S.local.choice??null});}
+  if(rem<=0&&!TV()&&!S.answers[S.uid]&&S._autoSent!==r.id){S._autoSent=r.id;submit({choice:S.local.choice??null});}
   const all=memberIds(t).every(id=>S.answers[id]);
   // the pitch's leader judges; the partner steps in if the leader is away or slow
-  const mine=r.leader===S.uid||!t.members[r.leader]||!S.online.has(r.leader)||r.leader===SIM||rem<=-10;
+  const mine=TV()||r.leader===S.uid||!t.members[r.leader]||!S.online.has(r.leader)||r.leader===SIM||rem<=-10;
   if((all||rem<=-2)&&mine&&Date.now()-(S._lastTry||0)>2500){S._lastTry=Date.now();tryResolve();}
 },250);

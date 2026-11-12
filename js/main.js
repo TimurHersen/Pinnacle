@@ -7,11 +7,20 @@ $("#radioBtn").onclick=()=>toggleRadio();
     document.addEventListener("fullscreenchange",()=>fs.setAttribute("aria-pressed",document.fullscreenElement?"true":"false"));}}
 (function boot(){
   // test mode: a fixed test player, straight onto the test rope team
-  if(window.TEST){S.uid=TEST.as;S.myName=TEST.name;document.title=`Pinnacle test · ${TEST.as.toUpperCase()}`;openTeam(TEST.code);return;}
+  // (with a big-screen or controller link in the address, test mode tries those instead)
+  if(window.TEST&&!/^#(tv|pad)-/.test(location.hash||"")){S.uid=TEST.as;S.myName=TEST.name;document.title=`Pinnacle test · ${TEST.as.toUpperCase()}`;openTeam(TEST.code);return;}
+  if(window.TEST){S.uid=TEST.as;S.myName=TEST.name;S.myTeams=[];}else{
   S.uid=LS.get("pid",null);
   if(!S.uid){const a="abcdefghijkmnpqrstuvwxyz23456789";S.uid=Array.from(crypto.getRandomValues(new Uint8Array(12)),b=>a[b%32]).join("");LS.set("pid",S.uid);}
-  S.myName=LS.get("name","");S.myTeams=LS.get("teams",[]);
+  S.myName=LS.get("name","");S.myTeams=LS.get("teams",[]);}
   renderLobby();
+  // a big screen opened on its link goes straight back to watching; a phone that scanned the screen's code becomes
+  // a controller (straight in if it is already on that rope, otherwise after giving a name)
+  const tv=/^#tv-([A-Z0-9]{6})$/.exec(location.hash||""),pd=/^#pad-([A-Z0-9]{6})$/.exec(location.hash||"");
+  if(tv){openScreen(tv[1]);return;}
+  if(pd){S.wantPad=pd[1];fb.get("teams/"+pd[1]).then(v=>{const t=fixTeam(v);
+      if(t&&t.members[S.uid])openTeam(pd[1]);else renderLobby({code:pd[1],name:t?t.name:"the big screen",pad:true});})
+    .catch(()=>toast("Couldn't reach the mountain. Check your connection."));return;}
   const m=/^#t-([A-Z0-9]{6})$/.exec(location.hash||"");
   if(m)fb.get("teams/"+m[1]).then(v=>{const t=fixTeam(v);
     if(t&&t.members[S.uid])openTeam(m[1]);

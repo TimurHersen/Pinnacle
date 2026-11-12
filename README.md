@@ -17,6 +17,9 @@ Play it at **https://timurhersen.github.io/Pinnacle/**
 - Browsers keep the game's files between visits, at a version set in `index.html`:
   - when anything in `css/` or `js/` changes, raise `window.V` (`code=…`)
   - when a picture under `assets/` is changed or added, raise `window.AV` (and the same number on the loading screen's image there)
+- Two ways to play: each climber on their own device, or on a big screen (title menu → Big screen). The big screen
+  shows the climb and a QR code (`js/qr.js`); a phone that scans it joins as a controller. Links: `#t-CODE` an invite,
+  `#tv-CODE` the big screen, `#pad-CODE` a controller.
 - `test.html` plays both climbers side by side on an in-memory database, with controls to jump around the climb.
 - `node test/rules.test.js` checks the climb's rules (answers, falls, hooks, the rope, camps, the summit score) and the question pool. It needs only Node, nothing to install; run it before every change to `js/game.js`, `js/content.js` or `js/quiz.js`.
 - Rope teams, answers and who's online are stored in a Firebase Realtime Database, read and written over its REST API (no SDK).
