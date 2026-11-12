@@ -450,8 +450,9 @@ function pix(rows){const h=rows.length,w=rows[0].length;let r="";
   rows.forEach((row,y)=>[...row].forEach((ch,x)=>{if(PXPAL[ch])r+=`<rect x="${x}" y="${y}" width="1.05" height="1.05" fill="${PXPAL[ch]}"/>`;}));
   return `<svg class="px" viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges" aria-hidden="true">${r}</svg>`;}
 const ICON={
-  hook:pix(["...kkkk...","..kyyyyk..",".kyk..kyk.",".kyk..kyk.",".kyk..kGk.",".kyk...k..",".kyk..kGk.",".kyk..kyk.","..kyyyyk..","...kkkk..."]),
-  hookUsed:pix(["...kkkk...","..kggggk..",".kgk..kgk.",".kgk..kgk.",".kgk..kgk.",".kgk...k..",".kgk..kgk.",".kgk..kgk.","..kggggk..","...kkkk..."]),
+  // a hook (a bold gold crook), and a spent one in grey
+  hook:pix(["..kkkkkk..", ".kyyyyyyk.", "kyykkkkyyk", "kyk....kyk", "kkk....kyk", "......kyyk", ".....kyyk.", "....kyyk..", "....kyk...", "....kkk..."]),
+  hookUsed:pix(["..kkkkkk..", ".kggggggk.", "kggkkkkggk", "kgk....kgk", "kkk....kgk", "......kggk", ".....kggk.", "....kggk..", "....kgk...", "....kkk..."]),
   anchor:pix(["...kkkk...","..kGGGGk..","..kGkkGk..","..kGGGGk..","...kGGk...","..kkGGkk..",".kGk..kGk.",".kGk..kGk.","..kGGGGk..","...kkkk..."]),
   rope:pix(["..kkkkk...",".kooooook.","kokkkkkok.","kok...kok.","kokkkkkok.",".kooooook.","..kkkkokk.","......ok..","......kok.",".......k.."]),
   tent:pix([".....k....","....kok...","...kooRk..","..koooRRk.",".kooook.Rk","kooook.kRk","kooook.kRk","kkkkkkkkkk"]),
@@ -562,7 +563,7 @@ function renderHud(t){
   const who=ids.map(id=>{const p=posOf(e,id),s2=stageOf(e,p);return `<div class="who ${pid&&p===top&&gap!==0?"lead":""}"><img class="port" src="${portrait(lookOf(t,id))}" alt=""><div><div class="nm">${ptag(t,id)} ${esc(S.names[id]||nameOf(id))}${id===S.uid?" (you)":""}</div>
     <span class="role belay">Pitch ${Math.min(s2.i+1,s2.n)}/${s2.n}</span></div></div>`;}).join("");
   const hearts=`<div class="hearts" title="Hooks: clip one during a question and a wrong answer only slips you." aria-label="${e.rope} hooks left">${
-    [...Array(n).keys()].map(i=>i<e.rope?ICON.hook:i<lost?`<span class="crack">${ICON.hook}</span>`:ICON.hookUsed).join("")}</div>`;
+    [...Array(n).keys()].map(i=>i<e.rope?ICON.hook:i<lost?`<span class="crack">${ICON.hook}</span>`:`<span class="spent">${ICON.hookUsed}</span>`).join("")}<b>${e.rope}</b></div>`;
   const html=`<div class="hud-l">${who}${hearts}</div>
    <div class="hud-r"><div class="stat">${ICON.mtn}<span class="k">Alt</span><span class="v">${fmt(alt)} m</span></div>
      ${pid?`<div class="stat">${ICON.rope}<span class="k">Rope</span><span class="v">${Math.abs(gap)}/${MAX_GAP}</span></div>`:""}

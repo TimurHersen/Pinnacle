@@ -114,7 +114,7 @@ function hideHome(){HOME_N++;TFX.stop();document.body.classList.remove("home");c
    the tent and both climbers, sparks and twinkling stars. The other layer is drawn normally: a living flame over the
    painted fire, a column of smoke drifting off it and, every few seconds, two birds crossing the sky. ---------- */
 const TFX=(()=>{
-  const FIRE={x:285,y:190,top:180},BG_POS=[.88,.6]; // the painted fire's core; BG_POS matches #menubg's object-position
+  const FIRE={x:304,y:196,top:190},BG_POS=[.88,.6]; // the painted fire's core; BG_POS matches #menubg's object-position
   let light=null,air=null,lg=null,ag=null,raf=0,last=0,t=0,stars=[],lightMap=null,glow=.8,nextGlow=0,sparks=[],smoke=[],birds=[],nextBird=3,nextSmoke=0;
   const rnd=(a,b)=>a+Math.random()*(b-a);
   function layer(cls){const c=document.createElement("canvas");c.width=BG_W;c.height=BG_H;c.className="tfx "+cls;document.querySelector(".scene").appendChild(c);return c;}
@@ -132,10 +132,10 @@ const TFX=(()=>{
     // bright in the painting (the tent, logs, the climbers) catch more of it than dark grass. It's stepped into four
     // levels with an ordered dither between them, like hand-shaded pixel art, and only its brightness flickers
     const BAYER=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5],LEV=["#2a1406","#4a2309","#6e360f","#94501a"];
-    const tentAt=new Set();for(let y=150;y<210;y++)for(let x=250;x<350;x++){const [r,gg,b]=px(x,y);if(r>190&&gg>80&&gg<160&&b<70)tentAt.add(y*BG_W+x);}
+    const tentAt=new Set();for(let y=160;y<208;y++)for(let x=300;x<374;x++){const [r,gg,b]=px(x,y);if(r>190&&gg>80&&gg<160&&b<70)tentAt.add(y*BG_W+x);}
     lightMap=document.createElement("canvas");lightMap.width=BG_W;lightMap.height=BG_H;const lm=lightMap.getContext("2d");
-    for(let y=FIRE.y-46;y<Math.min(BG_H,FIRE.y+26);y++)for(let x=FIRE.x-84;x<FIRE.x+84;x++){
-      const dx=(x-FIRE.x)/84,dy=(y-FIRE.y+4)/42,dd=dx*dx+dy*dy;if(dd>=1)continue;
+    for(let y=FIRE.y-32;y<Math.min(BG_H,FIRE.y+18);y++)for(let x=FIRE.x-58;x<Math.min(BG_W,FIRE.x+58);x++){
+      const dx=(x-FIRE.x)/58,dy=(y-FIRE.y+3)/29,dd=dx*dx+dy*dy;if(dd>=1)continue;
       const [r,gg,b]=px(x,y),lum=(r*.3+gg*.59+b*.11)/255,fall=(1-Math.sqrt(dd))**1.6;
       let w=fall*(.3+.9*lum)+(tentAt.has(y*BG_W+x)?.18*fall+.06:0);
       w+=(BAYER[(y&3)*4+(x&3)]/16-.5)*.1;const lv=w>.62?3:w>.4?2:w>.22?1:w>.1?0:-1;
@@ -151,11 +151,11 @@ const TFX=(()=>{
     if(lightMap){lg.globalAlpha=glow;lg.drawImage(lightMap,0,0);lg.globalAlpha=1;}
     // the flame: drawn over the painted one, taller in the middle, every column changing height ten times a second
     const fs=Math.floor(t*10),fb=FIRE.y+4;
-    for(let i=-6;i<=6;i++){const h=Math.round((6+12*(1-(i/7)**2))*(.65+.35*nz(i,fs)));
-      for(let j=0;j<h;j++){const k=j/h;ag.fillStyle=Math.abs(i)<=2&&k<.45?"#fff4b8":k<.35?"#ffd24a":k<.65?"#ff9a2a":k<.85?"#e2541a":"#9e2f10";ag.fillRect(FIRE.x+i,fb-j,1,1);}}
-    if(nz(99,fs)>.55){ag.fillStyle="#ff9a2a";ag.fillRect(FIRE.x+Math.round((nz(7,fs)-.5)*8),fb-20-Math.round(nz(3,fs)*4),1,2);}
+    for(let i=-3;i<=3;i++){const h=Math.round((3+7*(1-(i/4)**2))*(.65+.35*nz(i,fs)));
+      for(let j=0;j<h;j++){const k=j/h;ag.fillStyle=Math.abs(i)<=1&&k<.45?"#fff4b8":k<.35?"#ffd24a":k<.65?"#ff9a2a":k<.85?"#e2541a":"#9e2f10";ag.fillRect(FIRE.x+i,fb-j,1,1);}}
+    if(nz(99,fs)>.55){ag.fillStyle="#ff9a2a";ag.fillRect(FIRE.x+Math.round((nz(7,fs)-.5)*5),fb-11-Math.round(nz(3,fs)*3),1,1);}
     // sparks, rising well above the fire
-    if(!calm&&Math.random()<dt*7)sparks.push({x:FIRE.x+rnd(-4,4),y:fb-12,vy:rnd(-30,-18),ph:rnd(0,6),life:rnd(1.5,3.5),age:0,big:Math.random()<.3});
+    if(!calm&&Math.random()<dt*7)sparks.push({x:FIRE.x+rnd(-2,2),y:fb-7,vy:rnd(-30,-18),ph:rnd(0,6),life:rnd(1.5,3.5),age:0,big:Math.random()<.3});
     sparks=sparks.filter(s=>(s.age+=dt)<s.life);
     for(const s of sparks){s.y+=s.vy*dt;const k=s.age/s.life,x=Math.round(s.x+Math.sin(s.age*3+s.ph)*3);
       if(k>.8&&Math.floor(t*14)%2)continue;lg.fillStyle=k<.3?"#ffe08a":k<.65?"#ff9a3a":"#b5481a";const z=s.big&&k<.25?2:1;lg.fillRect(x,Math.round(s.y),z,z);}
@@ -164,7 +164,7 @@ const TFX=(()=>{
       lg.fillRect(s.x,s.y,1,1);if(s.big&&v>.85){lg.fillStyle="#5a6088";lg.fillRect(s.x-1,s.y,1,1);lg.fillRect(s.x+1,s.y,1,1);lg.fillRect(s.x,s.y-1,1,1);lg.fillRect(s.x,s.y+1,1,1);}}
     if(calm)return;
     // smoke: a column of soft puffs rising off the fire and leaning with the breeze
-    if((nextSmoke-=dt)<=0){nextSmoke=rnd(.25,.45);smoke.push({x:FIRE.x+rnd(-2,2),y:fb-18,age:0,life:rnd(5,7),ph:rnd(0,6)});}
+    if((nextSmoke-=dt)<=0){nextSmoke=rnd(.25,.45);smoke.push({x:FIRE.x+rnd(-1,1),y:fb-11,age:0,life:rnd(5,7),ph:rnd(0,6)});}
     smoke=smoke.filter(p=>(p.age+=dt)<p.life);
     for(const p of smoke){const k=p.age/p.life,sz=k<.2?2:k<.6?3:4,x=Math.round(p.x+p.age*3+Math.sin(p.age*1.2+p.ph)*2.5)-(sz>>1),y=Math.round(p.y-p.age*12);
       ag.globalAlpha=.6*(1-k);ag.fillStyle=k<.4?"#d8d0dc":"#a8a2bc";ag.fillRect(x,y,sz,sz);}
