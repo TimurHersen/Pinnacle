@@ -101,12 +101,17 @@ function fresh(){const old=team(),t=testTeam(UI.players===2);t.round.id=(old?.ro
 
 /* frames: drawn at a desktop or phone size and scaled down to fit their half of the window */
 function fit(){
-  for(const f of [f1,f2]){const box=f.parentElement,r=box.getBoundingClientRect();if(!r.width)continue;
-    // (fit: the frame is exactly the box, at the screen's own size; otherwise a desktop or phone screen scaled down)
-    const [W,H]=UI.size==="fit"?[Math.floor(r.width),Math.floor(r.height)]:UI.size==="phone"?[390,844]:[1280,800];
+  for(const f of [f1,f2]){const box=f.parentElement,r={width:box.clientWidth,height:box.clientHeight};if(!r.width)continue;
+    // (fit: the frame is exactly the box, at the screen's own size; phone: a phone screen scaled down; desktop: a
+    // screen 1280 wide scaled to the box's width and as tall as the box then has room for, so no band is left under
+    // it; a box too wide and short for that shows a 1280 × 800 screen whole)
+    let [W,H]=UI.size==="fit"?[Math.floor(r.width),Math.floor(r.height)]:UI.size==="phone"?[390,844]:[1280,800];
+    if(UI.size==="desktop"){const kw=Math.min(r.width/W,1),h=Math.floor(r.height/kw);if(h>=720)H=h;}
     const k=Math.min(r.width/W,r.height/H,1);f.style.width=W+"px";f.style.height=H+"px";f.style.transform=`scale(${k})`;
     f.style.left=Math.max(0,(r.width-W*k)/2)+"px";}}
 addEventListener("resize",fit);
+// (and whenever a box itself changes size: the controls above can wrap onto more lines as the status fills in)
+if(window.ResizeObserver){const ro=new ResizeObserver(()=>fit());for(const f of [f1,f2])ro.observe(f.parentElement);}
 function layout(){
   document.getElementById("seat1").hidden=UI.view==="p2";
   document.getElementById("seat2").hidden=UI.view==="p1"||UI.players===1;fit();}
