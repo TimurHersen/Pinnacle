@@ -758,7 +758,7 @@ function tvAnswerView(t){const r=t.round,q=quizById(r.qid),e=t.exp,cut=r.cut||[]
    <p class="qsub">Answer on your phones. Right answers climb; stay within ${MAX_GAP} pitches of each other.</p>`);
   // (only the question here: the four answers are on the climbers' phones)
   return frameQ(t,`<div class="qhead"><span>${pitchLabel(e,e.pitch)} · ${esc(q.cat)}</span><span class="qtime" id="qtime"></span></div>
-   <div class="qtext">${esc(q.q)}</div><p class="tvon">Answer on your phones</p>
+   <div class="qtext">${esc(q.q)}</div>
    ${r.scout?`<div class="hint"><b>Scout:</b> ${esc(q.hint)}</div>`:""}${r.hook?`<div class="hooked">${ICON.hook}<span><b>${esc(S.names[r.hookBy]||"A climber")} clipped a hook at ${fmt(altOf(e,r.hookAt??e.pitch))} m.</b> Falls from there or above stop at it.</span></div>`:""}
    <div class="qfoot"><span class="note" id="partnerTxt"></span></div><div class="timer"><i id="timerBar"></i></div>`);}
 const third=s=>String(s).replace(/\byou were\b/g,"they were").replace(/\bYou keep\b/g,"They keep").replace(/\bYour partner\b/g,"Their partner").replace(/\byou\b/g,"them");
@@ -811,8 +811,8 @@ function revealView(t){
   if(sus)return frameQ(t,head+`<div class="result wait"><div><b class="dots">The rope goes tight</b></div></div>`);
   const oc=o.arrived==="summit"?["good",ICON.flag,"Summit reached!","You both stand on top."]:o.arrived?["good",ICON.tent,`${o.arrived} reached!`,"You're both on the ledge."]:outcomeOf(t,S.uid,o);
   if(TV()){const rows=o.arrived?`<div class="result ${oc[0]}">${oc[1]}<div><b>${oc[2]}</b><span>${o.arrived==="summit"?"Both stand on top.":"Both are on the ledge."}</span></div></div>`
-      :ids.map(id=>{const c=outcomeOf(t,id,o);return `<div class="result ${c[0]} tvres">${c[1]}<div><b>${ptag(t,id)} ${esc(S.names[id]||"Climber")}: ${third(c[2])}</b><span>${third(c[3])}</span></div></div>`;}).join("");
-    return frameQ(t,head+rows+`${q.x?`<p class="fact">${esc(q.x)}</p>`:""}<p class="note">${atCamp?"Press Make camp on a phone.":atTop?"Press Stand on top on a phone.":`Next question<span id="nextIn"></span>`}</p>`);}
+      :ids.map(id=>{const c=outcomeOf(t,id,o);return `<div class="result ${c[0]} tvres">${c[1]}<div><b>${esc(S.names[id]||ptag(t,id))}: ${third(c[2])}</b><span>${third(c[3])}</span></div></div>`;}).join("");
+    return frameQ(t,head+rows+`${q.x?`<p class="fact">${esc(q.x)}</p>`:""}<p class="note tvnext">${atCamp?"Press Make camp on a phone.":atTop?"Press Stand on top on a phone.":`Next question<span id="nextIn"></span>`}</p>`);}
   const other=pid&&!o.arrived?outcomeOf(t,pid,o):null;
   if(!sus)say([oc[2],oc[3],other?`${esc(nameOf(pid))}: ${other[2].replace(/ you\b/," them")}`:"",`The answer was ${esc(q.o[0])}.`].filter(Boolean).join(" "),"reveal"+r.id,true);
   return frameQ(t,head+`<div class="result ${oc[0]}">${oc[1]}<div><b>${oc[2]}</b><span>${oc[3]}</span></div></div>
@@ -911,6 +911,8 @@ const CALLS=["A?","B?","C?","D?","Not sure","Trust me","Clip a hook","Save it"];
 // (on the big screen the radio's place holds the way in: the QR code and who is on the rope)
 function renderTvJoin(t){const el=$("#radio"),ids=memberIds(t),full=ids.filter(i=>i!==SIM).length>=2,key="tv|"+ids.map(i=>i+(S.online.has(i)?1:0)+S.names[i]).join(",");
   if(S.radioKey===key)return;S.radioKey=key;el.classList.add("tvjoin");el.classList.remove("solo");
+  // (once both are on the rope their names are in the bar at the top, so the card goes, and the climb gets its room)
+  el.classList.toggle("full",full);
   el.innerHTML=`<div class="rhead"><span>${full?"On the rope":"Scan to join"}</span><span>${esc(t.code)}</span></div>
     ${full?"":`<div class="tvqr small">${qrHtml(t.code)}</div>`}
     <div class="tvwho">${ids.map(i=>`<span class="climber"><i class="dot ${S.online.has(i)?"on":""}"></i>${ptag(t,i)} · ${esc(S.names[i]||"Climber")}</span>`).join("")}${full?"":`<span class="climber"><i class="dot"></i>Waiting for a second climber</span>`}</div>`;}
@@ -989,7 +991,7 @@ function updateDynamic(t){
   // the last five seconds tick, for whoever hasn't locked in yet
   const s=Math.ceil(rem);if(rem>0&&s<=5&&(TV()?!memberIds(t).every(i=>S.answers[i]):!S.answers[S.uid])&&S._beep!==r.id+":"+s){S._beep=r.id+":"+s;sfx("tick");}
   const pid=partnerId(t);
-  if(ptx)ptx.textContent=TV()?memberIds(t).map(i=>`${ptag(t,i)} ${S.names[i]||"Climber"}: ${S.answers[i]?"locked in":"thinking…"}`).join("   ·   "):pid?(S.answers[pid]?`${nameOf(pid)} is locked in`:`${nameOf(pid)} is thinking…`):"";
+  if(ptx)ptx.textContent=TV()?"Answer on your phones   ·   "+memberIds(t).map(i=>`${S.names[i]||ptag(t,i)} ${S.answers[i]?"✓":"…"}`).join("   "):pid?(S.answers[pid]?`${nameOf(pid)} is locked in`:`${nameOf(pid)} is thinking…`):"";
 }
 
 /* ============================== TICK ============================== */

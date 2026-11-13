@@ -942,6 +942,11 @@ function sceneArea(){const W=FX.W,H=FX.H,wide=W>=900,hud=$("#hud"),hb=hud&&!hud.
   const r=m&&m.getBoundingClientRect(),dock=m&&m.classList.contains("game2");
   // (a phone on its side has the panel as a column down the left edge instead: the climb is framed beside it)
   if(r&&r.width>0&&r.height>0){if((wide&&!dock)||r.width<W*.7){a.x=Math.min(W-240,r.right+8);a.w=W-a.x;}else a.h=Math.max(150,r.top-top);}
+  // (on the big screen the climbers may rise up past the portraits' row: only the boxes above the climbers' own
+  // column of the screen count, which is usually just the bar)
+  if(BOTH()&&FX.A&&FX.ox!=null){const cx=(FX.A.me.N.x+FX.ox)*FX.px,l=cx-30*FX.px,rr=cx+30*FX.px;let t=8;
+    for(const el of document.querySelectorAll("#hud>*,#bar>*")){const b=el.getBoundingClientRect();if(b.width&&b.height&&b.right>l&&b.left<rr)t=Math.max(t,b.bottom+8);}
+    if(t<a.y){a.h+=a.y-t;a.y=t;}}
   return a;}
 // a critically damped spring: eases into a move and settles without overshoot (implicit, so stable at any dt)
 function damp(x,v,to,w,dt){const f=1+2*dt*w,hw=dt*w*w,d=1/(f+dt*hw);return [(f*x+dt*v+dt*hw*to)*d,(v+hw*(to-x))*d];}
