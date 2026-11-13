@@ -17,16 +17,21 @@
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
 <link rel="apple-touch-icon" href="assets/icon-180.png">
+<!-- installable to a phone's home screen or a desktop's apps, opening without the browser's bars -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pinnacle">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pixelify+Sans:wght@400;500;600;700&display=swap">
 <script>
 /* GitHub Pages lets browsers keep every file for ten minutes. The game's styles and scripts are fetched at one code
    version, so a browser keeps them between visits and never mixes files from two updates: raise the number with every
    change to css/ or js/, and everyone gets the new files the next time this page loads. */
-window.V="code=7";
+window.V="code=8";
 /* The art (everything under assets/) changes rarely and is most of the download, so it keeps one version, which
    browsers may hold on to: raise the number whenever a picture is changed or added. */
-window.AV="art=12";
+window.AV="art=13";
 document.write('<link rel="stylesheet" href="css/style.css?'+V+'">');
 </script>
 <style>
@@ -41,7 +46,7 @@ document.write('<link rel="stylesheet" href="css/style.css?'+V+'">');
 </style>
 </head>
 <body>
-<div id="boot" role="status" aria-label="Loading Pinnacle"><img src="assets/emblem.png?art=12" alt=""><i></i></div>
+<div id="boot" role="status" aria-label="Loading Pinnacle"><img src="assets/emblem.png?art=13" alt=""><i></i></div>
 <div class="scene" id="scene">
   <canvas id="topo" role="img" aria-label="A rope team climbing a granite cliff from base camp to the summit"></canvas>
   <div class="fx" id="fx" aria-hidden="true"></div>
