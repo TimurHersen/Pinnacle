@@ -1,0 +1,37 @@
+# Runs on every push and pull request: the climb's rules, the version numbers in index.html (see the README) and the
+# database rules against the Firebase emulators.
+name: Checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  game:
+    name: Climb rules and versions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Climb rules and question pool
+        run: node test/rules.test.js
+      - name: Version numbers raised with every change to css/, js/ or assets/
+        run: node test/versions.js "${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}"
+  database:
+    name: Database rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Database rules on the Firebase emulators
+        run: npx --yes firebase-tools@15.36.0 emulators:exec --project pinnacle-5f36a --only database,auth "node test/db.test.js"
