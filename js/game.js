@@ -1,5 +1,25 @@
-/* Shared storage: Pinnacle's own Firebase Realtime Database (access rules live in database.rules.json). */
-const FB="https://pinnacle-5f36a-default-rtdb.europe-west1.firebasedatabase.app";
+/* Shared storage: Pinnacle's own Firebase Realtime Database (access rules live in database.rules.json).
+   With ?emu in the address the game talks to the Firebase emulators on this computer instead (see README). */
+const EMU=/[?&]emu(=|&|$)/.test(location.search);
+const FB=EMU?"http://127.0.0.1:9000":"https://pinnacle-5f36a-default-rtdb.europe-west1.firebasedatabase.app",FB_NS="pinnacle-5f36a-default-rtdb";
+/* Every device signs in to Firebase anonymously (no account, no name: just a key the database knows it by), so the
+   database rules can tell a rope team's own climbers from anyone else who has its code. FB_KEY is the project's Web
+   API key (Firebase console → Project settings → General → Web API key; it is public, like the database address).
+   Until it is filled in the game plays signed out, which only works under rules that don't ask for sign-in. */
+const FB_KEY="";
+const AUTH={uid:null,token:null,exp:0,p:null,
+  on:()=>!window.TEST&&(EMU||!!FB_KEY),
+  host:h=>EMU?`http://127.0.0.1:9099/${h}`:`https://${h}`,
+  // a fresh token when the one held runs out within the minute (tokens last an hour); null while signed out
+  ready(){if(!AUTH.on())return Promise.resolve(null);if(AUTH.token&&Date.now()<AUTH.exp-60000)return Promise.resolve(AUTH.token);
+    return AUTH.p||(AUTH.p=AUTH.fetch().finally(()=>{AUTH.p=null;}));},
+  async fetch(){const key=FB_KEY||"emulator",rt=LS.get("rt",null);let d=null;
+    // the same device keeps the same sign-in: its refresh token is kept, and traded for a new token each hour
+    if(rt){try{const r=await fetch(AUTH.host(`securetoken.googleapis.com/v1/token?key=${key}`),{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"grant_type=refresh_token&refresh_token="+encodeURIComponent(rt)});
+      if(r.ok){const j=await r.json();d={idToken:j.id_token,refreshToken:j.refresh_token,localId:j.user_id,expiresIn:j.expires_in};}}catch(e){}}
+    if(!d){const r=await fetch(AUTH.host(`identitytoolkit.googleapis.com/v1/accounts:signUp?key=${key}`),{method:"POST",headers:{"Content-Type":"application/json"},body:'{"returnSecureToken":true}'});
+      if(!r.ok)throw new Error("sign-in "+r.status);d=await r.json();}
+    LS.set("rt",d.refreshToken);AUTH.uid=d.localId;AUTH.token=d.idToken;AUTH.exp=Date.now()+(+d.expiresIn||3600)*1000;return AUTH.token;}};
 const S={uid:null,myName:"",code:null,team:null,answers:{},names:{},online:new Set(),pres:{},local:{},
   unsubTeam:null,unsubAns:null,unsubPres:null,presTimer:null,ansRound:null,resolving:false,acting:false,
   myTeams:[],panelKey:null,sample:null};
@@ -30,21 +50,21 @@ const LS_PRE=window.TEST?`pinnacle.test.${TEST.as}.`:"pinnacle.";
 const LS={get(k,d){try{const v=localStorage.getItem(LS_PRE+k);return v==null?d:JSON.parse(v);}catch(e){return d;}},
   set(k,v){try{localStorage.setItem(LS_PRE+k,JSON.stringify(v));}catch(e){}}};
 
-/* Firebase REST + streaming (EventSource) — no SDK needed */
+/* Firebase REST + streaming (EventSource) — no SDK needed. Each call waits for the sign-in first (AUTH) */
 const fb={
-  url:p=>`${FB}/${p}.json`,
-  async get(p){const r=await fetch(fb.url(p));if(!r.ok)throw new Error("get "+r.status);return r.json();},
-  async getTagged(p){
+  url:p=>`${FB}/${p}.json`+((q=>q.length?"?"+q.join("&"):"")([...(EMU?["ns="+FB_NS]:[]),...(AUTH.token?["auth="+AUTH.token]:[])])),
+  async get(p){await AUTH.ready();const r=await fetch(fb.url(p));if(!r.ok)throw new Error("get "+r.status);return r.json();},
+  async getTagged(p){await AUTH.ready();
     try{const r=await fetch(fb.url(p),{headers:{"X-Firebase-ETag":"true"}});if(!r.ok)throw 0;return {val:await r.json(),etag:r.headers.get("ETag")};}
     catch(e){return {val:await fb.get(p),etag:null};}},
-  async put(p,v,etag){const h={"Content-Type":"application/json"};if(etag)h["if-match"]=etag;
+  async put(p,v,etag){await AUTH.ready();const h={"Content-Type":"application/json"};if(etag)h["if-match"]=etag;
     const r=await fetch(fb.url(p),{method:"PUT",headers:h,body:JSON.stringify(v)});
     if(r.status===412)return false;if(!r.ok)throw new Error("put "+r.status);return true;},
-  async patch(p,v){const r=await fetch(fb.url(p),{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(v)});if(!r.ok)throw new Error("patch "+r.status);},
+  async patch(p,v){await AUTH.ready();const r=await fetch(fb.url(p),{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(v)});if(!r.ok)throw new Error("patch "+r.status);},
   // (keepalive lets a delete sent as the page closes still go through)
-  del(p,keepalive){return fetch(fb.url(p),{method:"DELETE",keepalive:!!keepalive}).catch(()=>{});},
+  del(p,keepalive){return AUTH.ready().then(()=>fetch(fb.url(p),{method:"DELETE",keepalive:!!keepalive})).catch(()=>{});},
   listen(p,cb){
-    let tree=null;const es=new EventSource(fb.url(p));
+    let tree=null,es=null,closed=false;
     const isObj=x=>x&&typeof x==="object";
     const apply=(ev,isPatch)=>{let d;try{d=JSON.parse(ev.data);}catch(e){return;}if(!d||typeof d.path!=="string")return;
       const parts=d.path.split("/").filter(Boolean);
@@ -57,10 +77,15 @@ const fb={
         else{const k=parts[parts.length-1];if(d.data===null)delete o[k];else o[k]=d.data;}
       }
       cb(tree==null?null:clone(tree));};
-    es.addEventListener("put",e=>apply(e,false));
-    es.addEventListener("patch",e=>apply(e,true));
-    es.onopen=()=>conn(es,true);es.onerror=()=>conn(es,false);
-    return ()=>{es.close();conn(es,true);};}
+    // the stream opens once signed in; when its token runs out the database closes it (auth_revoked), and it is
+    // opened again with a fresh one (the first message of a new stream is the whole tree, so nothing is lost)
+    const open=()=>AUTH.ready().catch(()=>null).then(()=>{if(closed)return;const src=es=new EventSource(fb.url(p));
+      src.addEventListener("put",e=>apply(e,false));
+      src.addEventListener("patch",e=>apply(e,true));
+      src.addEventListener("auth_revoked",()=>{src.close();conn(src,true);if(!closed)open();});
+      src.onopen=()=>conn(src,true);src.onerror=()=>conn(src,false);});
+    open();
+    return ()=>{closed=true;if(es){es.close();conn(es,true);}};}
 };
 // the connection: when a live link to the database drops (the browser keeps retrying by itself), a note says so
 // until it is back; a blip shorter than a second and a half never shows
@@ -71,6 +96,10 @@ function conn(src,ok){if(ok)CONN.bad.delete(src);else CONN.bad.add(src);
 addEventListener("offline",()=>conn(null,true));addEventListener("online",()=>conn(null,true));
 // test mode (js/testdb.js): the same calls, answered by an in-memory database
 if(window.TESTFB)Object.assign(fb,window.TESTFB);
+// a whole team written back, with its seats: the climbers in the order they joined (the stand-in has none), which the
+// database rules use to keep a team to two climbers
+function putTeam(code,t,etag){const h=memberIds(t).filter(id=>id!==SIM);t.seats={};h.slice(0,2).forEach((id,i)=>t.seats[i+1]=id);
+  return fb.put("teams/"+code,t,etag);}
 /* Firebase drops empty arrays/objects and nulls; restore the shape the game expects */
 function fixTeam(t){
   if(!t||typeof t!=="object")return null;t=clone(t);
@@ -196,7 +225,7 @@ async function guarded(fn){
     for(let attempt=0;attempt<3;attempt++){
       const {val,etag}=await fb.getTagged("teams/"+S.code);const t=fixTeam(val);if(!t)return;
       const next=await fn(t);if(!next)return;
-      if(await fb.put("teams/"+S.code,next,etag))return;
+      if(await putTeam(S.code,next,etag))return;
     }
   }catch(e){console.error(e);toast("Couldn't save that move. Check your connection and try again.");}
   finally{S.acting=false;}
@@ -286,7 +315,7 @@ async function tryResolve(){
     const {val,etag}=await fb.getTagged("teams/"+S.code);const t=fixTeam(val);
     if(!t||t.round.id!==rid||t.round.phase!=="answer")return;
     const ans=(await fb.get(`answers/${S.code}/${rid}`))||{};
-    const ok=await fb.put("teams/"+S.code,applyOutcome(t,judge(t,ans)),etag);
+    const ok=await putTeam(S.code,applyOutcome(t,judge(t,ans)),etag);
     // (rounds without a question, at camp or on the map, keep radio messages too, so the ten rounds below the last
     // two are cleared in one go)
     if(ok){const old={};for(let i=rid-12;i<=rid-3;i++)if(i>=0)old[i]=null;if(Object.keys(old).length)fb.patch(`answers/${S.code}`,old).catch(()=>{});}
@@ -316,7 +345,8 @@ const inviteLink=code=>location.origin+location.pathname+"#t-"+code;
    controller, with only the question and the buttons on it. The big screen is not a climber: it only watches the
    team (S.mode "tv"); a phone that joined by the code is a climber like any other, laid out as a controller ("pad"). */
 const TV=()=>S.mode==="tv",PAD=()=>S.mode==="pad";
-const padLink=code=>location.origin+location.pathname+"#pad-"+code;
+// (from a big screen, the link also names the screen's sign-in, so the phone that scans it can let the screen in)
+const padLink=code=>location.origin+location.pathname+"#pad-"+code+(TV()&&AUTH.uid?"~"+AUTH.uid:"");
 const setMode=m=>{S.mode=m||null;document.body.classList.toggle("tv",m==="tv");document.body.classList.toggle("pad",m==="pad");};
 const qrHtml=code=>typeof QR!=="undefined"?QR.svg(padLink(code),{label:"QR code to join with your phone"}):"";
 function renderLobby(invite){
@@ -358,7 +388,8 @@ function renderLobby(invite){
         <li><b>Gear.</b> Chalk wipes out two wrong answers. The route scout gives a hint.</li>
         <li><b>Mountains.</b> ${MOUNTAIN_ORDER.map(k=>esc(MOUNTAINS[k].name)).join(", ")}: the higher the mountain, the harder the questions, the less time you get and the fewer hooks you carry.</li>
         <li><b>Camps</b> restock your gear. There you pick the route on, short and hard or long and gentler, and one extra piece of gear.</li>
-        <li><b>The rope radio</b> lets you talk when you're apart. Side by side, just talk.</li></ul></div>
+        <li><b>The rope radio</b> lets you talk when you're apart. Side by side, just talk.</li>
+        <li><b>On a keyboard,</b> 1 to 4 (or A to D) picks an answer and Enter locks it in. Enter also moves on to the next question.</li></ul></div>
     <div class="card" id="secSet"><h3>Settings</h3>
       ${settingsHtml()}
     </div>`;
@@ -382,25 +413,44 @@ function renderLobby(invite){
   if(invite)open("secJoin");
   syncSettings();
 }
+/* Seats and sign-ins (see AUTH): a climber's seat on a team carries this device's sign-in (a), and the team keeps a
+   list from sign-in to seat (auth), which is what the database rules check before any write to the team. A big
+   screen that a climber's phone scanned is let in too (screens), so it can move the climb on. */
+function bindMe(t,id=S.uid){if(!AUTH.on()||!AUTH.uid||!t.members[id])return t;t.members[id].a=AUTH.uid;
+  t.auth={...(t.auth||{}),[AUTH.uid]:id};if(S.wantScreen)t.screens={...(t.screens||{}),[S.wantScreen]:true};return t;}
+const seatBound=t=>{const m=t&&t.members[S.uid];return !AUTH.on()||!m||(m.a===AUTH.uid&&(t.auth||{})[AUTH.uid]===S.uid);};
+// (a big screen may move the climb on only when let in: otherwise the climbers' phones do it)
+const screenOk=t=>!AUTH.on()||!!(t&&(t.screens||{})[AUTH.uid]);
+// a seat this device holds but whose sign-in isn't on it: a team made before sign-ins (the seat is simply claimed), or
+// a sign-in this device has since lost (the seat is taken back once the database sees it offline, after 90 s; until
+// then it is tried again every 20 s). A phone that came from a big screen's code lets that screen in as well.
+async function claimSeat(){const code=S.code;if(!code||TV()||!AUTH.on()||Date.now()-(S._claimAt||0)<20000)return;S._claimAt=Date.now();
+  try{await AUTH.ready();const {val,etag}=await fb.getTagged("teams/"+code);const t=fixTeam(val),m=t&&t.members[S.uid];if(!m)return;
+    if(seatBound(t)){if(S.wantScreen&&!(t.screens||{})[S.wantScreen]){await fb.patch(`teams/${code}/screens`,{[S.wantScreen]:true});}S.wantScreen=null;return;}
+    if(!m.a||m.a===AUTH.uid){const up={[`auth/${AUTH.uid}`]:S.uid};if(!m.a)up[`members/${S.uid}/a`]=AUTH.uid;await fb.patch("teams/"+code,up);S._claimAt=0;
+      guarded(t=>t);return;} // (and the team is written back once, which gives it its seats)
+    t.took=S.uid;for(const [k,v] of Object.entries(t.auth||{}))if(v===S.uid)delete t.auth[k];bindMe(t);
+    if(await putTeam(code,t,etag))S._claimAt=0;
+  }catch(e){if(!S._claimToast){S._claimToast=1;toast("Getting your place on the rope back…");}}}
 async function createTeam(){
   const err=$("#createErr");const me=readName();if(!me){err.textContent="Add your name first.";$("#myname").focus();return;}
   const name=($("#tname").value||"").trim()||"Rope Team";const code=randCode();
-  const btn=$("#createBtn");btn.disabled=true;
+  const btn=$("#createBtn");btn.disabled=true;await AUTH.ready().catch(()=>{});
   const t={name,code,createdAt:Date.now(),createdBy:S.uid,members:{[S.uid]:{name:me,joined:Date.now()}},
-    exp:newExp(1),round:{id:0,phase:"map",votes:{}},log:[{at:Date.now(),text:`${name} roped up and opened the map.`}],stats:{rounds:0,summits:0,falls:0}};
-  try{await fb.put("teams/"+code,t);rememberTeam(code,name);openTeam(code);}
+    exp:newExp(1),round:{id:0,phase:"map",votes:{}},log:[{at:Date.now(),text:`${name} roped up and opened the map.`}],stats:{rounds:0,summits:0,falls:0}};bindMe(t);
+  try{await putTeam(code,t);rememberTeam(code,name);openTeam(code);}
   catch(e){err.textContent="Couldn't create the team. Check your connection and try again.";btn.disabled=false;}
 }
 async function joinTeam(){
   const code=($("#jcode").value||"").trim().toUpperCase();const err=$("#joinErr");err.textContent="";$("#seats").innerHTML="";
   if(!/^[A-Z0-9]{6}$/.test(code)){err.textContent="Team codes are 6 letters and digits.";return;}
   const me=readName();if(!me){err.textContent="Add your name first.";$("#myname").focus();return;}
-  try{
+  try{await AUTH.ready();
     const {val,etag}=await fb.getTagged("teams/"+code);const t=fixTeam(val);
     if(!t&&S.wantPad===code){ // (the big screen only shows the code: the first phone to scan it makes the team)
       const nt={name:"Rope Team",code,createdAt:Date.now(),createdBy:S.uid,members:{[S.uid]:{name:me,joined:Date.now()}},
-        exp:newExp(1),round:{id:0,phase:"map",votes:{}},log:[{at:Date.now(),text:`${me} roped up and opened the map.`}],stats:{rounds:0,summits:0,falls:0}};
-      if(!(await fb.put("teams/"+code,nt,etag))){err.textContent="Someone else just joined. Press Join again.";return;}
+        exp:newExp(1),round:{id:0,phase:"map",votes:{}},log:[{at:Date.now(),text:`${me} roped up and opened the map.`}],stats:{rounds:0,summits:0,falls:0}};bindMe(nt);
+      if(!(await putTeam(code,nt,etag))){err.textContent="Someone else just joined. Press Join again.";return;}
       rememberTeam(code,nt.name);openTeam(code);return;}
     if(!t){err.textContent="No rope team with that code.";return;}
     const ids=Object.keys(t.members);
@@ -412,20 +462,24 @@ async function joinTeam(){
       $("#seats").innerHTML=`<div class="actions" style="margin-top:8px">${ids.map(id=>`<button class="btn ghost" data-id="${esc(id)}">I'm ${esc(t.members[id].name||"this climber")}</button>`).join("")}</div>`;
       $("#seats").querySelectorAll("button").forEach(b=>b.onclick=()=>takeSeat(code,b.dataset.id));
       return;}
-    t.members[S.uid]={name:me,joined:Date.now()};
+    t.members[S.uid]={name:me,joined:Date.now()};bindMe(t);
     t.log=t.log.slice(-39);t.log.push({at:Date.now(),text:`${me} clipped into the rope.`});
-    if(!(await fb.put("teams/"+code,t,etag))){err.textContent="The team just changed. Press Join again.";return;}
+    if(!(await putTeam(code,t,etag))){err.textContent="The team just changed. Press Join again.";return;}
     rememberTeam(code,t.name);openTeam(code);
   }catch(e){err.textContent="Couldn't join. Check your connection and try again.";}
 }
 async function takeSeat(code,old){
   const err=$("#joinErr");
-  try{const {val,etag}=await fb.getTagged("teams/"+code);const t=fixTeam(val);if(!t||!t.members[old])return;
+  try{await AUTH.ready();const {val,etag}=await fb.getTagged("teams/"+code);const t=fixTeam(val);if(!t||!t.members[old])return;
+    // (the database lets a place be taken over only once its climber has been offline for a minute and a half)
+    if(AUTH.on()){const seen=await fb.get(`presence/${code}/${old}`);
+      if(typeof seen==="number"&&seen>Date.now()+SKEW-90000){err.textContent=`${t.members[old].name||"That climber"} is still online. Close the game on the other device, then try again in a minute or two.`;return;}}
     const m=t.members[old];delete t.members[old];t.members[S.uid]={...m,name:readName()||m.name};
+    t.took=old;for(const [k,v] of Object.entries(t.auth||{}))if(v===old)delete t.auth[k];bindMe(t);
     if(t.round.leader===old)t.round.leader=S.uid;
     if(t.exp.up[old]!=null){t.exp.up[S.uid]=t.exp.up[old];delete t.exp.up[old];}
     if(t.round.votes[old]){t.round.votes[S.uid]=t.round.votes[old];delete t.round.votes[old];}
-    if(!(await fb.put("teams/"+code,t,etag))){err.textContent="The team just changed. Try again.";return;}
+    if(!(await putTeam(code,t,etag))){err.textContent="The team just changed. Try again.";return;}
     rememberTeam(code,t.name);openTeam(code);
   }catch(e){err.textContent="Couldn't take over that place. Try again.";}
 }
@@ -445,12 +499,11 @@ function goLobby(){document.body.classList.remove("atmap");closeTeam();try{histo
 // the moment it was sent (the middle of the round trip) it gives this device's offset from the server's clock
 function beat(){if(!S.code||document.visibilityState!=="visible")return;
   const path=`presence/${S.code}/${S.uid}`;if(window.TEST){fb.put(path,Date.now()).catch(()=>{});return;}
-  const t0=Date.now();
-  fetch(fb.url(path),{method:"PUT",headers:{"Content-Type":"application/json"},body:'{".sv":"timestamp"}'}).then(r=>r.json()).then(v=>{
+  AUTH.ready().then(()=>{const t0=Date.now();return fetch(fb.url(path),{method:"PUT",headers:{"Content-Type":"application/json"},body:'{".sv":"timestamp"}'}).then(r=>r.json()).then(v=>{
     const mid=(t0+Date.now())/2;if(Date.now()-t0>3000)return; // (too slow a round trip to trust)
     if(typeof v==="number"){SKEW=v-mid;return;}
     // (should the reply not carry the stamp, it arrives on the presence stream a moment later)
-    setTimeout(()=>{const own=S.pres&&S.pres[S.uid];if(typeof own==="number"&&own!==S.ownPres){S.ownPres=own;SKEW=own-mid;}},600);}).catch(()=>{});}
+    setTimeout(()=>{const own=S.pres&&S.pres[S.uid];if(typeof own==="number"&&own!==S.ownPres){S.ownPres=own;SKEW=own-mid;}},600);});}).catch(()=>{});}
 document.addEventListener("visibilitychange",beat);
 // a phone would dim and lock its screen while the two talk a question over, so the screen is kept awake during a
 // climb (where the browser can; the lock is dropped whenever the page is hidden, so it's taken again on return)
@@ -487,7 +540,7 @@ function openScreen(code){
       <div><div class="clabel">Play on this screen</div><div class="qtitle">Scan to climb</div>
       <ol class="tvsteps"><li>Point your phone's camera at the code.</li><li>Add your name and press Join.</li><li>Your phone is the controller; the climb plays here.</li></ol>
       <p class="note">Two climbers can rope up. No camera? Open the game on your phone, choose Join team and type <strong>${esc(code)}</strong>.</p></div></div>`;};
-  waiting();
+  waiting();AUTH.ready().then(()=>{if(S.code===code&&main.className==="tvwait")waiting();}).catch(()=>{});
   S.unsubTeam=fb.listen("teams/"+code,raw=>{const t=fixTeam(raw);
     if(!t||!memberIds(t).length){if(S.team||main.className!=="tvwait")waiting();return;}
     S.team=t;S.names={};for(const [id,m] of Object.entries(t.members))S.names[id]=m.name||"Climber";
@@ -908,6 +961,19 @@ function wirePanel(t){
     P.querySelectorAll(".qopt").forEach(x=>x.classList.toggle("sel",x===b));const l=$("#lockBtn");if(l)l.disabled=false;}));
   P.querySelector("#lockBtn")?.addEventListener("click",()=>{if(S.local.choice!=null&&!S.answers[S.uid])submit({choice:S.local.choice});});
 }
+// on a keyboard (a desktop, or the laptop driving a big screen): 1-4 or A-D picks an answer, Enter locks it in, and
+// Enter also moves on (the next question, making camp, setting off). Typing in a box, a key held with Ctrl/Alt/Cmd,
+// an open menu and a focused button (Enter presses that one already) are left alone
+addEventListener("keydown",e=>{
+  if(e.ctrlKey||e.metaKey||e.altKey||e.repeat||!S.team)return;
+  const a=document.activeElement,tag=a&&a.tagName,menu=$("#menu"),P=$("#panel");
+  if(!P||/^(INPUT|TEXTAREA|SELECT)$/.test(tag)||(a&&a.isContentEditable)||(menu&&!menu.hidden))return;
+  const k=e.key.length===1?e.key.toUpperCase():e.key,i="1234".indexOf(k)>=0?"1234".indexOf(k):LETTERS.indexOf(k);
+  if(i>=0&&k.length===1){const b=P.querySelector(`.qopt[data-i="${i}"]`);if(b&&!b.disabled){e.preventDefault();b.click();b.focus({preventScroll:true});}return;}
+  if(k!=="Enter"||(tag==="BUTTON"&&!a.classList.contains("qopt")))return;
+  const go=["#lockBtn","#nextBtn","#goBtn","#setOffBtn","#campBtn"].map(s=>P.querySelector(s)).find(b=>b&&!b.disabled&&b.offsetParent!==null);
+  if(go){e.preventDefault();go.click();}
+});
 function updateDynamic(t){
   const r=t.round;updateRadio(t);if(r.phase!=="answer")return;
   // the count before the clock starts, a tick for each number
@@ -931,17 +997,17 @@ const AUTO_NEXT_MS=11000;
 function autoNext(t){const r=t.round,el=$("#nextIn");
   if(r.phase!=="reveal"||!r.resolvedAt||r.result?.arrived||S.sus===r.id){if(el)el.textContent="";return;}
   const left=Math.ceil((r.resolvedAt+AUTO_NEXT_MS-now())/1000);if(el)el.textContent=left>0?` · ${left}`:"";
-  const menu=$("#menu");if(left<=0&&S._auto!==r.id&&!(menu&&!menu.hidden)&&(t.members[S.uid]||TV())){S._auto=r.id;advance(false);}}
+  const menu=$("#menu");if(left<=0&&S._auto!==r.id&&!(menu&&!menu.hidden)&&(t.members[S.uid]||TV()&&screenOk(t))){S._auto=r.id;advance(false);}}
 let tickN=0;
 setInterval(()=>{
   if(++tickN%40===0)updateOnline();
-  const t=S.team;if(!t)return;simTick(t);autoNext(t);if(t.round.phase!=="answer"){updateDynamic(t);return;}
+  const t=S.team;if(!t)return;if(!seatBound(t)||S.wantScreen)claimSeat();simTick(t);autoNext(t);if(t.round.phase!=="answer"){updateDynamic(t);return;}
   renderPanel(t); // (the count gives way to the question; otherwise this only moves the clock)
   const r=t.round,rem=remaining(r);
   // out of time: whatever is selected is locked in (or no answer)
   if(rem<=0&&!TV()&&!S.answers[S.uid]&&S._autoSent!==r.id){S._autoSent=r.id;submit({choice:S.local.choice??null});}
   const all=memberIds(t).every(id=>S.answers[id]);
   // the pitch's leader judges; the partner steps in if the leader is away or slow
-  const mine=TV()||r.leader===S.uid||!t.members[r.leader]||!S.online.has(r.leader)||r.leader===SIM||rem<=-10;
+  const mine=TV()&&screenOk(t)||r.leader===S.uid||!t.members[r.leader]||!S.online.has(r.leader)||r.leader===SIM||rem<=-10;
   if((all||rem<=-2)&&mine&&Date.now()-(S._lastTry||0)>2500){S._lastTry=Date.now();tryResolve();}
 },250);

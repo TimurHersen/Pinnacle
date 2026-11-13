@@ -5,16 +5,33 @@
     "teams": {
       "$code": {
         ".read": true,
-        ".write": "newData.exists()",
+        ".write": "auth != null && newData.exists() && (!data.exists() || (data.child('auth/' + auth.uid).isString() && data.child('members/' + data.child('auth/' + auth.uid).val() + '/a').val() === auth.uid) || data.child('screens/' + auth.uid).val() === true || (data.child('seats/1').exists() && !data.child('seats/2').exists() && newData.child('seats/1').val() === data.child('seats/1').val() && newData.child('seats/2').val() === newData.child('auth/' + auth.uid).val() && newData.child('members/' + data.child('seats/1').val() + '/a').val() === data.child('members/' + data.child('seats/1').val() + '/a').val() && newData.child('auth/' + auth.uid).isString() && newData.child('members/' + newData.child('auth/' + auth.uid).val() + '/a').val() === auth.uid) || (newData.child('took').isString() && newData.child('seats').exists() && data.child('members/' + newData.child('took').val()).exists() && (!root.child('presence/' + $code + '/' + newData.child('took').val()).exists() || root.child('presence/' + $code + '/' + newData.child('took').val()).val() < now - 90000) && (!newData.child('members/' + newData.child('took').val()).exists() || newData.child('members/' + newData.child('took').val() + '/a').val() === auth.uid) && newData.child('auth/' + auth.uid).isString() && newData.child('members/' + newData.child('auth/' + auth.uid).val() + '/a').val() === auth.uid))",
         ".validate": "$code.matches(/^[A-Z0-9]{6}$/) && newData.hasChildren(['name', 'members', 'exp', 'round'])",
         "name": { ".validate": "newData.isString() && newData.val().length <= 64" },
         "code": { ".validate": "newData.val() === $code" },
+        "took": { ".validate": "newData.isString() && newData.val().length <= 32" },
         "members": {
           "$uid": {
-            ".validate": "$uid.matches(/^[a-z0-9]{1,32}$/) && newData.hasChild('name')",
+            ".validate": "$uid.matches(/^[a-z0-9]{1,32}$/) && newData.hasChild('name') && (!newData.parent().parent().child('seats').exists() || newData.parent().parent().child('seats/1').val() === $uid || newData.parent().parent().child('seats/2').val() === $uid || ($uid === 'sim' && !newData.parent().parent().child('seats/2').exists()))",
             "name": { ".validate": "newData.isString() && newData.val().length <= 40" },
-            "joined": { ".validate": "newData.isNumber()" }
+            "joined": { ".validate": "newData.isNumber()" },
+            "a": {
+              ".write": "auth != null && $uid !== 'sim' && !data.exists() && newData.val() === auth.uid",
+              ".validate": "newData.isString() && newData.val().length <= 128"
+            }
           }
+        },
+        "auth": {
+          "$a": {
+            ".write": "auth != null && $a === auth.uid && newData.isString() && newData.parent().parent().child('members/' + newData.val() + '/a').val() === auth.uid",
+            ".validate": "newData.isString() && newData.val().matches(/^[a-z0-9]{1,32}$/)"
+          }
+        },
+        "seats": {
+          "$n": { ".validate": "($n === '1' || $n === '2') && newData.isString() && newData.val().matches(/^[a-z0-9]{1,32}$/)" }
+        },
+        "screens": {
+          "$a": { ".validate": "newData.val() === true" }
         },
         "round": {
           ".validate": "newData.hasChild('id') && newData.hasChild('phase')",
@@ -31,19 +48,19 @@
     "answers": {
       "$code": {
         ".read": true,
-        ".write": true,
+        ".write": "auth != null && ((root.child('teams/' + $code + '/auth/' + auth.uid).isString() && root.child('teams/' + $code + '/members/' + root.child('teams/' + $code + '/auth/' + auth.uid).val() + '/a').val() === auth.uid) || root.child('teams/' + $code + '/screens/' + auth.uid).val() === true)",
         ".validate": "$code.matches(/^[A-Z0-9]{6}$/)",
         "$rid": {
           ".validate": "$rid.matches(/^[0-9]{1,9}$/)",
           "_talk": {
             "$msg": {
-              ".validate": "newData.hasChildren(['uid', 'text', 'at'])",
+              ".validate": "newData.hasChildren(['uid', 'text', 'at']) && newData.child('uid').val() === root.child('teams/' + $code + '/auth/' + auth.uid).val()",
               "text": { ".validate": "newData.isString() && newData.val().length <= 60" },
               "$other": { ".validate": "$other === 'uid' || $other === 'at'" }
             }
           },
           "$uid": {
-            ".validate": "$uid.matches(/^[a-z0-9]{1,32}$/) && newData.hasChildren(['roundId', 'uid', 'at'])",
+            ".validate": "$uid.matches(/^[a-z0-9]{1,32}$/) && newData.hasChildren(['roundId', 'uid', 'at']) && ($uid === 'sim' || $uid === root.child('teams/' + $code + '/auth/' + auth.uid).val())",
             "choice": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
             "$other": { ".validate": "$other === 'roundId' || $other === 'uid' || $other === 'at'" }
           }
@@ -55,7 +72,7 @@
         ".read": true,
         ".validate": "$code.matches(/^[A-Z0-9]{6}$/)",
         "$uid": {
-          ".write": true,
+          ".write": "auth != null && (!root.child('teams/' + $code + '/members/' + $uid).exists() || root.child('teams/' + $code + '/auth/' + auth.uid).val() === $uid)",
           ".validate": "$uid.matches(/^[a-z0-9]{1,32}$/) && newData.isNumber()"
         }
       }

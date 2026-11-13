@@ -16,9 +16,9 @@ $("#radioBtn").onclick=()=>toggleRadio();
   renderLobby();
   // a big screen opened on its link goes straight back to watching; a phone that scanned the screen's code becomes
   // a controller (straight in if it is already on that rope, otherwise after giving a name)
-  const tv=/^#tv-([A-Z0-9]{6})$/.exec(location.hash||""),pd=/^#pad-([A-Z0-9]{6})$/.exec(location.hash||"");
+  const tv=/^#tv-([A-Z0-9]{6})$/.exec(location.hash||""),pd=/^#pad-([A-Z0-9]{6})(?:~([A-Za-z0-9]{1,128}))?$/.exec(location.hash||"");
   if(tv){openScreen(tv[1]);return;}
-  if(pd){S.wantPad=pd[1];fb.get("teams/"+pd[1]).then(v=>{const t=fixTeam(v);
+  if(pd){S.wantPad=pd[1];S.wantScreen=pd[2]||null;fb.get("teams/"+pd[1]).then(v=>{const t=fixTeam(v);
       if(t&&t.members[S.uid])openTeam(pd[1]);else renderLobby({code:pd[1],name:t?t.name:"the big screen",pad:true});})
     .catch(()=>toast("Couldn't reach the mountain. Check your connection."));return;}
   const m=/^#t-([A-Z0-9]{6})$/.exec(location.hash||"");
