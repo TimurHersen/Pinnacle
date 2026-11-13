@@ -385,7 +385,7 @@ const TIE=[68,66];          // the front of the belt in the climbing frames (whe
    side). So that a hand or boot on the rock stays where it is while the body moves, the frame is taken from the
    climber's height and the sprite is drawn in steps of CLIMB_STEP pixels, one per frame: each new frame, the body is
    that much higher and the planted limbs that much lower in it. Climbing down runs it backwards. */
-const CLIMB_STEP=7,CLIMB_X1=93; // (CLIMB_X1: the frames' rightmost pixel, a hand or a toe, which goes into the rock)
+const CLIMB_STEP=7,CLIMB_X1=93,TOE_IN=3,HAND_IN=2; // (CLIMB_X1: the frames' rightmost pixel, a hand or a toe, which goes into the rock)
 const climbQ=y=>Math.round(y/CLIMB_STEP);
 const REST_N=9,REST_MS=1700; // the resting and dangling clips: nine frames each, the rest played once through
 const REST_STEP=70;  // (the rest starts from the cycle's first frame: the climber shuffles to it, this long a frame)
@@ -402,6 +402,11 @@ function boxOf(im){if(im.bb)return im.bb;const [,g]=mk(im.width,im.height);g.dra
   const d=g.getImageData(0,0,im.width,im.height).data;let x0=1e9,y0=1e9,x1=-1,y1=-1;
   for(let y=0;y<im.height;y++)for(let x=0;x<im.width;x++)if(d[(y*im.width+x)*4+3]>40){x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y);}
   return im.bb={x0,y0,x1,y1};}
+// a climbing frame's reaching hand: the rightmost opaque pixel in the top quarter of its figure, and that row
+function handOf(im){if(im.hand)return im.hand;const b=boxOf(im),[,g]=mk(im.width,im.height);g.drawImage(im,0,0);
+  const d=g.getImageData(0,0,im.width,im.height).data,y1=b.y0+((b.y1-b.y0)>>2);let hx=b.x0,hy=b.y0;
+  for(let y=b.y0;y<=y1;y++)for(let x=b.x1;x>hx;x--)if(d[(y*im.width+x)*4+3]>40){hx=x;hy=y;break;}
+  return im.hand={x:hx,y:hy};}
 // a climbing frame's toes: the rightmost opaque pixel in the lowest quarter of its figure, and that row
 function feetOf(im){if(im.feet)return im.feet;const b=boxOf(im),[,g]=mk(im.width,im.height);g.drawImage(im,0,0);
   const d=g.getImageData(0,0,im.width,im.height).data,y0=b.y1-((b.y1-b.y0)>>2);let fx=b.x0,fy=b.y1;
@@ -703,8 +708,12 @@ class Rig{
       // hands set it, as they do for the rope and the holds)
       // (on the wall: in steps with the frames, and far enough right that the reaching hand and the toes sit a
       // few pixels into the rock, so the climber is on the face, not beside it)
-      if(k==="climb"&&this.mode==="climb"&&!this.mantling){const yq=climbQ(this.N.y)*CLIMB_STEP+R0(FX.sub||0)+oy+jo;
-        this.blit(g,img,x+HANG[0]+9-CLIMB_X1,yq+HANG[1]-1-b.y0,"wall",ox,oy);}
+      // (on the wall each frame is set by the rock where its own boots are: the toes go TOE_IN pixels into it, so the
+      // feet stand on the face however it leans or wanders; if that would leave the reaching hand short of the rock,
+      // the body comes in until the hand is on it too)
+      if(k==="climb"&&this.mode==="climb"&&!this.mantling){const yq=climbQ(this.N.y)*CLIMB_STEP+R0(FX.sub||0)+oy+jo,dy=yq+HANG[1]-1-b.y0;
+        const ft=feetOf(fr[i]),hd=handOf(fr[i]),xT=rockEdge(dy-oy+ft.y)+TOE_IN-ft.x,xH=rockEdge(dy-oy+hd.y)+HAND_IN-hd.x;
+        this.blit(g,img,Math.max(xT,xH)+ox+jx+R0(this.passX||0),dy,"wall",ox,oy);}
       else if(k==="climb")this.blit(g,img,x+HANG[0]+9-CLIMB_X1,y+HANG[1]-1-b.y0,"wall",ox,oy);
       else this.blit(g,img,x-(flip?W-1-((b.x0+b.x1)>>1):(b.x0+b.x1)>>1),y+LEG-b.y1,"feet:"+k+(flip?"<":">"),ox,oy);
       // (the harness: on the wall at the belt's front in the climbing frames; standing, just ahead of the hips)
