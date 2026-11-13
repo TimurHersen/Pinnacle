@@ -1,0 +1,56 @@
+# Checks on every push and pull request: the climb's rules, the database's access rules (in the Firebase
+# emulator), and that the file versions in index.html were raised when the files they cover changed.
+name: Checks
+on:
+  push:
+  pull_request:
+jobs:
+  rules:
+    name: Climb rules and questions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node test/rules.test.js
+
+  database:
+    name: Database access rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      # (a demo- project runs the emulator without a Firebase login)
+      - run: npx -y firebase-tools@15 emulators:exec --only database --project demo-pinnacle "node test/database.rules.test.js"
+
+  versions:
+    name: File versions raised
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Compare with the commit before
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          # the loading screen's picture must carry the same art version as window.AV
+          av=$(grep -o 'window.AV="[^"]*"' index.html | cut -d'"' -f2)
+          grep -q "emblem.png?$av\"" index.html || { echo "::error file=index.html::The loading screen's image is not at $av"; exit 1; }
+          # (a new branch or a first push has nothing to compare with)
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then echo "Nothing to compare with."; exit 0; fi
+          changed=$(git diff --name-only "$BASE" HEAD)
+          old=$(git show "$BASE:index.html")
+          fail=0
+          if echo "$changed" | grep -qE '^(css|js)/' && [ "$(echo "$old" | grep -o 'window.V="[^"]*"')" = "$(grep -o 'window.V="[^"]*"' index.html)" ]; then
+            echo "::error file=index.html::css/ or js/ changed: raise window.V in index.html"; fail=1; fi
+          if echo "$changed" | grep -qE '^assets/' && [ "$(echo "$old" | grep -o 'window.AV="[^"]*"')" = "$(grep -o 'window.AV="[^"]*"' index.html)" ]; then
+            echo "::error file=index.html::assets/ changed: raise window.AV (and the loading screen's image) in index.html"; fail=1; fi
+          exit $fail

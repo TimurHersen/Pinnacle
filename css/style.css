@@ -260,6 +260,9 @@ body:has(#main.game2) .hud{left:var(--edge)}
 .mateline{font-size:15px}
 .hint{border:2px dashed var(--gold);padding:8px 10px;color:var(--cream);font-size:16px;background:#2a2412}
 .hint b{color:var(--gold)}
+.hint.tip{border-style:solid;border-color:var(--ice);background:#12232a;font-size:14px;line-height:1.45}
+.hint.tip b{color:var(--ice)}
+.hint.tip .linkbtn{margin-left:6px}
 .tier{font-size:13px;color:var(--gold);letter-spacing:2px}.tier i{font-style:normal;color:var(--line)}
 .jerk{font:400 12px/1 var(--head);color:#fff;background:var(--red);padding:6px 8px;border:2px solid var(--cream);animation:hl-pop .4s steps(4) both}
 /* the count before a question's clock starts: what it's about, how hard, and 3, 2, 1 */

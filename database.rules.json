@@ -5,7 +5,7 @@
     "teams": {
       "$code": {
         ".read": true,
-        ".write": "newData.exists()",
+        ".write": "newData.exists() && (!data.exists() || newData.child('round/id').val() >= data.child('round/id').val())",
         ".validate": "$code.matches(/^[A-Z0-9]{6}$/) && newData.hasChildren(['name', 'members', 'exp', 'round'])",
         "name": { ".validate": "newData.isString() && newData.val().length <= 64" },
         "code": { ".validate": "newData.val() === $code" },
@@ -31,19 +31,21 @@
     "answers": {
       "$code": {
         ".read": true,
-        ".write": true,
         ".validate": "$code.matches(/^[A-Z0-9]{6}$/)",
         "$rid": {
+          ".write": "!newData.exists() && root.child('teams').child($code).child('round/id').val() + '' !== $rid",
           ".validate": "$rid.matches(/^[0-9]{1,9}$/)",
           "_talk": {
             "$msg": {
+              ".write": "!data.exists() && newData.exists() && root.child('teams').child($code).child('members').child(newData.child('uid').val()).exists()",
               ".validate": "newData.hasChildren(['uid', 'text', 'at'])",
               "text": { ".validate": "newData.isString() && newData.val().length <= 60" },
               "$other": { ".validate": "$other === 'uid' || $other === 'at'" }
             }
           },
           "$uid": {
-            ".validate": "$uid.matches(/^[a-z0-9]{1,32}$/) && newData.hasChildren(['roundId', 'uid', 'at'])",
+            ".write": "!data.exists() && newData.exists() && root.child('teams').child($code).child('members').child($uid).exists() && root.child('teams').child($code).child('round/phase').val() === 'answer' && root.child('teams').child($code).child('round/id').val() + '' === $rid",
+            ".validate": "$uid.matches(/^[a-z0-9]{1,32}$/) && newData.hasChildren(['roundId', 'uid', 'at']) && newData.child('uid').val() === $uid && newData.child('roundId').val() + '' === $rid",
             "choice": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
             "$other": { ".validate": "$other === 'roundId' || $other === 'uid' || $other === 'at'" }
           }

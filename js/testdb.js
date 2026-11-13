@@ -28,7 +28,7 @@ function TestDB(){
 // a rope team waiting at base camp, with both test players (or only the first) clipped in
 function testTeam(two){const now=Date.now(),members={p1:{name:"Red",joined:now}};if(two)members.p2={name:"Yellow",joined:now+1};
   return {name:"Test Team",code:"TEST01",createdAt:now,createdBy:"p1",members,
-    exp:{v:2,n:1,choice:[null,null],pitch:0,anchor:0,rope:3,chalk:1,scout:1,anchors:1,used:[]},
+    exp:{v:2,n:1,choice:[null,null],pitch:0,anchor:0,hooks:[],rope:3,chalk:1,scout:1,used:[]},
     round:{id:0,phase:"ready"},log:[{at:now,text:"Test Team roped up at base camp."}],stats:{}};}
 
 if(window.TEST){

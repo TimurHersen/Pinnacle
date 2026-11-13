@@ -66,6 +66,17 @@ test("the summit: scored, counted and kept as the team's best and the mountain's
   assert.equal(n.exp.run.pts,100);assert.equal(n.stats.best.pts,100);assert.deepEqual({...n.stats.peaks.frost},{n:1,pts:100});
   assert.equal(g.startPitch(n).round.phase,"summit");});
 
+test("every summit goes on the team's list of its last ten",()=>{
+  const choice=["A","A"];let t=team({choice,m:"moss"});t.exp.pitch=g.total(t.exp)-1;
+  t.stats={history:Object.fromEntries(Array.from({length:10},(_,i)=>[i,{n:i,m:"kebne",pts:50}]))}; // (as the database hands back an array)
+  const n=play(g.fixTeam(t),RIGHT,RIGHT);
+  assert.equal(n.stats.history.length,10);const last=n.stats.history[9];
+  assert.equal(last.m,"moss");assert.equal(last.right,2);assert.equal(last.q,2);assert.equal(n.stats.history[0].n,1);});
+
+test("a save from when there was anchor gear loads without it",()=>{
+  const t=g.fixTeam({name:"T",members:{},exp:{v:2,n:1,choice:[],used:[],anchors:1},round:{id:1,phase:"map"}});
+  assert.equal("anchors" in t.exp,false);});
+
 test("the ascent score: right answers, less 5 a fall and 2 a rope jerk, never below 0",()=>{
   assert.equal(g.ascentScore({q:10,right:10,falls:1,jerks:1}),93);
   assert.equal(g.ascentScore({q:10,right:1,falls:5}),0);

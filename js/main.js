@@ -13,6 +13,7 @@ $("#radioBtn").onclick=()=>toggleRadio();
   S.uid=LS.get("pid",null);
   if(!S.uid){const a="abcdefghijkmnpqrstuvwxyz23456789";S.uid=Array.from(crypto.getRandomValues(new Uint8Array(12)),b=>a[b%32]).join("");LS.set("pid",S.uid);}
   S.myName=LS.get("name","");S.myTeams=LS.get("teams",[]);}
+  S.tipsOff=LS.get("tips",false);
   renderLobby();
   // a big screen opened on its link goes straight back to watching; a phone that scanned the screen's code becomes
   // a controller (straight in if it is already on that rope, otherwise after giving a name)

@@ -143,8 +143,8 @@ document.getElementById("goCamp2").onclick=()=>jump((t,w)=>setPitch(t,w,stops(w)
 document.getElementById("goTop").onclick=()=>jump((t,w)=>setPitch(t,w,stops(w).top-1,false));
 document.getElementById("goSummit").onclick=()=>jump((t,w)=>setPitch(t,w,stops(w).top,false));
 document.getElementById("hearts").onchange=e=>{const n=e.target.value;e.target.value="";if(n!=="")jump(t=>{t.exp.rope=+n;});};
-document.getElementById("gearFull").onclick=()=>jump(t=>Object.assign(t.exp,{rope:3,chalk:1,scout:1,anchors:1}));
-document.getElementById("gearNone").onclick=()=>jump(t=>Object.assign(t.exp,{rope:0,chalk:0,scout:0,anchors:0}));
+document.getElementById("gearFull").onclick=()=>jump(t=>Object.assign(t.exp,{rope:3,chalk:1,scout:1}));
+document.getElementById("gearNone").onclick=()=>jump(t=>Object.assign(t.exp,{rope:0,chalk:0,scout:0}));
 
 /* forced answers: both players lock in the chosen way (with a hook clipped first, if that's ticked) */
 function forceAnswers(kind){
@@ -176,7 +176,7 @@ function showStatus(t){const el=document.getElementById("status");if(!t){el.text
   const e=t.exp,r=t.round,res=r.result;
   el.innerHTML=[`Phase <b>${r.phase}</b>`,(()=>{const w=eng(),so=w.stageOf?w.stageOf(e,e.pitch):null;return so?`Stage <b>${so.s+1}</b> · pitch <b>${Math.min(so.i+1,so.n)}/${so.n}</b>`:`Pitch <b>${e.pitch+1}</b>`;})(),(e.choice||[]).some(Boolean)?`Routes <b>${(e.choice||[]).map(c=>c||"–").join(" · ")}</b>`:"",
     r.leader?`Leader <b>${r.leader.toUpperCase()}</b>`:"",r.qid?`Question <b>${r.qid}</b>`:"",
-    `Hooks <b>${e.rope}</b> · chalk <b>${e.chalk}</b> · scout <b>${e.scout}</b> · anchors <b>${e.anchors}</b>`,
+    `Hooks <b>${e.rope}</b> · chalk <b>${e.chalk}</b> · scout <b>${e.scout}</b>`,
     res?`<span class="res">Last: ${res.headline}${res.jerk?" + rope jerk":""}</span>`:"",msg?`<span class="res">${msg}</span>`:""].filter(Boolean).join("<span>·</span>");}
 db.listen("teams/TEST01",j=>showStatus(JSON.parse(j)));
 
