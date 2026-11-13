@@ -906,7 +906,9 @@ function ensureScene(){
   const cv=$("#topo");if(!cv)return false;if(FX.cv===cv)return true;
   FX.cv=cv;FX.g=cv.getContext("2d");FX.mode="";FX.state=null;FX.tw=[];FX.ch.main++;FX.cam=null;FX.parts=[];FX.pops=[];FX.rope=new Rope();FX.label=null;FX.pins=[];
   // one canvas pixel per art pixel, scaled up by a whole number: about 300 art pixels tall on any screen
-  const box=cv.parentElement||cv,fit=()=>{const r=box.getBoundingClientRect(),W=Math.max(1,r.width),H=Math.max(1,r.height),px=Math.max(2,Math.round(Math.min(H/300,W/190)));
+  // (on the big screen the view may zoom out further, so both climbers fit: FX.zoom, set by updateCam)
+  const box=cv.parentElement||cv,fit=()=>{const r=box.getBoundingClientRect(),W=Math.max(1,r.width),H=Math.max(1,r.height),base=Math.max(2,Math.round(Math.min(H/300,W/190)));
+    FX.basePx=base;const px=FX.zoom?Math.min(base,FX.zoom):base;
     if(W===FX.W&&H===FX.H&&px===FX.px&&FX.layers)return;FX.W=W;FX.H=H;FX.px=px;FX.vw=Math.ceil(W/px);FX.vh=Math.ceil(H/px);
     cv.width=FX.vw;cv.height=FX.vh;cv.style.width=FX.vw*px+"px";cv.style.height=FX.vh*px+"px";FX.g.imageSmoothingEnabled=false;
     FX.layers=makeLayers(FX.vw,FX.vh);FX.areaAt=0;FX.base=null;
@@ -943,8 +945,20 @@ function sceneArea(){const W=FX.W,H=FX.H,wide=W>=900,hud=$("#hud"),hb=hud&&!hud.
   return a;}
 // a critically damped spring: eases into a move and settles without overshoot (implicit, so stable at any dt)
 function damp(x,v,to,w,dt){const f=1+2*dt*w,hw=dt*w*w,d=1/(f+dt*hw);return [(f*x+dt*v+dt*hw*to)*d,(v+hw*(to-x))*d];}
+/* The big screen shows both climbers, always: the view frames the pair, and zooms out when they are too far apart to
+   fit (and back in once they are close again, after a moment, so it doesn't pump). It steps in sizes that are a whole
+   number of the screen's own pixels per art pixel (on a retina screen, halves), so the art stays sharp. */
+const BOTH=()=>document.body.classList.contains("tv");
+function zoomFor(A,lo,hi){const d=Math.max(1,devicePixelRatio||1),span=(lo+46)-(hi-56)+18,base=FX.basePx||3;
+  let z=Math.floor(Math.min(base,A.h/span)*d)/d;return Math.max(1,Math.min(base,z));}
+function updateZoom(lo,hi){const A=FX.area;if(!A||!FX.fit)return;
+  const want=BOTH()&&!FX.camp&&FX.focus!=="summit"?zoomFor(A,lo,hi):(FX.basePx||FX.px),now=performance.now();
+  if(want<FX.px-1e-6||(want>FX.px+1e-6&&now-(FX.zoomUp||now)>1800)){FX.zoom=want>=(FX.basePx||want)?0:want;FX.zoomUp=0;FX.fit();FX.cam=null;FX.oxF=null;return;}
+  if(want>FX.px+1e-6){if(!FX.zoomUp)FX.zoomUp=now;}else FX.zoomUp=0;}
 function updateCam(dt){const me=FX.A.me,mt=FX.A.mate,now=performance.now();
   if(now-FX.areaAt>250||!FX.area){FX.area=sceneArea();FX.areaAt=now;}
+  const both=BOTH()&&FX.focus!=="summit",top=Math.min(me.N.y,mt.N.y),bot=Math.max(me.N.y,mt.N.y);
+  if(both||FX.zoom)updateZoom(bot,top);
   const A=FX.area,px=FX.px,ax=A.x/px,ay=A.y/px,aw=A.w/px,ah=A.h/px;
   // the cliff's edge sits a little left of the open area's middle so the valley shows beside it
   // (at a camp the view eases over to centre the wide ledge, from its far end to the wall, in the open part of the
@@ -955,9 +969,9 @@ function updateCam(dt){const me=FX.A.me,mt=FX.A.mate,now=performance.now();
   // (a new camera, such as the first frames on load, snaps; after that the view always pans, however far)
   if(FX.oxF==null||!FX.cam){FX.oxF=oxT;FX.oxV=0;}else[FX.oxF,FX.oxV]=damp(FX.oxF,FX.oxV||0,oxT,2.8,dt);FX.ox=R0(FX.oxF);
   const own=FX.own||me,oth=own===me?mt:me;
-  let fy=FX.focus==="summit"?TOPY-30:lerp(own.N.y,oth.N.y,.3);
+  let fy=FX.focus==="summit"?TOPY-30:both?((top-56)+(bot+46))/2:lerp(own.N.y,oth.N.y,.3);
   // (a short open area can't hold both: this player's own climber stays in view, head to boots)
-  if(FX.focus!=="summit")fy=clamp(fy,own.N.y+44-ah/2,own.N.y-40+ah/2);
+  if(FX.focus!=="summit"&&!both)fy=clamp(fy,own.N.y+44-ah/2,own.N.y-40+ah/2);
   // camera y is the world y at the open area's vertical middle; keep the summit sky and the meadow in frame
   let y=clamp(fy,TOPY-120+(ah/2),60-(ah/2));
   if(FX.fxEl){const s=FX.fxEl.style,v=[A.x,A.y,A.w,A.h].map(n=>Math.round(n)+"px");if(s.width!==v[2]||s.height!==v[3]||s.top!==v[1]||s.left!==v[0]){s.left=v[0];s.top=v[1];s.width=v[2];s.height=v[3];}}
@@ -968,7 +982,8 @@ function updateCam(dt){const me=FX.A.me,mt=FX.A.mate,now=performance.now();
   else{const c=FX.cam;[c.y,c.v]=damp(c.y,c.v,y,4,dt);[c.my,c.mv]=damp(c.my,c.mv,ay+ah/2,6,dt);}
   // (whatever the easing and the dead zone do, this player's climber stays inside the open area, hat to boots: the
   // view is carried along with them at its edges, so they never slip under the bar or the question panel)
-  if(FX.focus!=="summit"&&ah>=110){const c=FX.cam,hi=own.N.y-56+(c.my-ay),lo=own.N.y+46-(ay+ah-c.my);if(lo<=hi){const k=clamp(c.y,lo,hi);if(k!==c.y){c.y=k;c.v=0;}}}
+  // (on the big screen, both climbers: the topmost one's hat to the lower one's boots)
+  if(FX.focus!=="summit"&&ah>=110){const c=FX.cam,hi=(both?top:own.N.y)-56+(c.my-ay),lo=(both?bot:own.N.y)+46-(ay+ah-c.my);if(lo<=hi){const k=clamp(c.y,lo,hi);if(k!==c.y){c.y=k;c.v=0;}}}
   // (an open area too short for a whole climber, such as a desktop window under a tall result panel: they are kept
   // centred in what there is)
   else if(FX.focus!=="summit"&&!FX.camp){const c=FX.cam,mid=own.N.y-4+(c.my-(ay+ah/2)),k=clamp(c.y,mid-8,mid+8);if(k!==c.y){c.y=k;c.v=0;}}

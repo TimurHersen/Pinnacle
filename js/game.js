@@ -725,6 +725,8 @@ const pitchLabel=(e,p)=>{const so=stageOf(e,p);return `Stage ${so.s+1} · Pitch 
 
 function renderPanel(t){
   const r=t.round,e=t.exp,panel=$("#panel"),mine=S.answers[S.uid];
+  // (on the big screen a question and its result sit in a slim column at the side, so the climb gets the rest)
+  document.body.classList.toggle("tvq",TV()&&/^(pre|answer|reveal)$/.test(r.phase));
   const key=[S.mode||"",r.id,r.phase,!!mine,memberIds(t).length,r.phase==="camp"||r.phase==="map"?JSON.stringify(r.votes||{}):"",JSON.stringify(t.stats?.peaks||{}),r.resolvedAt||"",String(r.cut),!!r.scout,!!r.hook,r.phase==="answer"&&now()<r.startedAt,S.sus===r.id,e.chalk,e.scout,e.rope,JSON.stringify(e.up||{}),(e.hooks||[]).join("."),Object.values(S.names).join(",")].join("|");
   if(key===S.panelKey){updateDynamic(t);return;}
   if(S.panelKey&&S.panelKey.split("|")[1]!==String(r.id))S.local={};S.panelKey=key;S.local=S.local||{};
@@ -754,9 +756,9 @@ function tvAnswerView(t){const r=t.round,q=quizById(r.qid),e=t.exp,cut=r.cut||[]
   if(now()<r.startedAt)return frameQ(t,`<div class="qhead"><span>${pitchLabel(e,e.pitch)}</span></div>
    <div class="getready"><div><div class="qtitle">${esc(q.cat)}</div>${tierMarks(q.tier)}</div><div class="count" id="count" aria-hidden="true"></div></div>
    <p class="qsub">Answer on your phones. Right answers climb; stay within ${MAX_GAP} pitches of each other.</p>`);
-  const opts=r.order.map((k,i)=>`<div class="qopt ${cut.includes(i)?"cut":""}"><b>${LETTERS[i]}</b><span>${esc(q.o[k])}</span></div>`).join("");
+  // (only the question here: the four answers are on the climbers' phones)
   return frameQ(t,`<div class="qhead"><span>${pitchLabel(e,e.pitch)} · ${esc(q.cat)}</span><span class="qtime" id="qtime"></span></div>
-   <div class="qtext">${esc(q.q)}</div><div class="qopts">${opts}</div>
+   <div class="qtext">${esc(q.q)}</div><p class="tvon">Answer on your phones</p>
    ${r.scout?`<div class="hint"><b>Scout:</b> ${esc(q.hint)}</div>`:""}${r.hook?`<div class="hooked">${ICON.hook}<span><b>${esc(S.names[r.hookBy]||"A climber")} clipped a hook at ${fmt(altOf(e,r.hookAt??e.pitch))} m.</b> Falls from there or above stop at it.</span></div>`:""}
    <div class="qfoot"><span class="note" id="partnerTxt"></span></div><div class="timer"><i id="timerBar"></i></div>`);}
 const third=s=>String(s).replace(/\byou were\b/g,"they were").replace(/\bYou keep\b/g,"They keep").replace(/\bYour partner\b/g,"Their partner").replace(/\byou\b/g,"them");
@@ -805,7 +807,7 @@ function revealView(t){
   const opts=r.order.map((k,i)=>{const who=ids.filter(id=>picks[id]===i),tags=who.map(id=>`<em class="${id===S.uid?"lead":"belay"}">${ptag(t,id)}</em>`).join("");
     return `<div class="qopt ${sus?(who.length?"sel":""):i===o.right?"right":who.length?"wrong":""}"><b>${LETTERS[i]}</b><span>${esc(q.o[k])}</span>${tags}</div>`;}).join("");
   const head=`<div class="qhead"><span>${pitchLabel(e,mine.from??e.pitch)} · ${esc(q.cat)}</span>${!sus&&o.jerk?`<span class="jerk">ROPE JERK!</span>`:""}</div>
-   <div class="qtext">${esc(q.q)}</div><div class="qopts">${opts}</div>`;
+   <div class="qtext">${esc(q.q)}</div>${TV()?(sus?"":`<div class="tvans"><span>Answer</span><b>${esc(q.o[0])}</b></div>`):`<div class="qopts">${opts}</div>`}`;
   if(sus)return frameQ(t,head+`<div class="result wait"><div><b class="dots">The rope goes tight</b></div></div>`);
   const oc=o.arrived==="summit"?["good",ICON.flag,"Summit reached!","You both stand on top."]:o.arrived?["good",ICON.tent,`${o.arrived} reached!`,"You're both on the ledge."]:outcomeOf(t,S.uid,o);
   if(TV()){const rows=o.arrived?`<div class="result ${oc[0]}">${oc[1]}<div><b>${oc[2]}</b><span>${o.arrived==="summit"?"Both stand on top.":"Both are on the ledge."}</span></div></div>`

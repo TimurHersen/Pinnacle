@@ -513,6 +513,18 @@ body.home #topo{visibility:hidden} /* (the game's own scene; the painting and it
 body.tv #panel{pointer-events:none}body.tv #panel .route{cursor:default}
 body.tv .tvres{padding:8px 12px}body.tv .tvres+.tvres{margin-top:-2px}
 @media (min-width:900px) and (min-height:521px){body.tv .qtext{font-size:26px}body.tv .qopt{font-size:21px;padding:12px 14px}body.tv #partnerTxt{font-size:17px}}
+/* a question and its result: a slim column at the bottom left (the answers are on the phones), so the climb, framed
+   beside it, keeps the screen's whole height for both climbers */
+body.tv.tvq #main.game2{right:auto;width:min(460px,36vw);grid-template-columns:1fr;gap:8px}
+body.tv.tvq .qwrap{grid-template-columns:1fr}body.tv.tvq .qart{display:none}
+body.tv.tvq .qpanel{padding:12px 14px}
+body.tv.tvq .qtext{font-size:clamp(19px,1.9vw,30px);line-height:1.25}
+body.tv.tvq #partnerTxt{font-size:15px}
+body.tv.tvq .tvjoin .tvqr.small{width:96px}
+body.tv.tvq .fact{font-size:15px}
+.tvon{margin:8px 0 2px;font:400 10px/1.4 var(--head);color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.tvans{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin:8px 0;padding:8px 12px;border:2px solid var(--good);background:#16301a}
+.tvans span{font:400 10px/1 var(--head);color:var(--muted);text-transform:uppercase}.tvans b{font-size:clamp(18px,1.6vw,26px);color:var(--cream)}
 @media (max-width:899px),(max-height:520px){body.tv #main>.radio2.tvjoin{display:grid;grid-template-columns:auto 1fr;align-items:center}body.tv .tvjoin .rhead{grid-column:1/-1}body.tv .tvqr.small{width:96px}}
 /* the controller: no climb on the phone (it plays on the big screen), the question and its buttons fill the screen */
 body.pad .scene,body.pad #world,body.pad #hud,body.pad #fx{display:none!important}
