@@ -633,6 +633,8 @@ function render(){
   if(r.phase==="reveal"&&S.seen&&S.seen.id===r.id&&S.seen.phase==="answer"){S.sus=r.id;
     setTimeout(()=>{if(S.sus===r.id){S.sus=null;S.susDone=r.id;if(S.team)render();}},SUSPENSE_MS);}
   S.seen={id:r.id,phase:r.phase};
+  if(typeof MUSIC!=="undefined"){const m=r.phase==="map"?"map":r.phase==="camp"?"camp":r.phase==="summit"?"summit":"climb";
+    if(m==="climb")MUSIC.level(stageOf(t.exp,Math.max(...memberIds(t).map(i=>posOf(t.exp,i)),0)).s);if(m!=="climb")MUSIC.tension(false);MUSIC.want(true,m);}
   const atMap=r.phase==="map";$("#hud").hidden=atMap;document.body.classList.toggle("atmap",atMap);drawTopo(t);if(S.sus!==r.id&&!atMap)renderHud(t);renderPanel(t);renderRadio(t);renderWorld(t);
 }
 // who leads this pitch (or the next one, between pitches)
@@ -901,20 +903,21 @@ function wirePanel(t){
   P.querySelector("#setOffBtn")?.addEventListener("click",()=>{const v=mapPick(t);if(v)chooseMountain(v);});
   P.querySelector("#campBtn")?.addEventListener("click",()=>{const v=(t.round.votes||{})[S.uid];if(v?.route&&v?.bonus)campPick(v.route,v.bonus);});
   if(r.phase!=="answer")return;
-  P.querySelector("#hookBtn")?.addEventListener("click",()=>{sfx("grab");useHook();});
+  P.querySelector("#hookBtn")?.addEventListener("click",()=>{sfx("clip");useHook();});
   P.querySelector("#chalkBtn")?.addEventListener("click",useChalk);
   P.querySelector("#scoutBtn")?.addEventListener("click",useScout);
   P.querySelectorAll(".qopt[data-i]").forEach(b=>b.addEventListener("click",()=>{if(S.answers[S.uid])return;S.local.choice=+b.dataset.i;sfx("pop");
     P.querySelectorAll(".qopt").forEach(x=>x.classList.toggle("sel",x===b));const l=$("#lockBtn");if(l)l.disabled=false;}));
-  P.querySelector("#lockBtn")?.addEventListener("click",()=>{if(S.local.choice!=null&&!S.answers[S.uid])submit({choice:S.local.choice});});
+  P.querySelector("#lockBtn")?.addEventListener("click",()=>{if(S.local.choice!=null&&!S.answers[S.uid]){sfx("lock");submit({choice:S.local.choice});}});
 }
 function updateDynamic(t){
-  const r=t.round;updateRadio(t);if(r.phase!=="answer")return;
+  const r=t.round;updateRadio(t);if(r.phase!=="answer"){if(typeof MUSIC!=="undefined")MUSIC.tension(false);return;}
   // the count before the clock starts, a tick for each number
   if(now()<r.startedAt){const c=$("#count"),n=String(Math.ceil((r.startedAt-now())/1000));if(c&&c.textContent!==n){c.textContent=n;sfx("tick");}
     say(`Next question in ${n} seconds.`,"count"+r.id);return;}
   {const q=quizById(r.qid);if(q)say(`${q.q} ${r.order.map((k,i)=>`${LETTERS[i]}: ${q.o[k]}.`).join(" ")}`,"q"+r.id);}
   const rem=remaining(r),bar=$("#timerBar"),txt=$("#qtime"),ptx=$("#partnerTxt");
+  if(typeof MUSIC!=="undefined")MUSIC.tension(rem>0&&rem<=10&&!memberIds(t).every(i=>S.answers[i]));
   if(bar)bar.style.width=Math.max(0,Math.min(100,100*rem/r.dur))+"%";
   if(txt){txt.textContent=clock(rem);txt.classList.toggle("low",rem<=10);}
   if(rem>0&&rem<=10&&!S.answers[S.uid]&&!TV())say("Ten seconds left.","low"+r.id);

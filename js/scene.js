@@ -230,13 +230,14 @@ function texAt(T,x,y){const m=(v,n)=>{n-=2;v=(v%(2*n)+2*n)%(2*n);return 1+(v<n?v
 const uOf=y=>clamp(y/TOPY+(FX.snow||0),0,1);
 // the cliff's left edge; over the last stretch it leans right so the route along it runs up into the summit ridge
 const edgeL=y=>R0((fbm(y*.011+3)-.5)*22+(fbm(y*.003+9)-.5)*30+smooth(clamp((y-TOPY-360)/-360,0,1))*36);
-// under each camp the cliff swells out into a buttress that carries the camp's ledge: well out under the ledge
-// just below its top, curving back into the wall over BUT_H pixels, so the ledge grows out of the rock instead of
-// floating. The rock and the route both follow this edge.
-const BUT_H=84,BUT_OUT=96;
+// under each camp the cliff swells out into a pillar that carries the camp's ledge: its face runs straight up to the
+// ledge's outer tip (LEDGE_TIP) for the last BUT_TOP pixels, and below that leans back into the wall over BUT_H. The
+// route follows this edge, so the climbers come up the pillar's face, take hold of the ledge's lip and pull over it,
+// instead of crawling out along the underside of the slab
+const BUT_TOP=52,BUT_H=300,LEDGE_TIP=-188;
 function rockEdge(y){let e=edgeL(y);
-  for(const ix of [IDX_C1,IDX_C2]){const t=(y+ix*HS-2)/BUT_H;
-    if(t>=0&&t<=1)e=Math.min(e,R0(e-BUT_OUT*(1-smooth(t))+(fbm(y*.08+ix)-.5)*8));}
+  for(const ix of [IDX_C1,IDX_C2]){const d=y+ix*HS-2;if(d<0||d>BUT_TOP+BUT_H)continue;
+    const t=Math.max(0,(d-BUT_TOP)/BUT_H);e=Math.min(e,R0(lerp(e,LEDGE_TIP,1-smooth(t))+(fbm(y*.08+ix)-.5)*(t>0?8:2)));}
   return e;}
 // the summit: a snowy peak whose tip stands above the route's top
 const SX=64,peakTop=x=>TOPY-26+Math.abs(x-SX)*.42+(hash(x>>2,77)<.5?0:1);
@@ -277,12 +278,14 @@ function rockCell(wx,wy){
   const tx=clamp(R0((wx-sx)*fx+T.w/2+ox),1,T.w-2),ty=clamp(R0(wy-sy+T.h/2+oy),1,T.h-2),i=(ty*T.w+tx)*4;
   const e=d2-d1,k=e<1.3?.5:e<2.6?.8:1,m=T.mean;
   return [(T.d[i]*.74+m[0]*.26)*.9*k|0,(T.d[i+1]*.74+m[1]*.26)*.9*k|0,(T.d[i+2]*.74+m[2]*.26)*.92*k|0];}
+const CHK_X0=216;
 function paintChunk(ci){
-  const yTop=-(ci+1)*CHK,w=FX.wallW,[c,g]=mk(w+40,CHK);if(yTop+CHK<TOPY-40)return c;
-  const id=g.createImageData(w+40,CHK),d=id.data,cache={},tex=ART.rockLo&&ART.zones;
+  // (each chunk starts CHK_X0 left of the route's usual line, far enough out for the pillars under the camps)
+  const yTop=-(ci+1)*CHK,w=FX.wallW,[c,g]=mk(w+CHK_X0,CHK);if(yTop+CHK<TOPY-40)return c;
+  const id=g.createImageData(w+CHK_X0,CHK),d=id.data,cache={},tex=ART.rockLo&&ART.zones;
   const hex=h=>cache[h]||(cache[h]=[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]);
   for(let py=0;py<CHK;py++){const wy=yTop+py,L=rockEdge(wy);if(wy>0)continue;
-    for(let px=0;px<w+40;px++){const wx=px-40;let col=null,v=null;
+    if(L>=w)continue;for(let px=Math.max(0,L+CHK_X0);px<w+CHK_X0;px++){const wx=px-CHK_X0;let col=null,v=null;
       if(wy<peakTop(wx))continue;
       if(wx<L)continue;
       if(wx===L)col=C.crack;
@@ -291,7 +294,7 @@ function paintChunk(ci){
       else if(wx<=L+2)col=uOf(wy)>.74&&hash(wy>>1,8)<.5?C.snow:uOf(wy)>.6?C.coldL:C.rockL;
       else col=rockAt(wx,wy);
       if(wy-peakTop(wx)<1)col=C.snowS;else if(wy-peakTop(wx)<5)col=C.snow; // snow on the summit ridge
-      if(col)v=hex(col);const i=(py*(w+40)+px)*4;d[i]=v[0];d[i+1]=v[1];d[i+2]=v[2];d[i+3]=255;}}
+      if(col)v=hex(col);const i=(py*(w+CHK_X0)+px)*4;d[i]=v[0];d[i+1]=v[1];d[i+2]=v[2];d[i+3]=255;}}
   g.putImageData(id,0,0);return c;}
 function chunk(ci){let c=FX.chunks.get(ci);if(c){FX.chunks.delete(ci);FX.chunks.set(ci,c);return c;}
   c=paintChunk(ci);FX.chunks.set(ci,c);if(FX.chunks.size>24)FX.chunks.delete(FX.chunks.keys().next().value);return c;}
@@ -301,7 +304,9 @@ const chunkRange=(vy0,vy1)=>[Math.max(0,Math.floor(-vy1/CHK)),Math.min(Math.ceil
    The route runs up the cliff's left edge, seen side-on: holds sit on the edge, so a climber hangs in the open
    air beside the rock. Option B of each fork takes a crack a few pixels in from the edge. */
 function laneX(ch,y){const a=ALT.base-y/WK,k=a<=ALT.c1?"A":a<=ALT.c2?(ch[0]||"A"):(ch[1]||"A");return rockEdge(y)-8+(k==="B"?6:0);}
-const holdXY=(ch,i)=>{const y=R0(-i*HS+(hash(i,5)-.5)*3);return [R0(laneX(ch,y)+10+hash(i,3)*2),y];};
+const LIP=16; // (the last hold before a camp ledge is on its lip, this far below the ledge's top: where the pull-up
+             // frames have the hands, so the climber comes up onto the ledge's surface and not above it)
+const holdXY=(ch,i)=>{const y=i===IDX_C1-1||i===IDX_C2-1?-(i+1)*HS+LIP:R0(-i*HS+(hash(i,5)-.5)*3);return [R0(laneX(ch,y)+10+hash(i,3)*2),y];};
 // bolts go into the rock just in from the holds
 const boltXY=(ch,i)=>[R0(laneX(ch,-i*HS)+15),-i*HS+6];
 const idxOf=(exp,p)=>Math.round(-WY(geoAlt(exp,p))/HS);
@@ -556,6 +561,10 @@ class Rig{
   // own point slides up meanwhile, for the rope and the camera); without them the body just slides up
   topOut(x,y,d){const A=this.L.art,L=this.lastDraw;
     this.mt=A&&A.mantle&&L&&this.lastArt&&this.lastArt[0]==="climb"?{wx:L.wx-A.mantleAt.hang[0],wy:L.wy-A.mantleAt.hang[1],t0:FX.time,d}:null;
+    // (standing up, they are where the last pull-up frame shows them, so the figure doesn't slide once it's over)
+    // (and over a camp ledge's tip they come in onto the ledge as they rise, not stand up at its very edge)
+    if(this.mt){const b=boxOf(A.clips.idle[0]),x0=this.mt.wx+A.mantleAt.stand[0]+((b.x0+b.x1)>>1);
+      this.mt.sh=this.hi<IDX_TOP-1?Math.max(0,LEDGE_TIP+20-x0):0;x=x0+this.mt.sh;}
     this.mantling=true;this.slide(x,y-LEG,d,0,k=>k*k*(3-2*k));this.play([["mantle",d*600],["hop",1e9]]);}
   // (hard: off a fall, they land in a crouch and get up slowly)
   land(x,y,hard){this.standAt(x,y);this.play(hard&&this.L.art&&this.L.art.stand?[["landed",LAND_MS],["stand",650],["stand2",650]]:[["hop",160],["stand",650],["stand2",650]],1);}
@@ -597,6 +606,13 @@ class Rig{
       const dm=Math.pow(.5,dt);this.v.x*=dm;this.v.y*=dm;}
     else if(this.mv){const m=this.mv;if(m.wait>0)m.wait-=dt;else{m.t+=dt;const k=Math.min(1,m.t/m.d),e=m.ease?m.ease(k):k;this.N.x=lerp(m.x0,m.x1,e);this.N.y=lerp(m.y0,m.y1,e);if(k>=1)this.mv=null;}}
     if(this.mode==="walk"&&!this.mv){this.mode="stand";this.standLoop();}
+    // (the clips' sounds, in the game only: a footstep as each foot lands, a boot finding the rock on the wall, the
+    // mallet coming down on a tent peg)
+    if(FX.mode==="game"&&!this.hidden){const t=FX.time;let f=-1,k="";
+      if(this.mode==="walk"){f=Math.floor(t*9+this.ph)%CLIP_N.walk;k=f===0||f===3?"step":"";}
+      else if(this.mode==="climb"&&!this.mantling){const n=CLIP_N.climb;f=((-climbQ(this.N.y))%n+n)%n;k=f===3||f===7?"scuff":"";}
+      else if(this.mode==="work"){f=Math.floor(t*7+this.ph)%CLIP_N.work;k=f===3?"hammer":"";}
+      if(f!==this.sndF){this.sndF=f;if(k)sfx(k);}}
     if(this.dizzy>0)this.dizzy-=dt;
     if(this.mode==="stand"){if(this.cheer>0){this.cheer-=dt;if(!(this.clip&&this.clip.joy)){this.play([["cheer1",170],["cheer2",170]],0);this.clip.joy=1;}if(this.cheer<=0)this.standLoop();}
       else if(this.clip&&this.clip.joy)this.standLoop();}
@@ -672,9 +688,10 @@ class Rig{
     const jt=FX.time-(this.joltT??-9),jd=jt<.35?this.joltA*Math.exp(-jt*9):0,jo=R0(jd*Math.cos(jt*28)),jx=-R0(jd*.7);
     const x=R0(this.N.x)+ox+jx+R0(this.passX||0),y=R0(this.N.y+(FX.sub||0))+oy+jo,A=this.L.art;
     if(this.mt&&this.mantling&&A&&A.mantle){const M=this.mt,S=A.mantleAt,k=clamp((FX.time-M.t0)/M.d,0,.999);
-      g.drawImage(A.mantle[Math.floor(k*MANTLE_N)],M.wx+ox,M.wy+oy);
+      // (in onto the ledge once over its edge)
+      const sx=R0(smooth(clamp((k-.45)/.55,0,1))*(M.sh||0));g.drawImage(A.mantle[Math.floor(k*MANTLE_N)],M.wx+sx+ox,M.wy+oy);
       // (handed on as if the standing frame had been drawn where the last one stands, so the next draw joins up)
-      this.lastDraw={kind:"mantle",wx:M.wx+S.stand[0],wy:M.wy+S.stand[1]};this.lastArt=["idle",0];this.tieW={x:this.N.x+4,y:this.N.y+3};return;}
+      this.lastDraw={kind:"mantle",wx:M.wx+sx+S.stand[0],wy:M.wy+S.stand[1]};this.lastArt=["idle",0];this.tieW={x:this.N.x+4,y:this.N.y+3};return;}
     if(A&&A.ready){const [k,i]=this.lastArt=this.artFrame(t),fr=A.clips[k],b=boxOf(fr[0]),W=fr[0].width,flip=this.dir<0,key=`${k}|${i}|${flip}`;
       let img=this.cache.get(key);
       if(!img){if(flip){const [c,cg]=mk(W,fr[i].height);cg.translate(W,0);cg.scale(-1,1);cg.drawImage(fr[i],0,0);img=c;}else img=fr[i];this.cache.set(key,img);}
@@ -897,7 +914,7 @@ function drawHook1(g,ox,oy,i){const [bx,by]=boltXY(FX.exp.choice,i),x=bx+ox,y=by
 // a hold at each move of the route: a little lip of rock catching the light, dark underneath, snow-capped high on the
 // mountain, with a dab of chalk once a hand has been on it
 function holds(g,ox,oy,vy0,vy1){if(!FX.exp||FX.mode!=="game"||!FX.A)return;const ch=FX.exp.choice,used=Math.max(FX.A.me.hi,FX.A.mate.hi);
-  for(let i=Math.max(1,Math.floor(-vy1/HS)-1);i<=Math.min(IDX_TOP-1,Math.ceil(-vy0/HS)+1);i++){if(i===IDX_C1||i===IDX_C2)continue;
+  for(let i=Math.max(1,Math.floor(-vy1/HS)-1);i<=Math.min(IDX_TOP-1,Math.ceil(-vy0/HS)+1);i++){if(i===IDX_C1||i===IDX_C2||i===IDX_C1-1||i===IDX_C2-1)continue;
     const [hx,hy]=holdXY(ch,i),x=hx+ox,y=hy+oy,snowy=uOf(hy)>ZONE_HIGH,w=4+(hash(i,41)*3|0);
     rect(g,x-1,y+2,w+2,2,"#241a14");rect(g,x,y,w,2,snowy?C.snowS:"#b39c7c");rect(g,x,y,w-1,1,snowy?C.snow:"#e0cfae");
     if(i<=used){dot(g,x+1,y,"#ffffff");dot(g,x+2,y+1,"#f4f1e8");}}}
@@ -951,7 +968,10 @@ function updateCam(dt){const me=FX.A.me,mt=FX.A.mate,now=performance.now();
   // screen, so the tent is never under the cards)
   // (likewise at base camp, from the tent out to the wall, while both stand there)
   const atBase=!FX.camp&&me.mode==="stand"&&mt.mode==="stand"&&me.hi<=0&&mt.hi<=0;
-  const oxT=FX.camp?ax+aw/2-(ledgeL()+30)/2:atBase?ax+aw/2+104:ax+aw*(FX.W>=900?.42:.38);
+  // (out on the pillar under a camp the view follows this player's climber across, so they stay where they'd be on
+  // the plain wall, and slides back as they come in onto the ledge)
+  const own0=FX.own||me,yb=own0.mode==="stand"?own0.N.y+LEG+20:own0.N.y+20,bo=FX.mode==="game"?rockEdge(yb)-edgeL(yb):0;
+  const oxT=FX.camp?ax+aw/2-(ledgeL()+30)/2:atBase?ax+aw/2+104:ax+aw*(FX.W>=900?.42:.38)-bo*(own0.mode==="stand"?.55:.9);
   // (a new camera, such as the first frames on load, snaps; after that the view always pans, however far)
   if(FX.oxF==null||!FX.cam){FX.oxF=oxT;FX.oxV=0;}else[FX.oxF,FX.oxV]=damp(FX.oxF,FX.oxV||0,oxT,2.8,dt);FX.ox=R0(FX.oxF);
   const own=FX.own||me,oth=own===me?mt:me;
@@ -993,13 +1013,14 @@ function frame(now){
     // so it never cuts across behind their pack on its way to the belayer)
     if(A.me.mode==="climb"&&pm.y>pl.y+30&&!(hk&&hk[1]>pl.y))path.push([pl.x+1,pl.y+20]);
     // (from a leader up on a ledge it comes over the ledge's lip, not down through the rock)
-    if(A.me.mode==="stand"&&A.me.hi>0&&(A.mate.mode==="climb"||A.mate.mode==="fall")&&pm.y>pl.y+30){const h=A.me.hold(A.me.hi);path.push([h[0]-3,h[1]-3]);}
+    if(A.me.mode==="stand"&&A.me.hi>0&&A.me.hi<IDX_TOP&&(A.mate.mode==="climb"||A.mate.mode==="fall")&&pm.y>pl.y+30){path.push([LEDGE_TIP+3,-A.me.hi*HS+1]);}
     path.push([pl.x,pl.y]);if(FX.camp)path.length=0; // (coiled away while camp is up)
     // (with both on their feet the rope lies on the ground between them; a belayer on the wall keeps a short loop)
     const up=r=>r.mode==="climb"||r.mode==="fall";
     FX.pins=path;FX.clips=clips;FX.rope.update(path,dt,{ground:!up(A.me)&&!up(A.mate)?Math.max(A.me.gy,A.mate.gy):null,first:A.mate.mode==="climb"?6:20,
       loose:A.me.mode==="fall"&&!(A.me.fall&&A.me.fall.caught)});}
   stepParts(dt);stepAmbient(dt);updateCam(dt);
+  if(typeof windAt==="function")windAt(FX.mode==="game"&&FX.cam?uOf(FX.cam.y):0,!!FX.camp);
   if(FX.visible&&!document.hidden)paint(t);
   FX.raf=requestAnimationFrame(frame);
 }
@@ -1022,7 +1043,7 @@ function paint(t){
   for(const b of FX.birds)for(let i=0;i<b.n;i++)g.drawImage(sprites().bird[Math.floor(b.t*7+i*1.3)%4],R0(b.x-i*13),R0(b.y*h+(i%2?5:-2)*i+Math.sin(b.t*1.4+i)*2));
   if(!art)for(const L of FX.layers){const y=R0(climb*L.par);if(y<h)g.drawImage(L.c,0,y);}
   if(vy1>-215){const B=baseLayer();g.drawImage(B.c,B.x0+ox,B.y0+oy);}
-  const [c1,c2]=chunkRange(vy0,vy1);for(let ci=c1;ci<=c2;ci++)g.drawImage(chunk(ci),-40+ox,-(ci+1)*CHK+oy);
+  const [c1,c2]=chunkRange(vy0,vy1);for(let ci=c1;ci<=c2;ci++)g.drawImage(chunk(ci),-CHK_X0+ox,-(ci+1)*CHK+oy);
   if(vy1>-215)drawFrontPines(g,ox,oy);
   for(const [kk,ix] of [["c1",IDX_C1],["c2",IDX_C2]]){const y=-ix*HS;if(y>vy0-70&&y<vy1+30)drawCamp(g,kk,y,t,ox,oy);}
   if(vy0<TOPY+60)drawSummit(g,t,ox,oy);
@@ -1088,7 +1109,7 @@ async function makeCamp(ix,ch="main"){const k=campOf(ix);if(!k)return true;const
   me.standAt(me.N.x,cy);mate.standAt(mate.N.x,cy);if(!(await wait(500,ch)))return false;
   if(!(await play(2400,p=>{FX.night=smooth(p);},ch)))return false;
   const w2=Math.max(me.walkTo(S.door),mate.walkTo(S.door+6));if(!(await wait(w2+100,ch)))return false;
-  me.hidden=mate.hidden=true;FX.camp.sleep=true;return true;}
+  me.hidden=mate.hidden=true;FX.camp.sleep=true;sfx("zip");return true;}
 // the next pitch starts from camp: dawn breaks, the team comes out, the partner packs the tent away from its far
 // corner while the leader waits by the door, and both walk back toward the wall, the leader ahead,
 // so nobody passes anybody. Both climbers' moves wait on the same morning.
@@ -1126,9 +1147,10 @@ async function climbRig(r,to,ms,id,ch="main"){
   const rs=r.rest(to);
   if(rs&&r.mode==="climb"){const o=r===FX.A.me?FX.A.mate:FX.A.me,there=o.mode==="stand"&&o.hi===to,spot=restSpot(to,there?1:0);
     const ey=to>=IDX_TOP?R0(peakTop(r.N.x))+2:spot.y; // (the summit slopes: stand on it where they come up)
-    const d=r.L.art&&r.L.art.mantle?1.05:.45;sfx("hup");
+    const d=r.L.art&&r.L.art.mantle?1.05:.45;sfx("mantle");
     r.topOut(r.N.x,ey,d);if(!(await wait(d*1000,ch)))return false;
-    r.land(r.N.x,ey);r.hi=to;sfx("thud");if(!(await wait(300,ch)))return false;
+    r.land(r.N.x,ey);r.hi=to;sfx("step");if(!(await wait(140,ch)))return false;
+    // (straight in from the edge, so a partner coming up behind has room)
     if(to<IDX_TOP&&Math.abs(r.N.x-spot.x)>3){const d=r.walkTo(spot.x,36);if(!(await wait(d,ch)))return false;}
     if(!(await wait(220,ch)))return false;}
   return ok();
@@ -1139,13 +1161,13 @@ async function downRig(r,to,ms,id,ch){const ok=()=>FX.ch[ch]===id,rs=r.rest(to),
   if(rs){r.dropTo(rs.x,rs.y,.3);if(!(await wait(320,ch)))return false;r.land(rs.x,rs.y);r.hi=to;sfx("thud");if(!(await wait(400,ch)))return false;}
   return ok();}
 // the rope catches a falling climber: it snaps taut and twangs, the view jolts and the partner is dragged by it
-function caught(r,vr){FX.ropeJerk=FX.time;FX.shake=Math.max(FX.shake,clamp(vr/120,.4,1.3));sfx("boing");
+function caught(r,vr){FX.ropeJerk=FX.time;FX.shake=Math.max(FX.shake,clamp(vr/120,.4,1.3));sfx("catch");
   const o=r===FX.A.me?FX.A.mate:FX.A.me;o.yank();if(r===FX.A.me)pop(r,r.catchWord||"WHOA!");r.catchWord=null;}
 // a fall. Slipping with a hook clipped, the climber drops a body length, the rope catches them and they swing back
 // to the rock. Without one they fall to the anchor: past a bolt on the wall the rope catches them below it, and
 // they hang and swing a moment before climbing back to it; down to the meadow or a camp they land on their feet
 async function fallRig(r,anchor,back,id,ch,hook,hookIdx){
-  const rs=r.rest(anchor),near=r===FX.A.me;pebbles(r);if(near)sfx("whistle");
+  const rs=r.rest(anchor),near=r===FX.A.me;pebbles(r);if(near&&!hook)sfx("whistle");sfx("woosh");
   // (well out from the wall over the meadow, so the fall clears a partner on the rock below; only a little over a
   // camp ledge, so it lands on it)
   if(rs&&!hook){r.startFall(null,null,0,anchor?14:62,rs.y-LEG);
@@ -1240,7 +1262,7 @@ function drawTopo(t){
   const exp=t.exp,r=t.round;FX.exp=exp;setLead(t);
   // the hooks in the wall, each where it was clipped; a new one drops in with a word from whoever clipped it
   {const hs=(exp.hooks||[]).map(p=>hookIdxAt(exp,p)).filter(i=>i!=null),old=FX.hooks||[],fresh=hs.filter(i=>!old.includes(i));
-    if(fresh.length&&FX.mode==="game"&&r.phase==="answer"&&FX.hooksOf===exp.n){FX.hookNew=fresh[fresh.length-1];FX.hookAt=FX.time;sfx("grab");const who=rigOfId(t,r.hookBy);if(who)pop(who,"CLIPPED!");}
+    if(fresh.length&&FX.mode==="game"&&r.phase==="answer"&&FX.hooksOf===exp.n){FX.hookNew=fresh[fresh.length-1];FX.hookAt=FX.time;if(r.hookBy!==(typeof S!=="undefined"&&S.uid))sfx("clip");const who=rigOfId(t,r.hookBy);if(who)pop(who,"CLIPPED!");}
     FX.hooks=hs;FX.hooksOf=exp.n;}
   const reached=Math.max(idxOf(exp,exp.pitch),idxOf(exp,exp.anchor));
   for(const [k,ix] of [["c1",IDX_C1],["c2",IDX_C2]]){const on=reached>=ix;if(on&&!FX.lit[k]&&FX.mode==="game")FX.litAt[k]=FX.time+1.6;FX.lit[k]=on;}
