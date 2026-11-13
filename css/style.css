@@ -553,3 +553,24 @@ body.pad .qopt b{width:30px;height:30px;font-size:15px}
 body.pad #lockBtn{min-height:54px;font-size:18px;flex:1 1 100%}
 body.pad .qfoot{flex-wrap:wrap}
 body.pad #main.game2 .routes.mts{grid-template-columns:1fr}
+/* a small phone as the controller (an iPhone SE): tighter, and the gear sits beside the lock-in button, so all four
+   answers and the button fit without scrolling */
+@media (orientation:portrait) and (max-height:700px){
+  body.pad .qtext{font-size:16px;padding:6px 10px}
+  body.pad .qopts{gap:6px}
+  body.pad .qopt{min-height:48px;font-size:17px;padding:6px 12px}
+  body.pad .qfoot{flex-wrap:wrap}body.pad #lockBtn{flex:1 1 0;min-width:0;min-height:48px;font-size:16px;padding:8px}
+  body.pad .qfoot .note{flex-basis:100%}
+}
+/* a phone held on its side as the controller: the whole width (no climb beside it to make room for), the four
+   answers two by two so they and the lock-in button fit without scrolling */
+@media (orientation:landscape) and (max-height:520px){
+  body.pad #main.game2{width:auto;right:0;top:calc(50px + env(safe-area-inset-top,0px));border-right:0;box-shadow:none;
+    padding:6px max(12px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
+  body.pad .bar{left:0}
+  body.pad .qtext{font-size:16px;padding:6px 10px}
+  body.pad .qopts{grid-template-columns:1fr 1fr;gap:8px}
+  body.pad .qopt{min-height:46px;font-size:17px;padding:6px 12px}
+  body.pad .qfoot{flex-wrap:nowrap}body.pad #lockBtn{flex:1 1 auto;min-height:46px}
+  body.pad #main.game2 .routes.mts{grid-template-columns:repeat(3,1fr)}
+}
