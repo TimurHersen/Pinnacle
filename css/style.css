@@ -577,3 +577,14 @@ body.pad #main.game2 .routes.mts{grid-template-columns:1fr}
   #main.game2>.radio2{padding:8px 12px;gap:6px}#main.game2>.radio2 .rlog{max-height:54px;min-height:0}
   #main.game2>.radio2 .calls{gap:4px}#main.game2>.radio2 .call{padding:4px 7px;font-size:12px}
 }
+
+/* first-climb tips: a small card with an arrow pointing at the thing it's about */
+.coach{position:fixed;z-index:9;background:var(--panel);color:var(--ink);border:2px solid var(--gold);box-shadow:var(--frame);padding:12px 14px 10px;
+  font:500 15px/1.4 var(--body);animation:coach-in .25s steps(3) both}
+@keyframes coach-in{from{transform:translateY(6px)}}
+.coach[hidden]{display:none}.coach p{margin:0 0 8px}
+.coach .cact{display:flex;justify-content:space-between;align-items:center;gap:10px}.coach .btn{padding:8px 14px}
+.coach .cskip{font-size:13px;padding:6px 8px}
+.coach .carrow{position:absolute;bottom:-9px;width:12px;height:12px;background:var(--panel);border:2px solid var(--gold);border-top:0;border-left:0;transform:rotate(45deg)}
+.coach.below .carrow{bottom:auto;top:-9px;transform:rotate(225deg)}
+.coach.right .carrow{bottom:auto;left:auto;right:-9px;transform:rotate(-45deg)}

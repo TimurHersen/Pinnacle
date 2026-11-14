@@ -297,12 +297,14 @@ async function tryResolve(){
 
 /* ============================== LOBBY ============================== */
 // the settings rows (title screen and the climb's menu): each button mirrors its switch and flips it on a click
-function settingsHtml(){return `<div class="setrow">Sound <button class="btn ghost" data-set="snd"></button></div>
+function settingsHtml(){return `<div class="setrow">Tips <button class="btn ghost" data-set="tips">Show again</button></div>
+  <div class="setrow">Sound <button class="btn ghost" data-set="snd"></button></div>
   <div class="setrow">Music <button class="btn ghost" data-set="mus"></button></div>
   ${document.documentElement.requestFullscreen?`<div class="setrow">Fullscreen <button class="btn ghost" data-set="fs"></button></div>`:""}`;}
-function syncSettings(){document.querySelectorAll("[data-set]").forEach(b=>{const k=b.dataset.set;
+function syncSettings(){document.querySelectorAll("[data-set]").forEach(b=>{const k=b.dataset.set;if(k==="tips")return;
   b.textContent=(k==="snd"?SND.on:k==="mus"?MUSIC.on:!!document.fullscreenElement)?"On":"Off";});}
 document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-set]");if(!b)return;const k=b.dataset.set;
+  if(k==="tips"){resetTips();return;}
   if(k==="snd")$("#sndBtn").click();else if(k==="mus")MUSIC.toggle();else $("#fsBtn").click();syncSettings();});
 document.addEventListener("fullscreenchange",syncSettings);
 function rememberTeam(code,name){
@@ -637,7 +639,7 @@ function render(){
   S.seen={id:r.id,phase:r.phase};
   if(typeof MUSIC!=="undefined"){const m=r.phase==="map"?"map":r.phase==="camp"?"camp":r.phase==="summit"?"summit":"climb";
     if(m==="climb")MUSIC.level(stageOf(t.exp,Math.max(...memberIds(t).map(i=>posOf(t.exp,i)),0)).s);if(m!=="climb")MUSIC.tension(false);MUSIC.want(true,m);}
-  const atMap=r.phase==="map";$("#hud").hidden=atMap;document.body.classList.toggle("atmap",atMap);drawTopo(t);if(S.sus!==r.id&&!atMap)renderHud(t);renderPanel(t);renderRadio(t);renderWorld(t);
+  const atMap=r.phase==="map";$("#hud").hidden=atMap;document.body.classList.toggle("atmap",atMap);drawTopo(t);if(S.sus!==r.id&&!atMap)renderHud(t);renderPanel(t);renderRadio(t);renderWorld(t);coach(t);
 }
 // who leads this pitch (or the next one, between pitches)
 function leaderOf(t){const r=t.round,ids=memberIds(t);return ["pre","answer","reveal"].includes(r.phase)?r.leader:ids[(r.id+1)%ids.length];}
@@ -965,6 +967,48 @@ function updateDynamic(t){
   if(ptx)ptx.textContent=TV()?memberIds(t).map(i=>`${ptag(t,i)} ${S.names[i]||"Climber"}: ${S.answers[i]?"locked in":"thinking…"}`).join("   ·   "):pid?(S.answers[pid]?`${nameOf(pid)} is locked in`:`${nameOf(pid)} is thinking…`):"";
 }
 
+/* ============================== FIRST CLIMB TIPS ==============================
+   The first time each thing matters, a short tip points at it: the map, the answers and Lock in, the hook, the
+   result, the rope, the radio, a camp, a hook clipped. Each shows once on this device (and never on the big screen);
+   "Got it" moves on, "Skip tips" turns them all off. They wait for the panel to settle, and never cover the answers. */
+const TIPS=[
+  {id:"map",when:t=>t.round.phase==="map",at:"#panel .routes, #panel",text:"Pick a mountain together. The higher it is, the harder the questions and the fewer hooks you carry."},
+  {id:"answer",when:t=>t.round.phase==="answer"&&now()>t.round.startedAt+600&&!S.answers[S.uid],at:"#panel .qopts",text:"Tap an answer, then Lock in. Your partner answers too, in secret. Right climbs a pitch; wrong falls."},
+  {id:"hook",when:t=>t.round.phase==="answer"&&now()>t.round.startedAt+600&&!S.answers[S.uid]&&!$("#hookBtn")?.disabled&&S.tipsSeen.has("answer"),at:"#hookBtn",text:"Not sure? Clip a hook. It stays in the wall where you are, and a fall stops at it instead of at the last camp."},
+  {id:"result",when:t=>t.round.phase==="reveal"&&S.sus!==t.round.id&&S.susDone===t.round.id,at:"#panel .result",text:"Right answers climb, wrong ones fall to the highest hook below you, or the last camp. The next question comes by itself."},
+  {id:"rope",when:t=>{const p=partnerId(t);return p&&t.round.phase==="answer"&&Math.abs(posOf(t.exp,S.uid)-posOf(t.exp,p))>=2;},at:"#panel .qhead .role, #panel .qhead",text:`You're roped together: ${MAX_GAP} pitches apart is the limit. Get further ahead and the rope holds you until your partner catches up.`},
+  {id:"radio",when:t=>!!partnerId(t)&&t.round.phase==="answer"&&S.tipsSeen.has("answer"),at:"#radio .calls, #radioBtn, #radio",text:"Climbing apart? Talk on the rope radio: quick calls or a message."},
+  {id:"camp",when:t=>t.round.phase==="camp",at:"#panel .routes",text:"At camp your gear is restocked. Pick the route on (short and hard, or long and gentler) and one extra piece of gear."}];
+S.tipsSeen=new Set(LS.get("tips",[]));S.tipsOff=LS.get("tipsOff",false);
+function coach(t){const el=$("#coach");if(TV()||S.tipsOff||!t){if(el)el.hidden=true;return;}
+  if(S.tip&&!S.tip.when(t))S.tip=null; // (the moment passed: the tip goes, and comes back next time)
+  if(!S.tip)S.tip=TIPS.find(x=>!S.tipsSeen.has(x.id)&&x.when(t))||null;
+  if(!S.tip){if(el)el.hidden=true;return;}
+  // (a tip already up is only kept in place; a new one waits half a second for the panel to settle)
+  if(S.tipShown===S.tip.id){placeTip(S.tip);return;}
+  if(!coach._t)coach._t=setTimeout(()=>{coach._t=0;placeTip(S.tip);},500);}
+function placeTip(tip){if(!tip||S.tip!==tip)return;let el=$("#coach");
+  if(!el){el=document.createElement("div");el.id="coach";el.className="coach";el.setAttribute("role","dialog");document.body.appendChild(el);}
+  const target=tip.at.split(",").map(s=>$(s.trim())).find(x=>x&&x.getBoundingClientRect().width>0);if(!target){el.hidden=true;return;}
+  if(S.tipShown!==tip.id){S.tipShown=tip.id;sfx("pop");
+    el.innerHTML=`<p>${esc(tip.text)}</p><div class="cact"><button class="linkbtn cskip" type="button">Skip tips</button><button class="btn rope cok" type="button">Got it</button></div><i class="carrow"></i>`;
+    el.querySelector(".cok").onclick=()=>{S.tipsSeen.add(tip.id);LS.set("tips",[...S.tipsSeen]);S.tip=null;el.hidden=true;if(S.team)coach(S.team);};
+    el.querySelector(".cskip").onclick=()=>{S.tipsOff=true;LS.set("tipsOff",true);S.tip=null;el.hidden=true;};}
+  el.hidden=false;
+  // it never covers the question: for something in the question panel it sits over the climb, just above the panel
+  // (on a phone) or beside the column (on a wide screen), its arrow pointing at the thing; otherwise above or below it
+  const r=target.getBoundingClientRect(),M=$("#main").getBoundingClientRect(),inPanel=$("#main").contains(target),side=M.left>innerWidth*.4;
+  const w=Math.min(320,innerWidth-24);el.style.width=w+"px";el.classList.remove("below","right");el.querySelector(".carrow").style.cssText="";
+  if(inPanel&&side){const h=el.offsetHeight,x=M.left-w-16,y=Math.max(8,Math.min(innerHeight-h-8,r.top+r.height/2-h/2));
+    el.style.left=x+"px";el.style.top=y+"px";el.classList.add("right");el.querySelector(".carrow").style.top=Math.max(12,Math.min(h-24,r.top+r.height/2-y-6))+"px";return;}
+  const x=Math.max(12,Math.min(innerWidth-w-12,r.left+r.width/2-w/2));el.style.left=x+"px";const h=el.offsetHeight;
+  const anchorTop=inPanel?M.top:r.top,up=anchorTop-h-14>8;
+  el.style.top=(up?anchorTop-h-12:Math.min(innerHeight-h-8,r.bottom+12))+"px";el.classList.toggle("below",!up);
+  el.querySelector(".carrow").style.left=Math.max(14,Math.min(w-22,r.left+r.width/2-x-6))+"px";}
+addEventListener("resize",()=>{if(S.tip)placeTip(S.tip);});
+// (from the menu: show the tips again)
+function resetTips(){S.tipsSeen=new Set();S.tipsOff=false;LS.set("tips",[]);LS.set("tipsOff",false);S.tip=null;S.tipShown=null;toast("Tips will show again");if(S.team)coach(S.team);}
+
 /* ============================== TICK ============================== */
 // after an ordinary pitch the next question comes by itself, a few seconds after the result (the button counts down
 // and still works; a camp or the summit waits for a press, and so does an open menu)
@@ -976,7 +1020,7 @@ function autoNext(t){const r=t.round,el=$("#nextIn");
 let tickN=0;
 setInterval(()=>{
   if(++tickN%40===0)updateOnline();
-  const t=S.team;if(!t)return;simTick(t);autoNext(t);if(t.round.phase!=="answer"){updateDynamic(t);return;}
+  const t=S.team;if(!t)return;simTick(t);autoNext(t);if(tickN%2===0)coach(t);if(t.round.phase!=="answer"){updateDynamic(t);return;}
   renderPanel(t); // (the count gives way to the question; otherwise this only moves the clock)
   const r=t.round,rem=remaining(r);
   // out of time: whatever is selected is locked in (or no answer)
