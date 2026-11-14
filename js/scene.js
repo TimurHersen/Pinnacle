@@ -280,7 +280,13 @@ function rockCell(wx,wy){
   const T=ART.zones[zoneOf(uOf(sy),id)],fx=hash(id,2)<.5?-1:1,ox=R0((hash(id,3)-.5)*90),oy=R0((hash(id,4)-.5)*90);
   const tx=clamp(R0((wx-sx)*fx+T.w/2+ox),1,T.w-2),ty=clamp(R0(wy-sy+T.h/2+oy),1,T.h-2),i=(ty*T.w+tx)*4;
   const e=d2-d1,k=e<1.3?.5:e<2.6?.8:1,m=T.mean;
-  return [(T.d[i]*.74+m[0]*.26)*.9*k|0,(T.d[i+1]*.74+m[1]*.26)*.9*k|0,(T.d[i+2]*.74+m[2]*.26)*.92*k|0];}
+  // (each slab has its own shade, a touch warmer or cooler, and is lit from the upper left across its face, so
+  // neighbouring slabs never read as copies of one texture)
+  // (and the face as a whole has broad bands and patches of lighter and darker rock, as strata and weathering give
+  // a real cliff, so it never reads as one repeating pattern)
+  const band=.8+.42*fbm(wy*.0045+11)*(.7+.6*fbm(wx*.012+wy*.002+5)),
+    sh=band*(.84+hash(id,21)*.26)*(1.06-clamp(((wx-sx)*.4+(wy-sy))/(RC_H*1.2),-.5,.5)*.16),wm=(hash(id,22)-.5)*14+(fbm(wy*.003+2)-.5)*16;
+  return [(T.d[i]*.74+m[0]*.26)*.9*k*sh+wm|0,(T.d[i+1]*.74+m[1]*.26)*.9*k*sh|0,(T.d[i+2]*.74+m[2]*.26)*.92*k*sh-wm|0];}
 const CHK_X0=216,chunkX0=ci=>FACE[stageAt(-ci*CHK-1)];
 function paintChunk(ci){
   // (each chunk starts CHK_X0 left of the route's usual line, far enough out for the pillars under the camps)
@@ -298,7 +304,45 @@ function paintChunk(ci){
       else col=rockAt(wx,wy);
       if(wy-peakTop(wx)<1)col=C.snowS;else if(wy-peakTop(wx)<5)col=C.snow; // snow on the summit ridge
       if(col)v=hex(col);const i=(py*(w+CHK_X0)+px)*4;d[i]=v[0];d[i+1]=v[1];d[i+2]=v[2];d[i+3]=255;}}
-  g.putImageData(id,0,0);return c;}
+  g.putImageData(id,0,0);wallFeatures(g,ci,yTop,x0,w);return c;}
+/* Over the slabs, each stretch of wall gets a few features of its own, placed by its own hash so they never
+   repeat: long cracks running down the face (dark, lit along one side); small ledges sticking out of it, with a tuft
+   of grass and the odd flower low down, moss in the middle, snow up high; dark water stains running down from them.
+   None in the strip the climbers use (the first CLEAR pixels in from the face), so holds and grips read clearly. */
+const CLEAR=26;
+function wallFeatures(g,ci,yTop,x0,w){
+  const X=wx=>wx-x0+CHK_X0,rnd=k=>hash(ci*131+k,77),col=(c)=>{g.fillStyle=c;};
+  const inRock=(wx,wy)=>wx>=rockEdge(wy)+CLEAR&&wy<=-2&&wy>=peakTop(wx)+6;
+  // water streaks: wide, soft dark bands running down the face, where water runs after rain
+  for(let k=0;k<(rnd(5)<.7?1+(rnd(6)<.4?1:0):0);k++){const sx=R0(rockEdge(yTop)+CLEAR+20+rnd(200+k)*(w-CLEAR-80)),sw=6+R0(rnd(201+k)*14),a=.1+rnd(202+k)*.12;
+    for(let py=0;py<CHK;py++){const wy=yTop+py,wob=R0((fbm(wy*.03+k*7+ci)-.5)*6);for(let q=0;q<sw;q++){const wx=sx+q+wob;if(!inRock(wx,wy))continue;
+      const e=Math.min(q,sw-1-q)/(sw/2);g.fillStyle=`rgba(24,20,18,${(a*Math.min(1,e*2.2)).toFixed(3)})`;g.fillRect(X(wx),py,1,1);}}}
+  // cracks: a main one running the height of the stretch, two pixels wide, branching now and then
+  const nc=1+(rnd(1)*2.4|0);
+  for(let k=0;k<nc;k++){let wx=R0(rockEdge(yTop)+CLEAR+10+rnd(10+k)*(w-CLEAR-70)),wy=yTop-2;const len=CHK+4,wide=rnd(15+k)<.6;
+    for(let j=0;j<len;j++){wy++;if(rnd(40+k*97+j)<.3)wx+=rnd(60+k*31+j)<.5?-1:1;if(!inRock(wx,wy))continue;
+      col("rgba(22,16,13,.9)");g.fillRect(X(wx),wy-yTop,wide?2:1,1);col("rgba(255,240,215,.2)");g.fillRect(X(wx)+(wide?2:1),wy-yTop,1,1);
+      col("rgba(22,16,13,.35)");g.fillRect(X(wx)-1,wy-yTop,1,1);
+      if(rnd(80+k*13+j)<.04){let bx=wx,by=wy;for(let q=0;q<12+R0(rnd(90+j)*14);q++){by++;bx+=rnd(91+j+q)<.6?1:0;if(inRock(bx,by)){col("rgba(22,16,13,.75)");g.fillRect(X(bx),by-yTop,1,1);}}}}}
+  // ledges, and what grows (or settles) on them
+  const nl=rnd(2)<.75?1+(rnd(4)<.4?1:0):0;
+  for(let k=0;k<nl;k++){const wy=yTop+12+R0(rnd(100+k)*(CHK-30)),e=rockEdge(wy),wx=R0(e+CLEAR+4+rnd(110+k)*Math.max(20,w-CLEAR-110)),lw=18+R0(rnd(120+k)*28);
+    if(!inRock(wx,wy)||!inRock(wx+lw,wy))continue;
+    const u=uOf(wy),snowy=u>ZONE_HIGH,mid=u>ZONE_MID,y=wy-yTop,x=X(wx);
+    col("rgba(20,14,10,.5)");g.fillRect(x+1,y+4,lw,3);           // the shadow it throws
+    col(snowy?"#6e7a8c":"#5e4e3c");g.fillRect(x,y+1,lw,3);       // the lip
+    col(snowy?"#c8d2de":"#a99272");g.fillRect(x,y,lw,1);col(snowy?"#9aa6b8":"#86705a");g.fillRect(x,y+1,lw,1);
+    col("rgba(20,14,10,.6)");g.fillRect(x,y+4,lw,1);
+    if(snowy){col("#f2f5f7");g.fillRect(x+1,y-1,lw-2,1);g.fillRect(x+3,y-2,lw-7,1);}
+    else{for(let t=0;t<lw;t+=2){if(rnd(140+k*7+t)<.4)continue;const h=1+R0(rnd(150+k+t)*(mid?1:3));col(mid?"#6f8a4a":rnd(160+t)<.5?"#5c8a3c":"#7aa84a");g.fillRect(x+t,y-h,1,h);}
+      if(!mid&&rnd(170+k)<.5){col(rnd(171+k)<.5?"#f2e48a":"#e8a0c8");g.fillRect(x+R0(lw*.6),y-3,1,1);}
+      // low down, a small bush clinging to the ledge
+      if(!mid&&rnd(175+k)<.65){const bx=x+3+R0(rnd(176+k)*(lw-12)),bw=7+R0(rnd(177+k)*5),bh=5+R0(rnd(178+k)*3);
+        for(let yy=0;yy<bh;yy++)for(let xx=0;xx<bw;xx++){const dx=(xx-bw/2+.5)/(bw/2),dy=(yy-bh+.5)/bh,r=dx*dx+dy*dy*1.3;if(r>1)continue;
+          col(r>.75?"#1e3418":dy<-.55&&dx<.2?"#7aa84a":rnd(190+xx*7+yy)<.5?"#4c7a34":"#3c6a2c");g.fillRect(bx+xx,y-yy,1,1);}}}
+    // a dark stain running down from the ledge
+    if(rnd(180+k)<.8){const sl=24+R0(rnd(181+k)*50),sx=x+2+R0(rnd(182+k)*(lw-4));for(let j=0;j<sl;j++){g.fillStyle=`rgba(30,24,20,${(.26*(1-j/sl)).toFixed(3)})`;g.fillRect(sx,y+5+j,2+(j<sl/2?1:0),1);}}}
+}
 function chunk(ci){let c=FX.chunks.get(ci);if(c){FX.chunks.delete(ci);FX.chunks.set(ci,c);return c;}
   c=paintChunk(ci);FX.chunks.set(ci,c);if(FX.chunks.size>24)FX.chunks.delete(FX.chunks.keys().next().value);return c;}
 const chunkRange=(vy0,vy1)=>[Math.max(0,Math.floor(-vy1/CHK)),Math.min(Math.ceil(-(TOPY-40)/CHK),Math.floor(-vy0/CHK))];
