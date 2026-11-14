@@ -987,10 +987,10 @@ function coach(t){const el=$("#coach");if(TV()||S.tipsOff||!t){if(el)el.hidden=t
   // (a tip already up is only kept in place; a new one waits half a second for the panel to settle)
   if(S.tipShown===S.tip.id){placeTip(S.tip);return;}
   if(!coach._t)coach._t=setTimeout(()=>{coach._t=0;placeTip(S.tip);},500);}
-function placeTip(tip){if(!tip||S.tip!==tip)return;let el=$("#coach");
-  if(!el){el=document.createElement("div");el.id="coach";el.className="coach";el.setAttribute("role","dialog");document.body.appendChild(el);}
+function placeTip(tip){if(!tip||S.tip!==tip)return;let el=$("#coach"),fresh=false;
+  if(!el){el=document.createElement("div");el.id="coach";el.className="coach";el.setAttribute("role","dialog");document.body.appendChild(el);fresh=true;}
   const target=tip.at.split(",").map(s=>$(s.trim())).find(x=>x&&x.getBoundingClientRect().width>0);if(!target){el.hidden=true;return;}
-  if(S.tipShown!==tip.id){S.tipShown=tip.id;sfx("pop");
+  if(fresh||S.tipShown!==tip.id||!el.querySelector(".cok")){if(S.tipShown!==tip.id)sfx("pop");S.tipShown=tip.id;
     el.innerHTML=`<p>${esc(tip.text)}</p><div class="cact"><button class="linkbtn cskip" type="button">Skip tips</button><button class="btn rope cok" type="button">Got it</button></div><i class="carrow"></i>`;
     el.querySelector(".cok").onclick=()=>{S.tipsSeen.add(tip.id);LS.set("tips",[...S.tipsSeen]);S.tip=null;el.hidden=true;if(S.team)coach(S.team);};
     el.querySelector(".cskip").onclick=()=>{S.tipsOff=true;LS.set("tipsOff",true);S.tip=null;el.hidden=true;};}
@@ -998,7 +998,12 @@ function placeTip(tip){if(!tip||S.tip!==tip)return;let el=$("#coach");
   // it never covers the question: for something in the question panel it sits over the climb, just above the panel
   // (on a phone) or beside the column (on a wide screen), its arrow pointing at the thing; otherwise above or below it
   const r=target.getBoundingClientRect(),M=$("#main").getBoundingClientRect(),inPanel=$("#main").contains(target),side=M.left>innerWidth*.4;
-  const w=Math.min(320,innerWidth-24);el.style.width=w+"px";el.classList.remove("below","right");el.querySelector(".carrow").style.cssText="";
+  const w=Math.min(320,innerWidth-24);el.style.width=w+"px";el.classList.remove("below","right","inline");el.querySelector(".carrow").style.cssText="";
+  // (with no room above the panel, as on the phone controller, it goes inside the panel just above the thing it's
+  // about, pushing the rest down, so it never covers a button)
+  if(inPanel&&!side&&M.top-el.offsetHeight-14<=8){el.classList.add("inline");el.style.left=el.style.top=el.style.width="";
+    if(target.previousElementSibling!==el)target.parentNode.insertBefore(el,target);return;}
+  if(el.parentNode!==document.body)document.body.appendChild(el);
   if(inPanel&&side){const h=el.offsetHeight,x=M.left-w-16,y=Math.max(8,Math.min(innerHeight-h-8,r.top+r.height/2-h/2));
     el.style.left=x+"px";el.style.top=y+"px";el.classList.add("right");el.querySelector(".carrow").style.top=Math.max(12,Math.min(h-24,r.top+r.height/2-y-6))+"px";return;}
   const x=Math.max(12,Math.min(innerWidth-w-12,r.left+r.width/2-w/2));el.style.left=x+"px";const h=el.offsetHeight;

@@ -588,3 +588,4 @@ body.pad #main.game2 .routes.mts{grid-template-columns:1fr}
 .coach .carrow{position:absolute;bottom:-9px;width:12px;height:12px;background:var(--panel);border:2px solid var(--gold);border-top:0;border-left:0;transform:rotate(45deg)}
 .coach.below .carrow{bottom:auto;top:-9px;transform:rotate(225deg)}
 .coach.right .carrow{bottom:auto;left:auto;right:-9px;transform:rotate(-45deg)}
+.coach.inline{position:static;width:auto;margin:0 0 10px;animation:none}.coach.inline .carrow{left:24px}
