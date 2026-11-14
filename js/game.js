@@ -317,7 +317,8 @@ const inviteLink=code=>location.origin+location.pathname+"#t-"+code;
    team (S.mode "tv"); a phone that joined by the code is a climber like any other, laid out as a controller ("pad"). */
 const TV=()=>S.mode==="tv",PAD=()=>S.mode==="pad";
 const padLink=code=>location.origin+location.pathname+"#pad-"+code;
-const setMode=m=>{S.mode=m||null;document.body.classList.toggle("tv",m==="tv");document.body.classList.toggle("pad",m==="pad");};
+const setMode=m=>{S.mode=m||null;document.body.classList.toggle("tv",m==="tv");document.body.classList.toggle("pad",m==="pad");
+  if(typeof FX!=="undefined"&&FX.fit)requestAnimationFrame(()=>FX.fit&&FX.fit());}; // (the big screen lays the climb out differently)
 const qrHtml=code=>typeof QR!=="undefined"?QR.svg(padLink(code),{label:"QR code to join with your phone"}):"";
 function renderLobby(invite){
   if(typeof MUSIC!=="undefined")MUSIC.want(true,"home"); // the full theme on the home screen (js/music.js)

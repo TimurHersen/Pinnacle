@@ -527,3 +527,13 @@ body.pad .qopt b{width:30px;height:30px;font-size:15px}
 body.pad #lockBtn{min-height:54px;font-size:18px;flex:1 1 100%}
 body.pad .qfoot{flex-wrap:wrap}
 body.pad #main.game2 .routes.mts{grid-template-columns:1fr}
+
+/* the big screen, wide: the question panel and the way in stack in a column down the right edge, so the climb has
+   the whole height to the left of it and both climbers stay in view (js/scene.js frames them in what is left) */
+@media (min-width:900px) and (min-height:521px){
+  body.tv #main.game2{top:calc(12px + env(safe-area-inset-top,0px));bottom:12px;left:auto;right:var(--edgeR);width:min(34vw,560px);
+    grid-template-columns:1fr;align-content:end;align-items:end;overflow:visible}
+  body.tv #main.game2 .qwrap{grid-template-columns:1fr}body.tv #main.game2 .qart{display:none}
+  body.tv #main.game2 .qopts{grid-template-columns:1fr}
+  body.tv .bar{right:calc(min(34vw,560px) + var(--edgeR) + 12px)}
+}

@@ -336,6 +336,8 @@ function setLead(t){if(!FX.rigs||t.round.phase==="map")return;const ids=memberId
   if(ids.length<2)lead=rigOfId(t,ids[0]);
   else{const pa=posOf(t.exp,ids[0]),pb=posOf(t.exp,ids[1]);if(pa!==pb)lead=rigOfId(t,pa>pb?ids[0]:ids[1]);}
   FX.own=rigOfId(t,S.uid)||null;
+  // (player one's climber and player two's, for the split view: P1 always on the left)
+  FX.pair=ids.length>1?[rigOfId(t,ids[0]),rigOfId(t,ids[1])]:null;
   if(!lead||lead===FX.A.me)return;
   FX.A={me:lead,mate:FX.A.me};
   // standing together on the meadow or a ledge, they trade places: the one now ahead steps up to the wall while the
@@ -889,7 +891,8 @@ const BASE_SIGN_X=-139,BASE_TENT_X=-264;
 // a tree standing on the ground at y, its trunk at x (mirrored when asked)
 function tree(g,i,x,y,flip){const T=ART.trees&&ART.trees[i];if(!T)return;const dx=R0(x)-(T.width>>1),dy=R0(y)-T.height;
   if(flip){g.save();g.translate(dx+T.width,dy);g.scale(-1,1);g.drawImage(T,0,0);g.restore();}else g.drawImage(T,dx,dy);}
-function baseLayer(){const ox=FX.ox,w=FX.vw;if(FX.base&&FX.base.ox===ox&&FX.base.w===w)return FX.base;
+// (kept for the last two views asked for: a split view paints the meadow from two places at once)
+function baseLayer(ox=FX.ox,w=FX.vw){const hit=[FX.base,FX.base2].find(B=>B&&B.ox===ox&&B.w===w);if(hit)return hit;FX.base2=FX.base;
   const x0=-ox-8,x1=w-ox+8,y0=-215,y1=120,[c,g]=mk(x1-x0,y1-y0),X=x=>x-x0,Y=y=>y-y0;
   // distant pines first, then the meadow, then the big pines in front of the cliff foot
   // (once the generated pine is in, the generated treeline behind stands in for these painted ones)
@@ -956,7 +959,11 @@ function ensureScene(){
   const cv=$("#topo");if(!cv)return false;if(FX.cv===cv)return true;
   FX.cv=cv;FX.g=cv.getContext("2d");FX.mode="";FX.state=null;FX.tw=[];FX.ch.main++;FX.cam=null;FX.parts=[];FX.pops=[];FX.rope=new Rope();FX.label=null;FX.pins=[];
   // one canvas pixel per art pixel, scaled up by a whole number: about 300 art pixels tall on any screen
-  const box=cv.parentElement||cv,fit=()=>{const r=box.getBoundingClientRect(),W=Math.max(1,r.width),H=Math.max(1,r.height),px=Math.max(2,Math.round(Math.min(H/300,W/190)));
+  // (the pixel scale is chosen so the part of the screen left for the climb holds about two climbers' height: on a
+  // wide screen the question panel takes the bottom half, on the big screen a column down the right, on a phone
+  // the bottom sheet; whole pixels only, never below 2)
+  const box=cv.parentElement||cv,fit=()=>{const r=box.getBoundingClientRect(),W=Math.max(1,r.width),H=Math.max(1,r.height),tv=document.body.classList.contains("tv");
+    const openH=tv&&W>=900?H-200:W>=900?H*.4:H,px=Math.max(2,Math.round(Math.min(openH/(tv||W>=900?280:300),(tv&&W>=900?W*.62:W)/190)));
     if(W===FX.W&&H===FX.H&&px===FX.px&&FX.layers)return;FX.W=W;FX.H=H;FX.px=px;FX.vw=Math.ceil(W/px);FX.vh=Math.ceil(H/px);
     cv.width=FX.vw;cv.height=FX.vh;cv.style.width=FX.vw*px+"px";cv.style.height=FX.vh*px+"px";FX.g.imageSmoothingEnabled=false;
     FX.layers=makeLayers(FX.vw,FX.vh);FX.areaAt=0;FX.base=null;
@@ -989,44 +996,61 @@ function sceneArea(){const W=FX.W,H=FX.H,wide=W>=900,hud=$("#hud"),hb=hud&&!hud.
   // (beside the lobby's column on wide screens; above the bottom question panel in a climb and on phones)
   const r=m&&m.getBoundingClientRect(),dock=m&&m.classList.contains("game2");
   // (a phone on its side has the panel as a column down the left edge instead: the climb is framed beside it)
-  if(r&&r.width>0&&r.height>0){if((wide&&!dock)||r.width<W*.7){a.x=Math.min(W-240,r.right+8);a.w=W-a.x;}else a.h=Math.max(150,r.top-top);}
+  // (and on the big screen the panel is a column down the right edge: the climb has the rest, full height)
+  if(r&&r.width>0&&r.height>0){if(r.width<W*.7&&r.left>W*.4){a.w=Math.max(240,r.left-8);a.y=Math.max(64,hb);a.h=H-a.y;}
+    else if((wide&&!dock)||r.width<W*.7){a.x=Math.min(W-240,r.right+8);a.w=W-a.x;}else a.h=Math.max(150,r.top-top);}
   return a;}
 // a critically damped spring: eases into a move and settles without overshoot (implicit, so stable at any dt)
 function damp(x,v,to,w,dt){const f=1+2*dt*w,hw=dt*w*w,d=1/(f+dt*hw);return [(f*x+dt*v+dt*hw*to)*d,(v+hw*(to-x))*d];}
+/* The camera keeps both climbers in view. When the two fit in the open part of the screen, head to boots, it frames
+   them together; when they are too far apart (up to three pitches, more than a screen), the view splits in two side
+   by side, player one on the left and player two on the right, each half following its own climber, and joins up
+   again once they are close. (Zooming out instead would blur the pixel art.) The split waits a moment either way,
+   so a climber passing the edge of the frame doesn't make it flicker. */
+const SPLIT_IN=.35,SPLIT_OUT=.6;
 function updateCam(dt){const me=FX.A.me,mt=FX.A.mate,now=performance.now();
   if(now-FX.areaAt>250||!FX.area){FX.area=sceneArea();FX.areaAt=now;}
-  const A=FX.area,px=FX.px,ax=A.x/px,ay=A.y/px,aw=A.w/px,ah=A.h/px;
-  // the cliff's edge sits a little left of the open area's middle so the valley shows beside it
-  // (at a camp the view eases over to centre the wide ledge, from its far end to the wall, in the open part of the
-  // screen, so the tent is never under the cards)
-  // (likewise at base camp, from the tent out to the wall, while both stand there)
+  const A=FX.area,px=FX.px,ax=A.x/px,ay=A.y/px,aw=A.w/px,ah=A.h/px,summit=FX.focus==="summit",game=FX.mode==="game";
+  // (at a camp the view centres the wide ledge in the open part of the screen, so the tent is never under the cards;
+  // likewise at base camp, from the tent out to the wall, while both stand there)
   const atBase=!FX.camp&&me.mode==="stand"&&mt.mode==="stand"&&me.hi<=0&&mt.hi<=0;
-  // (out on the pillar under a camp the view follows this player's climber across, so they stay where they'd be on
-  // the plain wall, and slides back as they come in onto the ledge)
-  // (the view follows the face this player's climber is on, so each stage's face sits where the first one does;
-  // one standing on a camp ledge is framed with the ledge's back, by the next face)
-  const own0=FX.own||me,yb=own0.mode==="stand"?own0.N.y+LEG-4:own0.N.y+20,bo=FX.mode==="game"?FACE[stageAt(yb)]:0;
-  const oxT=FX.camp?ax+aw/2-(ledgeL()+30+2*campDX(FX.camp.ix))/2:atBase?ax+aw/2+104:ax+aw*(FX.W>=900?.42:.38)-bo;
-  // (a new camera, such as the first frames on load, snaps; after that the view always pans, however far)
-  if(FX.oxF==null||!FX.cam){FX.oxF=oxT;FX.oxV=0;}else[FX.oxF,FX.oxV]=damp(FX.oxF,FX.oxV||0,oxT,2.8,dt);FX.ox=R0(FX.oxF);
-  const own=FX.own||me,oth=own===me?mt:me;
-  let fy=FX.focus==="summit"?TOPY-30:lerp(own.N.y,oth.N.y,.3);
-  // (a short open area can't hold both: this player's own climber stays in view, head to boots)
-  if(FX.focus!=="summit")fy=clamp(fy,own.N.y+44-ah/2,own.N.y-40+ah/2);
-  // camera y is the world y at the open area's vertical middle; keep the summit sky and the meadow in frame
-  let y=clamp(fy,TOPY-120+(ah/2),60-(ah/2));
+  // (the view follows the face a climber is on, so each stage's face sits where the first one does)
+  const faceOf=r=>game?FACE[stageAt(r.mode==="stand"?r.N.y+LEG-4:r.N.y+20)]:0;
   if(FX.fxEl){const s=FX.fxEl.style,v=[A.x,A.y,A.w,A.h].map(n=>Math.round(n)+"px");if(s.width!==v[2]||s.height!==v[3]||s.top!==v[1]||s.left!==v[0]){s.left=v[0];s.top=v[1];s.width=v[2];s.height=v[3];}}
-  // (a dead zone: within it the view holds still and the climber is seen moving up the screen; beyond it, it follows)
-  if(FX.cam&&FX.focus!=="summit"){const dz=ah*.14,d=y-FX.cam.y;y=Math.abs(d)<=dz?FX.cam.y:y-Math.sign(d)*dz;}
-  // (the screen point it centres on eases too, so a question panel growing or shrinking never jolts the view)
+  // do the two fit together? (head to boots, up and down; and across, when one is on a ledge and one on the next face)
+  const top=Math.min(me.N.y,mt.N.y)-58,bot=Math.max(me.N.y,mt.N.y)+48,across=Math.abs(faceOf(me)-faceOf(mt))+Math.abs(me.N.x-mt.N.x)*.5;
+  const two=game&&FX.pair&&!summit&&!FX.camp&&!atBase&&!me.hidden&&!mt.hidden;
+  const fits=!two||(bot-top<=ah-6&&across<=aw-80),comfy=!two||(bot-top<=ah*.82&&across<=aw-110);
+  FX.splitK=clamp((FX.splitK||0)+(fits?(comfy?-dt/SPLIT_OUT:0):dt/SPLIT_IN),0,1);
+  if(!two)FX.splitK=0;
+  if(FX.splitK>=1&&!FX.split){FX.split={t0:FX.time,panes:null};}else if(FX.splitK<=0&&FX.split){FX.split=null;FX.joinT=FX.time;}
+  // the whole view (always kept, for the wind, the confetti and the wall's painting ahead of time)
+  const own=FX.own||me,oth=own===me?mt:me;
+  const oxT=FX.camp?ax+aw/2-(ledgeL()+30+2*campDX(FX.camp.ix))/2:atBase?ax+aw/2+104:ax+aw*(FX.W>=900?.42:.38)-(two?(faceOf(me)+faceOf(mt))/2:faceOf(own));
+  if(FX.oxF==null||!FX.cam){FX.oxF=oxT;FX.oxV=0;}else[FX.oxF,FX.oxV]=damp(FX.oxF,FX.oxV||0,oxT,2.8,dt);FX.ox=R0(FX.oxF);
+  // (the pair's middle when they fit; otherwise this player's own climber, or on the big screen the leader)
+  let fy=summit?TOPY-30:two&&fits?(top+bot)/2-5:fits?lerp(own.N.y,oth.N.y,.3):own.N.y-4;
+  if(!summit&&!(two&&fits))fy=clamp(fy,own.N.y+44-ah/2,own.N.y-40+ah/2);
+  let y=clamp(fy,TOPY-120+(ah/2),60-(ah/2));
+  // (a dead zone: within it the view holds still and the climbers are seen moving up the screen; beyond it, it follows)
+  if(FX.cam&&!summit){const dz=ah*(two&&fits?.06:.14),d=y-FX.cam.y;y=Math.abs(d)<=dz?FX.cam.y:y-Math.sign(d)*dz;}
   if(!FX.cam||Math.abs(y-FX.cam.y)>900)FX.cam={y,v:0,my:ay+ah/2,mv:0};
   else{const c=FX.cam;[c.y,c.v]=damp(c.y,c.v,y,4,dt);[c.my,c.mv]=damp(c.my,c.mv,ay+ah/2,6,dt);}
-  // (whatever the easing and the dead zone do, this player's climber stays inside the open area, hat to boots: the
-  // view is carried along with them at its edges, so they never slip under the bar or the question panel)
-  if(FX.focus!=="summit"&&ah>=110){const c=FX.cam,hi=own.N.y-56+(c.my-ay),lo=own.N.y+46-(ay+ah-c.my);if(lo<=hi){const k=clamp(c.y,lo,hi);if(k!==c.y){c.y=k;c.v=0;}}}
-  // (an open area too short for a whole climber, such as a desktop window under a tall result panel: they are kept
-  // centred in what there is)
-  else if(FX.focus!=="summit"&&!FX.camp){const c=FX.cam,mid=own.N.y-4+(c.my-(ay+ah/2)),k=clamp(c.y,mid-8,mid+8);if(k!==c.y){c.y=k;c.v=0;}}
+  // (whatever the easing does, every climber that fits stays inside the open area, hat to boots: the view is carried
+  // along with them at its edges, so nobody slips under the bar or the question panel)
+  const keep=two&&fits?[me,mt]:[own];
+  if(!summit&&ah>=110){const c=FX.cam;let hi=1e9,lo=-1e9;for(const r of keep){hi=Math.min(hi,r.N.y-58+(c.my-ay));lo=Math.max(lo,r.N.y+48-(ay+ah-c.my));}
+    if(lo<=hi){const k=clamp(c.y,lo,hi);if(k!==c.y){c.y=k;c.v=0;}}}
+  else if(!summit&&!FX.camp){const c=FX.cam,mid=own.N.y-4+(c.my-(ay+ah/2)),k=clamp(c.y,mid-8,mid+8);if(k!==c.y){c.y=k;c.v=0;}}
+  // split: two panes, each with its own camera following its climber (on the wall, the face sits a little right of
+  // the pane's middle, since the climber hangs off its left side; on a ledge they are centred)
+  if(FX.split){const S=FX.split,pw=Math.floor(aw/2);
+    if(!S.panes)S.panes=FX.pair.map((r,k)=>({r,cam:{y:r.N.y-4,v:0,my:ay+ah/2,mv:0},oxF:null,oxV:0}));
+    S.panes.forEach((P,k)=>{const r=P.r;P.x=R0(ax)+(k?pw+1:0);P.w=k?R0(aw)-pw-1:pw;
+      const oT=r.mode==="stand"?P.w/2-r.N.x:P.w*.62-faceOf(r);
+      if(P.oxF==null){P.oxF=oT;P.oxV=0;}else[P.oxF,P.oxV]=damp(P.oxF,P.oxV,oT,3,dt);P.ox=R0(P.oxF);
+      const c=P.cam,ty=clamp(r.N.y-4,TOPY-120+(ah/2),60-(ah/2));[c.y,c.v]=damp(c.y,c.v,ty,5,dt);[c.my,c.mv]=damp(c.my,c.mv,ay+ah/2,6,dt);
+      if(ah>=110){const hi=r.N.y-58+(c.my-ay),lo=r.N.y+48-(ay+ah-c.my);if(lo<=hi){const k2=clamp(c.y,lo,hi);if(k2!==c.y){c.y=k2;c.v=0;}}}});}
   FX.shake*=Math.exp(-dt*4);}
 function frame(now){
   const cv=FX.cv;if(!cv||!cv.isConnected){FX.raf=0;FX.cv=null;return;}
@@ -1064,10 +1088,21 @@ function prefetch(){const go=window.requestIdleCallback||(f=>setTimeout(f,120));
   go(()=>{const c=FX.cam;if(c&&FX.cv){const [n1,n2]=chunkRange(c.y-FX.vh-CHK,c.y+FX.vh+CHK);for(let ci=n1;ci<=n2;ci++)if(!FX.chunks.has(ci)){chunk(ci);break;}}
     setTimeout(prefetch,150);});}
 function paint(t){
-  const g=FX.g,w=FX.vw,h=FX.vh,c=FX.cam;if(!c||!FX.exp)return;
+  const g=FX.g,w=FX.vw,h=FX.vh;if(!FX.cam||!FX.exp)return;
+  const S=FX.split;if(!S||!S.panes){paintView(t,FX.cam,FX.ox,w,h);return;}
+  // split: each half painted with its own camera, clipped to its pane; a divider and a tag on each
+  for(const P of S.panes){g.save();g.beginPath();g.rect(P.x,0,P.w,h);g.clip();g.translate(P.x,0);paintView(t,P.cam,P.ox,P.w,h);g.restore();}
+  const k=clamp((FX.time-S.t0)/.3,0,1),A=FX.area,px=FX.px,ay=R0(A.y/px),ah=R0(A.h/px),dx=S.panes[1].x-1,len=R0(h*smooth(k));
+  rect(g,dx-1,0,3,len,INK);rect(g,dx,0,1,len,C.cream);
+  S.panes.forEach((P,i)=>{const tag="P"+(i+1),x=P.x+5,y=ay+5,wd=PF.width?PF.width(tag):12;
+    rect(g,x-2,y-2,wd+12,11,INK);rect(g,x-1,y-1,wd+10,9,i?"#e8a33b":"#c4262a");rect(g,x+1,y+1,3,5,C.cream);
+    PF.draw(g,tag,x+6,y+1,C.cream);});}
+// one view of the scene: camera c, the wall's across offset ox, w by h canvas pixels from the view's left edge
+function paintView(t,c,ox0,w,h){
+  const g=FX.g;
   const shk=()=>R0((Math.random()-.5)*FX.shake*5);
   // screen = world + (ox, oy): every offset is a whole pixel, so nothing ever shimmers
-  const oyF=c.my-c.y,ox=FX.ox+shk(),oy=R0(oyF)+shk(),vy0=-oy,vy1=h-oy,u=uOf(c.y);
+  const oyF=c.my-c.y,ox=ox0+shk(),oy=R0(oyF)+shk(),vy0=-oy,vy1=h-oy,u=uOf(c.y);
   // the valley sinks as the team climbs: each layer by its own share of the camera's height
   const climb=-c.y,art=ART.valley;
   if(art)drawValley(g,w,h,climb);else drawSky(g,w,h,u);
@@ -1077,7 +1112,7 @@ function paint(t){
     if(cy<cloudMax)drawCloud(g,cx,cy,.8+hash(k,2)*.6,k);}
   for(const b of FX.birds)for(let i=0;i<b.n;i++)g.drawImage(sprites().bird[Math.floor(b.t*7+i*1.3)%4],R0(b.x-i*13),R0(b.y*h+(i%2?5:-2)*i+Math.sin(b.t*1.4+i)*2));
   if(!art)for(const L of FX.layers){const y=R0(climb*L.par);if(y<h)g.drawImage(L.c,0,y);}
-  if(vy1>-215){const B=baseLayer();g.drawImage(B.c,B.x0+ox,B.y0+oy);}
+  if(vy1>-215){const B=baseLayer(ox0,w);g.drawImage(B.c,B.x0+ox,B.y0+oy);}
   const [c1,c2]=chunkRange(vy0,vy1);for(let ci=c1;ci<=c2;ci++){const c=chunk(ci);g.drawImage(c,(c.x0||0)-CHK_X0+ox,-(ci+1)*CHK+oy);}
   if(vy1>-215)drawFrontPines(g,ox,oy);
   for(const [kk,ix] of [["c1",IDX_C1],["c2",IDX_C2]]){const y=-ix*HS;if(y>vy0-70&&y<vy1+30)drawCamp(g,kk,y,t,ox,oy);}
