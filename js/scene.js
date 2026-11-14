@@ -963,7 +963,7 @@ function ensureScene(){
   // wide screen the question panel takes the bottom half, on the big screen a column down the right, on a phone
   // the bottom sheet; whole pixels only, never below 2)
   const box=cv.parentElement||cv,fit=()=>{const r=box.getBoundingClientRect(),W=Math.max(1,r.width),H=Math.max(1,r.height),tv=document.body.classList.contains("tv");
-    const openH=tv&&W>=900?H-200:W>=900?H*.4:H,px=Math.max(2,Math.round(Math.min(openH/(tv||W>=900?280:300),(tv&&W>=900?W*.62:W)/190)));
+    const wide=W>=900&&H>=521,openH=wide?H-200:H,px=Math.max(2,Math.round(Math.min(openH/(wide?280:300),(wide?W*.62:W)/190)));
     if(W===FX.W&&H===FX.H&&px===FX.px&&FX.layers)return;FX.W=W;FX.H=H;FX.px=px;FX.vw=Math.ceil(W/px);FX.vh=Math.ceil(H/px);
     cv.width=FX.vw;cv.height=FX.vh;cv.style.width=FX.vw*px+"px";cv.style.height=FX.vh*px+"px";FX.g.imageSmoothingEnabled=false;
     FX.layers=makeLayers(FX.vw,FX.vh);FX.areaAt=0;FX.base=null;

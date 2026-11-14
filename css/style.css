@@ -393,7 +393,9 @@ body:has(#main.game2) .hud{left:var(--edge)}
   .hint{padding:6px 10px}
   .qfoot{gap:8px}
   .qgear{gap:6px}
-  .gbtn{grid-template-columns:auto auto;gap:5px;padding:0 9px;border-color:var(--line)}.gbtn span{display:none}.gbtn .px{width:18px;height:18px}
+  .qfoot{display:grid;grid-template-columns:1fr;gap:6px}.qgear{display:grid;grid-template-columns:repeat(3,1fr)}
+  .gbtn{grid-template-columns:18px auto auto;justify-content:center;gap:6px;padding:0 8px;border-color:var(--line);min-height:42px}.gbtn span{font-size:14px}.gbtn .px{width:18px;height:18px}
+  #lockBtn{width:100%;min-height:46px}
   .qfoot .note{font-size:13px;line-height:1.25;flex-basis:6em}
   .timer{display:none}
   .wait{margin:0;padding:8px 10px;font-size:14px}
@@ -531,9 +533,47 @@ body.pad #main.game2 .routes.mts{grid-template-columns:1fr}
 /* the big screen, wide: the question panel and the way in stack in a column down the right edge, so the climb has
    the whole height to the left of it and both climbers stay in view (js/scene.js frames them in what is left) */
 @media (min-width:900px) and (min-height:521px){
-  body.tv #main.game2{top:calc(12px + env(safe-area-inset-top,0px));bottom:12px;left:auto;right:var(--edgeR);width:min(34vw,560px);
-    grid-template-columns:1fr;align-content:end;align-items:end;overflow:visible}
-  body.tv #main.game2 .qwrap{grid-template-columns:1fr}body.tv #main.game2 .qart{display:none}
-  body.tv #main.game2 .qopts{grid-template-columns:1fr}
-  body.tv .bar{right:calc(min(34vw,560px) + var(--edgeR) + 12px)}
+  #main.game2{top:calc(12px + env(safe-area-inset-top,0px));bottom:12px;left:auto;right:var(--edgeR);width:min(34vw,560px);
+    grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto;align-content:stretch;align-items:end;overflow:visible}
+  /* (the panel scrolls inside itself if it's taller than the column, so the top of a long camp choice never goes
+  off the screen; the radio stays under it) */
+  #main.game2>.qpanel{max-height:100%;overflow-y:auto;align-self:end}
+  #main.game2 .route{padding:8px 12px}#main.game2 .routes{gap:6px;margin:4px 0 8px}
+  #main.game2 .qwrap{grid-template-columns:1fr}#main.game2 .qart{display:none}
+  #main.game2 .qopts{grid-template-columns:1fr}
+  #main.game2 .routes{grid-template-columns:1fr 1fr}#main.game2 .routes.bonus{grid-template-columns:repeat(3,1fr)}#main.game2 .routes.mts{grid-template-columns:1fr}
+  #main.game2 .route{font-size:14px;line-height:1.3}#main.game2 .route h4{font-size:13px}
+  body:has(#main.game2) .bar{right:calc(min(34vw,560px) + var(--edgeR) + 12px)}
+  body:has(#main.game2) .hud{right:calc(min(34vw,560px) + var(--edgeR) + 12px)}
+}
+
+/* the hooks in the top bar: one carabiner, the word and the count; a hook spent shakes it */
+.hearts .hlbl{font:600 13px/1 var(--body);letter-spacing:.04em;text-transform:uppercase;color:var(--cream);margin-left:2px}
+.hearts.spend .px{animation:hookspend .6s steps(6)}
+@keyframes hookspend{0%,100%{transform:none}20%{transform:translateX(-2px) rotate(-12deg)}40%{transform:translateX(2px) rotate(10deg)}60%{transform:translateX(-1px) rotate(-6deg)}}
+@media (max-width:899px),(max-height:520px){.hearts .hlbl{display:none}}
+
+/* readable on a phone: nothing under 12px, the result and the tags at their full size, the partner's line and the
+   fact in the cream ink rather than the muted grey (the pixel head font runs small: it gets one size up) */
+@media (max-width:899px),(max-height:520px){
+  .qhead{font-size:13px}.qhead .role{font-size:12px}.qtime{font-size:13px}
+  .qopt b{width:22px;height:22px;font-size:12px}.qopt em{font-size:10px;padding:3px 5px}
+  .qfoot .note,.mateline{font-size:14px;color:var(--cream)}
+  .fact{font-size:14px;color:var(--ink)}
+  .result b{font-size:13px}.result span{font-size:14px}
+  .grade b{font-size:12px}.scell b{font-size:14px}.scell span{font-size:12px}
+  .route h4{font-size:14px}.mfacts,.mrec{font-size:13px}
+  .wpin b{font-size:10px}.wpin small{font-size:12px}.wcamp{font-size:10px}.wtags em{font-size:10px}
+  .clabel{font-size:13px}
+}
+/* the hooks in the bar and the gear row: the carabiner drawn larger, so it reads at a glance */
+.hearts .px{width:22px;height:24px}.gbtn .px{width:20px;height:22px}
+@media (max-width:899px),(max-height:520px){.hearts .px{width:20px;height:22px}.gbtn .px{width:18px;height:20px}}
+/* the column on a wide screen: the round's button stays in view at the bottom of the panel however long it is, and
+   the radio is kept short under it */
+@media (min-width:900px) and (min-height:521px){
+  #main.game2 .qmain>.actions,#main.game2 .qmain>.qfoot{position:sticky;bottom:-18px;z-index:1;background:var(--panel);padding:8px 0 10px;margin-bottom:-10px;box-shadow:0 -10px 8px -6px var(--panel)}
+  #main.game2 .qmain>.btn{position:sticky;bottom:0;z-index:1;box-shadow:var(--frame),0 0 0 8px var(--panel)}
+  #main.game2>.radio2{padding:8px 12px;gap:6px}#main.game2>.radio2 .rlog{max-height:54px;min-height:0}
+  #main.game2>.radio2 .calls{gap:4px}#main.game2>.radio2 .call{padding:4px 7px;font-size:12px}
 }

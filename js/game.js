@@ -245,7 +245,7 @@ function useScout(){
 }
 // at camp: everything is restocked, and the team picks the route on and one extra piece of gear (each votes, the
 // leader confirms); then the next stage starts straight away
-const BONUS={hook:{name:"Extra hook",desc:"One more hook for the next stage."},chalk:{name:"Extra chalk",desc:"Wipe out two wrong answers once more."},scout:{name:"Extra scout",desc:"A second hint."}};
+const BONUS={hook:{name:"Extra hook",desc:"One more hook for the next stage."},chalk:{name:"Extra chalk",desc:"Wipe out two wrong answers once more."},scout:{name:"Extra hint",desc:"A second hint."}};
 function campPick(route,k){
   const rid=S.team.round.id;
   guarded(t=>{const s=t.round.stage??needsChoice(t.exp);
@@ -356,7 +356,7 @@ function renderLobby(invite){
         <li><b>Your own climb.</b> Every question has four answers. You both lock one in, in secret. Answer right and you climb a pitch; wrong, and you fall.</li>
         <li><b>The rope.</b> You're tied together and can be at most ${MAX_GAP} pitches apart. Get further ahead and the rope jerks and holds you until your partner catches up, so help each other.</li>
         <li><b>Hooks.</b> During a question, clip a hook into the wall where you hang. It stays there: a fall, yours or your partner's, stops at the highest hook below. With no hook below, you fall back to the last camp (the rope catches you ${MAX_GAP} pitches below your partner).</li>
-        <li><b>Gear.</b> Chalk wipes out two wrong answers. The route scout gives a hint.</li>
+        <li><b>Gear.</b> Chalk wipes out two wrong answers. A hint gives you a clue.</li>
         <li><b>Mountains.</b> ${MOUNTAIN_ORDER.map(k=>esc(MOUNTAINS[k].name)).join(", ")}: the higher the mountain, the harder the questions, the less time you get and the fewer hooks you carry.</li>
         <li><b>Camps</b> restock your gear. There you pick the route on, short and hard or long and gentler, and one extra piece of gear.</li>
         <li><b>The rope radio</b> lets you talk when you're apart. Side by side, just talk.</li></ul></div>
@@ -511,8 +511,9 @@ function pix(rows){const h=rows.length,w=rows[0].length;let r="";
   return `<svg class="px" viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges" aria-hidden="true">${r}</svg>`;}
 const ICON={
   // a hook (a bold gold crook), and a spent one in grey
-  hook:pix(["..kkkkkk..", ".kyyyyyyk.", "kyykkkkyyk", "kyk....kyk", "kkk....kyk", "......kyyk", ".....kyyk.", "....kyyk..", "....kyk...", "....kkk..."]),
-  hookUsed:pix(["..kkkkkk..", ".kggggggk.", "kggkkkkggk", "kgk....kgk", "kkk....kgk", "......kggk", ".....kggk.", "....kggk..", "....kgk...", "....kkk..."]),
+  // a hook: a carabiner, its gate in gold (and a spent one in grey)
+  hook:pix(["...kkkk...","..kGGGGk..",".kGkkkkGk.",".kGk..kGk.","kGk...kyk.","kGk...kyk.","kGk...kyk.","kGk...kGk.","kGk...kGk.",".kGk.kGk..",".kGkkGk...","..kGGk....","...kk....."]),
+  hookUsed:pix(["...kkkk...","..kggggk..",".kgkkkkgk.",".kgk..kgk.","kgk...kgk.","kgk...kgk.","kgk...kgk.","kgk...kgk.","kgk...kgk.",".kgk.kgk..",".kgkkgk...","..kggk....","...kk....."]),
   anchor:pix(["...kkkk...","..kGGGGk..","..kGkkGk..","..kGGGGk..","...kGGk...","..kkGGkk..",".kGk..kGk.",".kGk..kGk.","..kGGGGk..","...kkkk..."]),
   rope:pix(["..kkkkk...",".kooooook.","kokkkkkok.","kok...kok.","kokkkkkok.",".kooooook.","..kkkkokk.","......ok..","......kok.",".......k.."]),
   tent:pix([".....k....","....kok...","...kooRk..","..koooRRk.",".kooook.Rk","kooook.kRk","kooook.kRk","kkkkkkkkkk"]),
@@ -612,8 +613,8 @@ async function invite(){const t=S.team;if(!t)return;const l=inviteLink(t.code);
    roles, the team's hooks as hearts, the gear row, altitude and rope), and the question interface is a framed panel
    along the bottom with the rope radio beside it. */
 // the chalk bag and the scout's binoculars, drawn to read at the size of a thumb
-ICON.chalk=pix(["...kkkk...","..kwwwwk..",".kkkkkkkk.",".kSSSSSSk.",".kSSwSSSk.",".kSwwwSSk.",".kSSwSSSk.",".kSSSSSSk.","..kSSSSk..","...kkkk..."]);
-ICON.scout=pix([".kkk..kkk.","kGGGkkGGGk","kGsGkkGsGk","kGGGkkGGGk","kGGGkkGGGk","kSSSkkSSSk","kSSSkkSSSk","kkkk..kkkk"]);
+ICON.chalk=pix(["..w.w.w...","...wwww...","..kwcwwk..",".kkkkkkkk.",".kbbbbbbk.","kbbBbbbbbk","kbbbbbBbbk","kbBbbbbbbk","kbbbbbbbbk",".kbbbbbbk.","..kkkkkk.."]);
+ICON.scout=pix(["...kkkk...","..kyyyyk..",".kyywyyyk.",".kyyyyyyk.",".kyyyyyyk.","..kyyyyk..","...kyyk...","...kGGk...","...kggk...","....kk...."]);
 function renderBar(){
   const t=S.team;if(!t){$("#teambar").innerHTML="";return;}
   const ids=memberIds(t);$("#teambar").classList.toggle("full",ids.length>1);
@@ -652,8 +653,7 @@ function renderHud(t){
   // (each climber's own pitch under their name; the one ahead is framed in red)
   const who=ids.map(id=>{const p=posOf(e,id),s2=stageOf(e,p);return `<div class="who ${pid&&p===top&&gap!==0?"lead":""}"><img class="port" src="${portrait(lookOf(t,id))}" alt=""><div><div class="nm">${ptag(t,id)} ${esc(S.names[id]||nameOf(id))}${id===S.uid?" (you)":""}</div>
     <span class="role belay">Pitch ${Math.min(s2.i+1,s2.n)}/${s2.n}</span></div></div>`;}).join("");
-  const hearts=`<div class="hearts" title="Hooks: clip one into the wall during a question; a fall stops at the highest hook below you." aria-label="${e.rope} hooks left">${
-    [...Array(n).keys()].map(i=>i<e.rope?ICON.hook:i<lost?`<span class="crack">${ICON.hook}</span>`:`<span class="spent">${ICON.hookUsed}</span>`).join("")}<b>${e.rope}</b></div>`;
+  const hearts=`<div class="hearts ${lost>e.rope?"spend":""}" title="Hooks left to clip: a fall stops at the highest hook below you." aria-label="${e.rope} hooks left">${e.rope?ICON.hook:ICON.hookUsed}<span class="hlbl">Hooks</span><b>${e.rope}</b></div>`;
   const html=`<div class="hud-l">${who}${hearts}</div>
    <div class="hud-r"><div class="stat">${ICON.mtn}<span class="k">Alt</span><span class="v">${fmt(alt)} m</span></div>
      ${pid?`<div class="stat">${ICON.rope}<span class="k">Rope</span><span class="v">${Math.abs(gap)}/${MAX_GAP}</span></div>`:""}
@@ -707,7 +707,7 @@ function tvAnswerView(t){const r=t.round,q=quizById(r.qid),e=t.exp,cut=r.cut||[]
   const opts=r.order.map((k,i)=>`<div class="qopt ${cut.includes(i)?"cut":""}"><b>${LETTERS[i]}</b><span>${esc(q.o[k])}</span></div>`).join("");
   return frameQ(t,`<div class="qhead"><span>${pitchLabel(e,e.pitch)} · ${esc(q.cat)}</span><span class="qtime" id="qtime"></span></div>
    <div class="qtext">${esc(q.q)}</div><div class="qopts">${opts}</div>
-   ${r.scout?`<div class="hint"><b>Scout:</b> ${esc(q.hint)}</div>`:""}${r.hook?`<div class="hooked">${ICON.hook}<span><b>${esc(S.names[r.hookBy]||"A climber")} clipped a hook at ${fmt(altOf(e,r.hookAt??e.pitch))} m.</b> Falls from there or above stop at it.</span></div>`:""}
+   ${r.scout?`<div class="hint"><b>Hint:</b> ${esc(q.hint)}</div>`:""}${r.hook?`<div class="hooked">${ICON.hook}<span><b>${esc(S.names[r.hookBy]||"A climber")} clipped a hook at ${fmt(altOf(e,r.hookAt??e.pitch))} m.</b> Falls from there or above stop at it.</span></div>`:""}
    <div class="qfoot"><span class="note" id="partnerTxt"></span></div><div class="timer"><i id="timerBar"></i></div>`);}
 const third=s=>String(s).replace(/\byou were\b/g,"they were").replace(/\bYou keep\b/g,"They keep").replace(/\bYour partner\b/g,"Their partner").replace(/\byou\b/g,"them");
 function answerView(t,mine){if(TV())return tvAnswerView(t);
@@ -727,8 +727,8 @@ function answerView(t,mine){if(TV())return tvAnswerView(t);
   const gear=`<div class="qgear">
     <button class="gbtn ${hookHere?"on":""}" id="hookBtn" aria-label="${hookHere?"A hook is clipped here":`Clip a hook here, ${e.rope} left`}" title="Clip a hook into the wall where you hang: a fall then stops here, not at the last camp" ${canHook(e,S.uid)?"":"disabled"}>${ICON.hook}<span>${hookHere?"Clipped":"Hook"}</span><b>${e.rope}</b></button>
     <button class="gbtn" id="chalkBtn" aria-label="Chalk, ${e.chalk} left" title="Chalk: wipes out two wrong answers" ${e.chalk>0&&!r.cut?"":"disabled"}>${ICON.chalk}<span>Chalk</span><b>${e.chalk}</b></button>
-    <button class="gbtn" id="scoutBtn" aria-label="Route scout, ${e.scout} left" title="Route scout: a hint for this question" ${e.scout>0&&!r.scout?"":"disabled"}>${ICON.scout}<span>Scout</span><b>${e.scout}</b></button></div>`;
-  const hint=r.scout?`<div class="hint"><b>Scout:</b> ${esc(q.hint)}</div>`:"";
+    <button class="gbtn" id="scoutBtn" aria-label="Hint, ${e.scout} left" title="Hint: a clue for this question" ${e.scout>0&&!r.scout?"":"disabled"}>${ICON.scout}<span>Hint</span><b>${e.scout}</b></button></div>`;
+  const hint=r.scout?`<div class="hint"><b>Hint:</b> ${esc(q.hint)}</div>`:"";
   const hooked=r.hook?`<div class="hooked">${ICON.hook}<span><b>${r.hookBy===S.uid?"You clipped a hook":`${esc(nameOf(r.hookBy))} clipped a hook`} at ${fmt(altOf(e,r.hookAt??pos))} m.</b> ${(r.hookAt??pos)<=pos?"A fall now stops there.":"It is above you: it catches you once you are past it."}</span></div>`:"";
   const tight=!solo&&(gap>=MAX_GAP||atCap)?`<div class="hooked tight">${ICON.rope}<span><b>${atCap?"You're at the ledge.":"The rope is tight."}</b> You can't climb until ${esc(nameOf(pid))} catches up.</span></div>`:"";
   return frameQ(t,`<div class="qhead"><span>${pitchLabel(e,pos)} · ${esc(q.cat)}</span>${gapTag(t)}<span class="qtime" id="qtime"></span></div>
@@ -802,6 +802,8 @@ function renderWorld(t){const el=$("#world");if(!el)return;const r=t&&t.round,on
 // where the map goes: the whole window, or (a phone on its side, where the question box is a column down the left)
 // the part beside the box; `vis` is how much of its height the question box leaves uncovered
 function mapRect(){const W=innerWidth,H=innerHeight,m=$("#main").getBoundingClientRect(),side=m.width>0&&m.width<W*.7&&m.height>H*.7;
+  // (a column down the left on a phone on its side; down the right on a wide screen)
+  if(side&&m.left>W*.4)return {x:0,y:0,w:m.left,h:H,vis:H};
   return side?{x:m.right,y:0,w:W-m.right,h:H,vis:H}:{x:0,y:0,w:W,h:H,vis:m.height>0?Math.max(120,m.top):H};}
 function mapShape(){const R=mapRect(),ar=R.w/R.h;return ar<.85?"tall":ar>1.25?"wide":"sq";}
 // the painting covers its space, at a whole number of device pixels per painted pixel where that still keeps all
