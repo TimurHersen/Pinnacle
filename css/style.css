@@ -462,7 +462,7 @@ body.home #topo{visibility:hidden} /* (the game's own scene; the painting and it
 @media (max-width:899px),(max-height:520px){#home.away .pmenu{opacity:0;pointer-events:none}}
 /* (upright phones: centred under the logo, and on shorter screens lifted so it ends above the climbers by the fire,
    who stand from about 72% of the way down; four items are about 67 painting pixels tall) */
-@media (max-width:600px) and (orientation:portrait){.pmenu{left:50%;transform:translateX(-50%);bottom:auto;top:min(46%,calc(72% - 67*var(--u)))}.pbtn::before{display:none}}
+@media (max-width:600px) and (orientation:portrait){.pmenu{left:50%;transform:translateX(-50%);bottom:auto;top:calc(env(safe-area-inset-top,0px) + var(--mtop,40%))}.pbtn::before{display:none}}
 /* short, wide screens: the menu and the logo side by side, both centred top to bottom (titleScale sets .side and --lx) */
 #home.side .tlogo{top:50%;transform:translate(-50%,-50%)}
 #home.side .pmenu{top:50%;bottom:auto;left:calc(16*var(--u));transform:translateY(-50%)}
