@@ -1278,7 +1278,7 @@ async function downRig(r,to,ms,id,ch){const ok=()=>FX.ch[ch]===id,rs=r.rest(to),
   if(rs){r.dropTo(rs.x,rs.y,.3);if(!(await wait(320,ch)))return false;r.land(rs.x,rs.y);r.hi=to;sfx("thud");if(!(await wait(400,ch)))return false;}
   return ok();}
 // the rope catches a falling climber: it snaps taut and twangs, the view jolts and the partner is dragged by it
-function caught(r,vr){FX.ropeJerk=FX.time;FX.shake=Math.max(FX.shake,clamp(vr/120,.4,1.3));sfx("catch");
+function caught(r,vr){FX.ropeJerk=FX.time;FX.shake=Math.max(FX.shake,clamp(vr/120,.4,1.3));sfx("catch");if(r===FX.own)buzz("catch");
   const o=r===FX.A.me?FX.A.mate:FX.A.me;o.yank();if(r===FX.A.me)pop(r,r.catchWord||"WHOA!");r.catchWord=null;}
 // a fall. Slipping with a hook clipped, the climber drops a body length, the rope catches them and they swing back
 // to the rock. Without one they fall to the anchor: past a bolt on the wall the rope catches them below it, and
@@ -1306,7 +1306,7 @@ async function fallRig(r,anchor,back,id,ch,hook,hookIdx){
   function ok(){return FX.ch[ch]===id;}
 }
 // reaching the summit is a celebration; reaching a camp is quieter: a title, then the team gets to work
-function arrive(name,exp,to){const top=name==="summit";title(top?"SUMMIT!":name.toUpperCase(),`${fmt(mAlt(exp,to*HS/WK+ALT.base))} m`,"camp");
+function arrive(name,exp,to){if(typeof buzz==="function")buzz("arrive");const top=name==="summit";title(top?"SUMMIT!":name.toUpperCase(),`${fmt(mAlt(exp,to*HS/WK+ALT.base))} m`,"camp");
   if(top){confetti();sfx("summit");FX.A.me.cheer=2.6;}else sfx("thud");}
 // a round plays out: a beat while both chalk up; the rope jerks whoever it holds back; whoever got it wrong comes
 // off (onto the hook, the rope or down to the anchor); whoever got it right climbs to their next pitch, the higher

@@ -684,7 +684,7 @@ function renderPanel(t){
   panel.innerHTML=r.phase==="map"?mapView(t):r.phase==="ready"?readyView(t):r.phase==="pre"?`<p class="note">Setting off…</p>`:r.phase==="answer"?answerView(t,mine):r.phase==="reveal"?revealView(t):r.phase==="camp"?campView(t):summitView(t);
   wirePanel(t);updateDynamic(t);
   // the result lands with a sound of its own
-  if(r.phase==="reveal"&&S.sus!==r.id&&S.susDone===r.id&&S.stung!==r.id){S.stung=r.id;sfx((TV()?Object.values(r.result?.pl||{}).some(x=>x.ok):r.result?.pl?.[S.uid]?.ok)?"right":"wrong");}
+  if(r.phase==="reveal"&&S.sus!==r.id&&S.susDone===r.id&&S.stung!==r.id){S.stung=r.id;if(!TV()){const x=r.result?.pl?.[S.uid];buzz(x?.held?"jerk":x?.ok?"right":"wrong");}sfx((TV()?Object.values(r.result?.pl||{}).some(x=>x.ok):r.result?.pl?.[S.uid]?.ok)?"right":"wrong");}
 }
 function frameQ(t,main){return `<div class="qwrap">${panelArt(t)}<div class="qmain">${main}</div></div>`;}
 function readyView(t){
@@ -850,10 +850,45 @@ function summitView(t){const e=t.exp,st=e.run||{},two=memberIds(t).length>1;
    <div class="sgrid">${cell("Right",`${st.right||0}/${st.q||0}`)}${two?cell("In sync",st.synced||0)+cell("Rope jerks",st.jerks||0):""}${cell("Hooks held",st.slips||0)}${cell("Falls",st.falls||0)}${st.ms?cell("Time",fmtDur(st.ms)):""}</div>
    ${TV()?`<p class="note">Press Back to the map on a phone for another climb.</p>`:`<div class="actions"><button class="btn rope" id="newExpBtn">Back to the map</button><button class="btn" id="shareBtn">Share</button></div>`}`);
 }
+/* The summit card: a picture to share, drawn in the game's own pixel art at 270 by 338 and scaled up 4x (a 1080 by
+   1352 portrait, the shape social feeds show whole): the valley below, the snowy top with the team's pennant, both
+   climbers cheering on it, the mountain's name, the grade in stars and the numbers, and the game's name. */
+function summitCard(t){const e=t.exp,st=e.run||{},m=MT(e),W=270,H=338,c=document.createElement("canvas");c.width=W;c.height=H;const g=c.getContext("2d");g.imageSmoothingEnabled=false;
+  // sky, and the valley painting's lower half as the view below
+  const sky=g.createLinearGradient(0,0,0,H);sky.addColorStop(0,"#2e5da8");sky.addColorStop(.55,"#8fb8e0");sky.addColorStop(1,"#d9e6f0");g.fillStyle=sky;g.fillRect(0,0,W,H);
+  if(ART.valley){const V=ART.valley,sw=V.width,sh=Math.round(sw*(H-150)/W);g.drawImage(V,0,V.height-sh,sw,sh,0,150,W,H-150);}
+  // the top: a snowy peak rising from the bottom of the card, its tip in the middle
+  const tipX=W>>1,tipY=200;
+  for(let y=tipY;y<H;y++){const half=Math.round((y-tipY)*.95+3);for(let x=tipX-half;x<=tipX+half;x++){const d=(x-tipX)/(half||1);
+    g.fillStyle=y-tipY<14+Math.abs(d)*6?(d<-.2?"#e8eef4":"#ffffff"):d<-.3?"#7c8698":d<.25?"#9aa4b6":"#5e687a";if(y-tipY>=14+Math.abs(d)*6&&hash(x>>2,y>>2)<.12)g.fillStyle="#4a5262";g.fillRect(x,y,1,1);}}
+  // (when the climb is on screen at the summit, as it is when they share, the card shows that very view instead:
+  // the real summit, with the team cheering on it)
+  if(FX.cv&&FX.focus==="summit"&&FX.exp){const v=document.createElement("canvas");v.width=W;v.height=214;const vg=v.getContext("2d");vg.imageSmoothingEnabled=false;
+    const keep=FX.g,shake=FX.shake;FX.g=vg;FX.shake=0;try{paintView(performance.now()/1000,{y:TOPY-14,my:107},R0(W/2-(SX-10)),W,214);}finally{FX.g=keep;FX.shake=shake;}
+    g.drawImage(v,0,98);}
+  else{
+  const F=pennant(15,9,C.red,"summit");g.fillStyle="#0a0d17";g.fillRect(tipX+20,tipY-30,2,32);g.fillStyle="#c7ccd4";g.fillRect(tipX+20,tipY-30,1,32);g.drawImage(F[1],tipX+22,tipY-31);
+  [[LOOK.me,-26],[LOOK.mate,4]].forEach(([L,dx],k)=>{const A=L.art,fr=A&&A.ready&&A.clips.cheer?A.clips.cheer[k?5:2]:null;if(!fr)return;const b=boxOf(fr);
+    g.drawImage(fr,tipX+dx-((b.x0+b.x1)>>1),tipY+6-b.y1);});}
+  // the words: a dark panel at the top
+  g.fillStyle="rgba(10,13,23,.82)";g.fillRect(0,0,W,96);g.fillStyle="#f2b233";g.fillRect(0,96,W,2);
+  const big=(txt,y,col,k)=>{const w=PF.width(txt)*k,x=(W-w)>>1,cv=document.createElement("canvas");cv.width=PF.width(txt)+2;cv.height=7;
+    PF.draw(cv.getContext("2d"),txt,0,0,col,"#05080f");g.drawImage(cv,0,0,cv.width,cv.height,x,y,cv.width*k,cv.height*k);};
+  big("SUMMIT!",10,"#f2b233",4);big(m.name.toUpperCase(),38,"#efe3c4",2);
+  const n=ascentStars(st),sx=(W-3*20)>>1;for(let i=0;i<3;i++){const on=i<n;g.fillStyle=on?"#f2b233":"#4a5262";
+    for(const [x,y,w,h] of [[8,0,2,3],[6,3,6,2],[0,5,18,2],[2,7,14,2],[4,9,10,2],[3,11,5,3],[10,11,5,3],[2,14,3,2],[13,14,3,2]])g.fillRect(sx+i*20+x,56+y,w,h);}
+  const f=st.falls||0;big(`${st.right||0} OF ${st.q||0} RIGHT  ${f} ${f===1?"FALL":"FALLS"}${st.ms?"  "+fmtDur(st.ms).toUpperCase():""}`,78,"#c7ccd4",1);
+  // the game's name along the bottom
+  g.fillStyle="rgba(10,13,23,.82)";g.fillRect(0,H-26,W,26);big("PINNACLE",H-21,"#f2b233",2);big("SAME ROPE. SAME ANSWER.",H-8,"#efe3c4",1);
+  const out=document.createElement("canvas");out.width=W*4;out.height=H*4;const og=out.getContext("2d");og.imageSmoothingEnabled=false;og.drawImage(c,0,0,W*4,H*4);return out;}
 async function shareSummit(){const t=S.team;if(!t)return;const st=t.exp.run||{},f=st.falls||0;
   const text=`We stood on top of ${MT(t.exp).name} (${MT(t.exp).label.toLowerCase()}) in Pinnacle: ${st.right||0} of ${st.q||0} questions right, ${f===1?"1 fall":f+" falls"}${st.ms?`, ${fmtDur(st.ms)}`:""}.`,url=location.origin+location.pathname;
-  if(navigator.share){try{await navigator.share({title:"Pinnacle",text,url});return;}catch(e){if(e&&e.name==="AbortError")return;}}
-  try{await navigator.clipboard.writeText(text+" "+url);toast("Copied, ready to paste");}catch(e){toast(text);}}
+  // the picture, where the browser can share files (most phones); otherwise it's saved, and the text copied
+  let file=null;try{const card=summitCard(t),blob=await new Promise(r=>card.toBlob(r,"image/png"));if(blob)file=new File([blob],"pinnacle-summit.png",{type:"image/png"});}catch(e){}
+  if(file&&navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:"Pinnacle",text:text+" "+url});return;}catch(e){if(e&&e.name==="AbortError")return;}}
+  if(navigator.share&&!file){try{await navigator.share({title:"Pinnacle",text,url});return;}catch(e){if(e&&e.name==="AbortError")return;}}
+  if(file){const a=document.createElement("a");a.href=URL.createObjectURL(file);a.download=file.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);}
+  try{await navigator.clipboard.writeText(text+" "+url);toast(file?"Picture saved, text copied":"Copied, ready to paste");}catch(e){toast(file?"Picture saved":text);}}
 
 /* the rope radio: messages and quick calls between the two, kept beside the round's answers (answers/<team>/<round>/_talk) */
 const talkOf=()=>Object.values(S.answers._talk||{}).filter(m=>m&&m.text).sort((a,b)=>a.at-b.at);
@@ -909,9 +944,9 @@ function wirePanel(t){
   P.querySelector("#hookBtn")?.addEventListener("click",()=>{sfx("clip");useHook();});
   P.querySelector("#chalkBtn")?.addEventListener("click",useChalk);
   P.querySelector("#scoutBtn")?.addEventListener("click",useScout);
-  P.querySelectorAll(".qopt[data-i]").forEach(b=>b.addEventListener("click",()=>{if(S.answers[S.uid])return;S.local.choice=+b.dataset.i;sfx("pop");
+  P.querySelectorAll(".qopt[data-i]").forEach(b=>b.addEventListener("click",()=>{if(S.answers[S.uid])return;S.local.choice=+b.dataset.i;sfx("pop");buzz("pick");
     P.querySelectorAll(".qopt").forEach(x=>x.classList.toggle("sel",x===b));const l=$("#lockBtn");if(l)l.disabled=false;}));
-  P.querySelector("#lockBtn")?.addEventListener("click",()=>{if(S.local.choice!=null&&!S.answers[S.uid]){sfx("lock");submit({choice:S.local.choice});}});
+  P.querySelector("#lockBtn")?.addEventListener("click",()=>{if(S.local.choice!=null&&!S.answers[S.uid]){sfx("lock");buzz("lock");submit({choice:S.local.choice});}});
 }
 function updateDynamic(t){
   const r=t.round;updateRadio(t);if(r.phase!=="answer"){if(typeof MUSIC!=="undefined")MUSIC.tension(false);return;}
@@ -925,7 +960,7 @@ function updateDynamic(t){
   if(txt){txt.textContent=clock(rem);txt.classList.toggle("low",rem<=10);}
   if(rem>0&&rem<=10&&!S.answers[S.uid]&&!TV())say("Ten seconds left.","low"+r.id);
   // the last five seconds tick, for whoever hasn't locked in yet
-  const s=Math.ceil(rem);if(rem>0&&s<=5&&(TV()?!memberIds(t).every(i=>S.answers[i]):!S.answers[S.uid])&&S._beep!==r.id+":"+s){S._beep=r.id+":"+s;sfx("tick");}
+  const s=Math.ceil(rem);if(rem>0&&s<=5&&(TV()?!memberIds(t).every(i=>S.answers[i]):!S.answers[S.uid])&&S._beep!==r.id+":"+s){S._beep=r.id+":"+s;sfx("tick");buzz("tick");}
   const pid=partnerId(t);
   if(ptx)ptx.textContent=TV()?memberIds(t).map(i=>`${ptag(t,i)} ${S.names[i]||"Climber"}: ${S.answers[i]?"locked in":"thinking…"}`).join("   ·   "):pid?(S.answers[pid]?`${nameOf(pid)} is locked in`:`${nameOf(pid)} is thinking…`):"";
 }

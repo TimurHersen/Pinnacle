@@ -59,3 +59,10 @@ function sfx(kind){const c=SND.ctx;if(!c||!SND.on||c.state!=="running")return;co
   else if(kind==="restock"){[660,880,1100].forEach((f,i)=>osc("triangle",f,0,.08,.005,.12,i*.07));hiss(4200,3,.06,.12,.05);}
   else if(kind==="fanfare"||kind==="summit"){const n=kind==="summit"?[523,659,784,1047,880,1047,1319]:[392,494,587,784];
     n.forEach((f,i)=>{osc("square",f,0,.045,.01,.15,i*.11);osc("triangle",f/2,0,.09,.01,.2,i*.11);});osc("triangle",n[n.length-1]/4,0,.12,.02,.6,n.length*.11);}}
+
+/* ---------- haptics: a short buzz under the thumb at the moments that matter (on phones that can; iPhones can't) ----------
+   a right answer: one short tap; wrong or a fall: one longer; the rope jerking: a hard double; the last seconds: a
+   tick; locking in and choosing: the lightest touch. The big screen never buzzes. Off with the sound. */
+const BUZZ={right:[18],wrong:[70],fall:[40,30,90],jerk:[90,40,90],catch:[50],tick:[8],lock:[12],pick:[6],arrive:[25,40,25,40,60]};
+function buzz(kind){if(!SND.on||!navigator.vibrate||document.body.classList.contains("tv"))return;
+  if(!matchMedia("(pointer:coarse)").matches)return;try{navigator.vibrate(BUZZ[kind]||[10]);}catch(e){}}
