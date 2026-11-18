@@ -589,3 +589,34 @@ body.pad #main.game2 .routes.mts{grid-template-columns:1fr}
 .coach.below .carrow{bottom:auto;top:-9px;transform:rotate(225deg)}
 .coach.right .carrow{bottom:auto;left:auto;right:-9px;transform:rotate(-45deg)}
 .coach.inline{position:static;width:auto;margin:0 0 10px;animation:none}.coach.inline .carrow{left:24px}
+
+/* ---------- the progression maps ---------- */
+/* the trail between the mountains: walked in gold, open in cream, locked faint; drawn over the painting, under the pins */
+.wtrail{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.wtrail line{stroke-linecap:round;vector-effect:non-scaling-stroke}
+.wtrail .walked{stroke:#f2b233;stroke-width:4px;stroke-dasharray:2 7}
+.wtrail .open{stroke:#efe3c4;stroke-width:3px;stroke-dasharray:2 8;opacity:.9}
+.wtrail .shut{stroke:#0b1a26;stroke-width:3px;stroke-dasharray:2 9;opacity:.45}
+/* pins: locked ones dimmed and not pressable; climbed ones with a gold plate; the next step pulsing */
+.wpin.lk{cursor:default;filter:grayscale(1) brightness(.75)}.wpin.lk .wplate{opacity:.85}.wpin.lk .wflag{animation:none;--fc:#5a6070}
+.wpin.dn .wplate{border-color:var(--gold)}
+.wpin.nx .wplate{animation:nxglow 1.2s steps(2) infinite}
+@keyframes nxglow{50%{border-color:var(--gold);box-shadow:var(--frame),0 0 0 3px rgba(242,178,51,.35)}}
+@media (prefers-reduced-motion:reduce){.wpin.nx .wplate{animation:none;border-color:var(--gold)}}
+/* the cards: a climbed one quieter, the next step highlighted */
+.mcard.done{opacity:.85}.mcard.next{border-color:var(--gold)}
+.mcard .mrec{font-size:13px}
+/* the collection along the bottom of the map panel: each map a small picture of itself */
+.mapstrip{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px;padding-top:10px;border-top:2px dashed var(--line)}
+.mthumb{position:relative;display:grid;gap:4px;padding:4px;background:var(--navy);border:2px solid var(--line);color:var(--cream);cursor:pointer;font:600 12px/1.2 var(--body);letter-spacing:.04em;text-transform:uppercase}
+.mthumb i{display:block;height:44px;background-size:cover;background-position:center;image-rendering:pixelated}
+.mthumb.on{border-color:var(--gold);color:var(--gold)}
+.mthumb.lk{cursor:default;color:var(--dim)}.mthumb.lk i{filter:grayscale(1) brightness(.35)}
+.mthumb em{position:absolute;top:6px;right:6px;width:18px;height:18px;padding:2px;background:var(--panel);border:2px solid var(--gold)}
+.mthumb em .px{width:100%;height:100%}
+@media (hover:hover){.mthumb:hover:not(:disabled){border-color:var(--cream)}}
+.world{touch-action:none;cursor:grab}.world:active{cursor:grabbing}.wmap>img{pointer-events:none;-webkit-user-drag:none;user-select:none}
+/* on a wide screen the map panel lists the open mountains in two columns, and only the panel scrolls */
+@media (min-width:900px) and (min-height:521px){#main.game2 .routes.mts{grid-template-columns:1fr 1fr}#main.game2 .mcard{padding:8px 10px}}
+/* (a tip never blocks what's under it: only its own two buttons take a tap) */
+.coach:not(.inline){pointer-events:none}.coach .cact button{pointer-events:auto}

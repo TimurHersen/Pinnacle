@@ -7,7 +7,7 @@ let failed=0;
 function test(name,fn){try{fn();console.log("ok   "+name);}catch(e){failed++;console.log("FAIL "+name+"\n     "+(e.message||e).split("\n").join("\n     "));}}
 
 // a two-climber team mid-question: a joined first, so a is player 1. The right answer is in slot 0.
-function team({pitch=0,anchor=0,up={},m="kebne",choice=[null,null],hooks=[]}={}){
+function team({pitch=0,anchor=0,up={},m="stonehorn",choice=[null,null],hooks=[]}={}){
   const exp=g.newExp(1);Object.assign(exp,{m,pitch,anchor,up,choice,hooks});
   return g.fixTeam({name:"T",code:"ABC123",members:{a:{name:"Ann",joined:1},b:{name:"Bo",joined:2}},exp,
     round:{id:5,phase:"answer",qid:QUIZ[0].id,leader:"a",order:[0,1,2,3],startedAt:0,dur:45},log:[],stats:{}});}
@@ -60,10 +60,10 @@ test("reaching Camp I together: it becomes the anchor, and the team picks a rout
   assert.equal(g.needsChoice(n.exp),0);assert.equal(g.startPitch(n).round.phase,"camp");});
 
 test("the summit: scored, counted and kept as the team's best and the mountain's record",()=>{
-  const choice=["A","A"],t=team({choice,m:"frost"});t.exp.pitch=g.total(t.exp)-1;
+  const choice=["A","A"],t=team({choice,m:"frostfang"});t.exp.pitch=g.total(t.exp)-1;
   const n=play(t,RIGHT,RIGHT);
   assert.equal(n.round.result.arrived,"summit");assert.equal(n.stats.summits,1);
-  assert.equal(n.exp.run.pts,100);assert.equal(n.stats.best.pts,100);assert.deepEqual({...n.stats.peaks.frost},{n:1,pts:100});
+  assert.equal(n.exp.run.pts,100);assert.equal(n.stats.best.pts,100);assert.deepEqual({...n.stats.peaks.frostfang},{n:1,pts:100});
   assert.equal(g.startPitch(n).round.phase,"summit");});
 
 test("the ascent score: right answers, less 5 a fall and 2 a rope jerk, never below 0",()=>{
@@ -78,8 +78,8 @@ test("judging only counts real picks",()=>{
 
 test("each mountain shifts the difficulty a tier, within 1 to 4",()=>{
   const e=m=>Object.assign(g.newExp(1),{m});
-  assert.equal(g.tierAt(e("moss"),0),1);assert.equal(g.tierAt(e("kebne"),0),1);assert.equal(g.tierAt(e("kebne"),4),3);
-  assert.equal(g.tierAt(e("frost"),4),4);});
+  assert.equal(g.tierAt(e("moss"),0),1);assert.equal(g.tierAt(e("stonehorn"),0),1);assert.equal(g.tierAt(e("stonehorn"),4),3);
+  assert.equal(g.tierAt(e("frostfang"),4),4);});
 
 test("a question the team had lately isn't drawn again while others are left",()=>{
   const pool=QUIZ.filter(q=>q.tier===1),used=pool.slice(1).map(q=>q.id);
@@ -90,7 +90,7 @@ test("old saves load into today's shape",()=>{
   assert.equal(t.exp.v,2);assert.equal(t.round.phase,"map");assert.equal(t.exp.m,null);assert.deepEqual([...g.memberIds(t)],["y","z"]);
   // (the database drops empty arrays and turns sparse ones into objects)
   const u=g.fixTeam({name:"T",members:{},exp:{v:2,n:1,choice:{0:"B"},used:{0:"q1"},pitch:5},round:{id:1,phase:"camp"}});
-  assert.deepEqual([...u.exp.choice],["B",null]);assert.deepEqual([...u.exp.used],["q1"]);assert.equal(u.exp.m,"kebne");
+  assert.deepEqual([...u.exp.choice],["B",null]);assert.deepEqual([...u.exp.used],["q1"]);assert.equal(u.exp.m,"fernhill");
   assert.equal(g.fixTeam(null),null);});
 
 test("every question is well formed",()=>{
@@ -109,3 +109,23 @@ test("every tier has enough questions for three climbs of any mountain without a
   for(const k in most){const have=QUIZ.filter(q=>q.tier===+k).length;assert.ok(have>=3*most[k],`tier ${k}: ${have} questions, a climb can ask ${most[k]}`);}});
 
 console.log(failed?`\n${failed} failed`:"\nall passed");process.exit(failed?1:0);
+
+test("the maps: six mountains each, opened step by step, and the next map once the summit is climbed",()=>{
+  const {MAPS}=g,t=team(),done=k=>{t.stats.peaks={...(t.stats.peaks||{}),[k]:{n:1,pts:50}};};
+  assert.equal(MAPS.length,3);for(const M of MAPS)assert.equal(M.steps.flat().length,6);
+  assert.ok(g.isOpen(t,"moss"));assert.ok(!g.isOpen(t,"fernhill"));assert.ok(!g.isOpen(t,"snowcap"));assert.equal(g.currentMap(t),0);
+  done("moss");assert.ok(g.isOpen(t,"fernhill")&&g.isOpen(t,"pineknoll"));assert.ok(!g.isOpen(t,"stonehorn"));
+  done("pineknoll");assert.ok(g.isOpen(t,"stonehorn")&&g.isOpen(t,"bramble"));assert.ok(!g.isOpen(t,"greycrown"));
+  done("bramble");assert.ok(g.isOpen(t,"greycrown"));assert.ok(!g.mapDone(t,0));assert.ok(!g.isOpen(t,"snowcap"));
+  done("greycrown");assert.ok(g.mapDone(t,0));assert.ok(g.isOpen(t,"snowcap"));assert.equal(g.currentMap(t),1);assert.ok(!g.isOpen(t,"ashcone"));});
+
+test("a team's record from before the maps keeps its climbs",()=>{
+  const t=g.fixTeam({name:"T",members:{},exp:{v:2,n:3,m:"frost",choice:[null,null],used:[]},round:{id:4,phase:"answer"},stats:{peaks:{moss:{n:2,pts:80},kebne:{n:1,pts:60}}}});
+  assert.equal(t.exp.m,"frostfang");assert.deepEqual({...t.stats.peaks.fernhill},{n:1,pts:60});assert.equal(t.stats.peaks.kebne,undefined);
+  assert.ok(g.isOpen(t,"stonehorn"));});
+
+test("every mountain on a map is harder than the one before it on the trail, and every map harder than the last",()=>{
+  const {MAPS,MOUNTAINS}=g;let prev=null;
+  for(const M of MAPS)for(const step of M.steps){const ms=step.map(k=>MOUNTAINS[k]);
+    if(prev)for(const m of ms){assert.ok(m.secs<=prev.secs,m.id+" time");assert.ok(m.hooks<=prev.hooks,m.id+" hooks");assert.ok(m.tier>=prev.tier,m.id+" tier");}
+    prev=ms[0];}});

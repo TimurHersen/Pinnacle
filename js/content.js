@@ -14,27 +14,45 @@ const FORKS = [
 ];
 const ALT = {base:1800,c1:2600,c2:3400,top:4100};
 /* ============================== THE MOUNTAINS ==============================
-   Every expedition starts on the map (assets/map.png, a painted view of the whole range), where the team picks one of three mountains. They share the
-   route above (three stages, two camps, the same pitches); what changes is how hard it is: the questions are drawn
-   a tier easier or harder (tier), each comes with more or less time (secs), the team starts every stage with more
-   or fewer hooks (hooks), and the snow line sits lower or higher on the wall (snow). Heights are only shown scaled
-   to the mountain's own (alt); the climb is drawn the same size whichever it is. `map` is where the mountain's pin
-   stands on the map, in the map picture's own pixels. */
-const MOUNTAINS = {
- moss: {id:"moss", name:"Mossback",   diff:1,label:"Easy",  alt:{base:900, top:2300},tier:-1,secs:55,hooks:4,snow:-.3,map:[96,152],
-        desc:"A green, rounded hill above the forest. Gentler questions and plenty of time to talk them over."},
- kebne:{id:"kebne",name:"Kebne Wall", diff:2,label:"Medium",alt:{base:1800,top:4100},tier:0, secs:45,hooks:3,snow:0,  map:[238,88],
-        desc:"A granite wall with a snowy top. The climb as it was meant: steady, then hard near the summit."},
- frost:{id:"frost",name:"Frostfang",  diff:3,label:"Hard",  alt:{base:3200,top:6900},tier:1, secs:35,hooks:2,snow:.32,map:[410,44],
-        desc:"An ice-clad giant. The hardest questions, little time to think and only two hooks a stage."}
-};
-const MOUNTAIN_ORDER = ["moss","kebne","frost"];
-const MAP_CAMP = [106,424]; // the team's camp on the map, where every trail starts
-const MAP_W = 512;
-// The map comes in three shapes of the same painting, so that it can fill any screen: wide (desktops), tall (phones
-// held upright) and square. For each: its file and size, where each mountain's pin stands and where the camp is.
-const MAP_ART = {
- wide:{src:"assets/map-wide.png",w:688,h:384,camp:[232,325],pins:{moss:[115,104],kebne:[342,70],frost:[592,74]}},
- tall:{src:"assets/map-tall.png",w:384,h:688,camp:[88,420],pins:{moss:[78,202],kebne:[190,148],frost:[325,116]}},
- sq:  {src:"assets/map.png",     w:512,h:512,camp:[106,424],pins:{moss:[96,152],kebne:[238,96],frost:[404,118]}}
-};
+   The mountains come on maps: three painted regions of six mountains each, played in order. On a map a trail leads
+   from the team's camp through four steps: one mountain to start, then a choice of two, then another choice of two,
+   then the map's own summit. Climbing any mountain on a step opens the next; climbing the summit completes the map
+   (it joins the team's collection) and opens the next map. Any mountain once open can be climbed again.
+   Every mountain shares the route above (three stages, two camps, the same pitches); what changes is how hard it is:
+   the questions are drawn a tier easier or harder (tier), each comes with more or less time (secs), the team starts
+   every stage with more or fewer hooks (hooks), and the snow line sits lower or higher on the wall (snow). Heights are
+   only shown scaled to the mountain's own (alt). Difficulty rises along each map and from map to map. */
+const MAPS = [
+ {id:"green",name:"Greenvale",label:"Easy",blurb:"Forested foothills and green summits: the place to learn the ropes.",
+  steps:[["moss"],["fernhill","pineknoll"],["stonehorn","bramble"],["greycrown"]],
+  names:{moss:"Mossback",fernhill:"Fernhill",pineknoll:"Pine Knoll",stonehorn:"Stonehorn",bramble:"Bramble Peak",greycrown:"Greycrown"},
+  desc:{moss:"A green, rounded hill above the forest. Gentle questions and plenty of time.",fernhill:"A low peak of ferns and slabs, a short step up.",
+   pineknoll:"A brown pyramid above the pines.",stonehorn:"A dark horn of rock, steep near the top.",bramble:"A rocky shoulder above the lake.",
+   greycrown:"Greenvale's snow-capped crown. Climb it to finish the map."},
+  art:{wide:{src:"assets/maps/green-wide.png",w:688,h:384,camp:[230,330],pins:{moss:[102,98],fernhill:[222,98],pineknoll:[343,58],stonehorn:[470,48],bramble:[640,116],greycrown:[588,20]}},
+       tall:{src:"assets/maps/green-tall.png",w:384,h:688,camp:[195,646],pins:{moss:[88,502],fernhill:[135,274],pineknoll:[265,499],stonehorn:[72,132],bramble:[292,188],greycrown:[190,56]}}}},
+ {id:"frost",name:"Frostreach",label:"Medium",blurb:"Snowfields, frozen lakes and glaciers: less time, harder questions.",
+  steps:[["snowcap"],["rimehill","iceblade"],["glacierdome","shardpeak"],["frostfang"]],
+  names:{snowcap:"Snowcap",rimehill:"Rimehill",iceblade:"Iceblade",glacierdome:"Glacier Dome",shardpeak:"Shardpeak",frostfang:"Frostfang"},
+  desc:{snowcap:"A broad snowy dome above the forest.",rimehill:"A small, frosted peak at the edge of the range.",iceblade:"A sharp ice-clad blade above the lake.",
+   glacierdome:"A glacier-wrapped summit; the snow comes down low.",shardpeak:"A shattered ridge of ice and rock.",
+   frostfang:"An ice-clad giant. Climb it to finish Frostreach."},
+  art:{wide:{src:"assets/maps/frost-wide.png",w:688,h:384,camp:[232,330],pins:{snowcap:[118,98],rimehill:[32,140],iceblade:[342,58],glacierdome:[478,108],shardpeak:[634,124],frostfang:[594,20]}},
+       tall:{src:"assets/maps/frost-tall.png",w:384,h:688,camp:[180,628],pins:{snowcap:[54,542],rimehill:[322,542],iceblade:[187,210],glacierdome:[82,150],shardpeak:[302,134],frostfang:[192,20]}}}},
+ {id:"ember",name:"Emberlands",label:"Hard",blurb:"Volcanoes, ash and lava: the hardest questions and only two hooks.",
+  steps:[["ashcone"],["cinder","smokestack"],["basaltfang","obsidian"],["emberheart"]],
+  names:{ashcone:"Ashcone",cinder:"Cinder Cone",smokestack:"Smokestack",basaltfang:"Basalt Fang",obsidian:"Obsidian Spire",emberheart:"Emberheart"},
+  desc:{ashcone:"A small, quiet cone on the ash plain.",cinder:"A black cinder cone between the hot springs.",smokestack:"A smoking cone that never quite sleeps.",
+   basaltfang:"A jagged tooth of basalt, cracked with glowing seams.",obsidian:"A needle of black glass, the steepest of them all.",
+   emberheart:"The great volcano. Climb it to finish the Emberlands."},
+  art:{wide:{src:"assets/maps/ember-wide.png",w:688,h:384,camp:[225,330],pins:{ashcone:[55,154],cinder:[148,126],smokestack:[245,94],basaltfang:[375,82],obsidian:[468,42],emberheart:[600,76]}},
+       tall:{src:"assets/maps/ember-tall.png",w:384,h:688,camp:[160,640],pins:{ashcone:[85,580],cinder:[215,474],smokestack:[138,380],basaltfang:[95,188],obsidian:[300,244],emberheart:[190,68]}}}}
+];
+// each mountain's numbers, from how far along the maps it is (d: 0 at the first mountain of the first map, 11 at the last)
+const MOUNTAINS = {};
+MAPS.forEach((M,mi)=>M.steps.forEach((step,si)=>step.forEach(id=>{const d=mi*4+si;
+  MOUNTAINS[id]={id,name:M.names[id],desc:M.desc[id],map:mi,step:si,diff:mi+1,label:M.label,final:si===M.steps.length-1,
+    alt:{base:800+d*230,top:Math.round((2100+d*440)/10)*10},tier:[-1,-1,0,0, 0,0,0,1, 1,1,1,1][d],secs:Math.round(58-d*2.2),hooks:d<3?4:d<7?3:2,snow:+(-.3+d*.058).toFixed(2)};})));
+const MOUNTAIN_ORDER = MAPS.flatMap(M=>M.steps.flat());
+// (teams from before the maps: their mountains under the names they have now)
+const OLD_MOUNTAIN = {kebne:"fernhill",frost:"frostfang"};
