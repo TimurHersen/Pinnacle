@@ -663,3 +663,15 @@ body.mapfull #main{display:none}body.mapfull .coach.inline{display:none}
 @media (max-width:420px){.wnplate b{font-size:16px}.wnplate small{font-size:11px;letter-spacing:.03em}.wnav{gap:6px}.wnarrow{width:36px}}
 body.tv .wpin{pointer-events:none}
 .wpeek{position:absolute;image-rendering:pixelated;pointer-events:none;will-change:transform}.wpeek.locked{filter:grayscale(.55) brightness(.55)}
+
+/* the map plate keeps one size on every map; a progress bar for the stops and the stars won there */
+.wnplate{box-sizing:border-box;width:250px;min-width:0;justify-items:stretch;text-align:center}
+.wnplate b.long{font-size:16px}
+.wprog{display:block;height:10px;background:var(--navy);border:2px solid var(--line)}.wprog i{display:block;height:100%;background:var(--gold);box-shadow:inset 0 -2px 0 var(--goldD)}
+.wpline{display:flex;justify-content:space-between;align-items:center;font:600 12px/1 var(--body);letter-spacing:.04em;text-transform:uppercase;color:var(--cream)}
+.wpline span{display:flex;align-items:center;gap:4px}.wpline .px{width:12px;height:12px}
+.wndots{justify-self:center}
+.srow{display:flex;gap:1px;justify-content:center}.srow .px{width:10px;height:10px}
+.wprate{display:flex;align-items:center;gap:8px;font:600 13px/1 var(--body);color:var(--muted);text-transform:uppercase;letter-spacing:.04em}.wprate .srow .px{width:16px;height:16px}
+@media (max-width:899px),(max-height:520px){.wnplate{width:220px}.wnplate b{font-size:16px}.wnplate b.long{font-size:14px}}
+.wnplate b{display:block;height:20px;line-height:20px}
