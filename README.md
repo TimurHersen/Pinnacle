@@ -37,6 +37,10 @@ Play it at **https://timurhersen.github.io/Pinnacle/**
   and push; only then paste `database.rules.json` (its writes need a signed-in player, guest or account).
 - `database.rules.json` holds the database access rules. Paste them into Firebase console → Realtime Database → Rules whenever they change. They keep a team from being deleted, check the shape of what's written, cap the length of names and messages, and let each climber clear their own entry from the list of who's online.
 
+## Climbers
+
+Each player chooses who they climb as (on the map: the Climber button, and on first reaching the map): the Lumberjack, the Explorer, the Rocker (a mullet and a green shirt) or Copper (copper hair and bangs, with her grey cat). Two on a rope can't pick the same one. The Rocker and Copper are redrawn over the Lumberjack's and the Explorer's frames (`assets/climbers/mullet`, `assets/climbers/redcat`), so they share their poses and grip measurements.
+
 ## Goals, leaderboards and the daily climb
 
 - Every mountain has three stars to win: reach the top, climb with no falls, climb with no hooks used. A star once won stays won.

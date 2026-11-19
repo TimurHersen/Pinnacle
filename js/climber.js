@@ -71,8 +71,10 @@ async function setLook(part,val){if(TV()||!S.code)return;sfx("pop");try{await fb
 /* ---------- on the map: the daily climb and the kit, two buttons at the top, each opening a card ---------- */
 function toolsHtml(t){if(TV())return "";const day=dayOf(),done=(t.stats?.daily||{})[day];
   return `<button class="wtool ${S.mapPop==="@daily"?"on":""}" data-k="@daily">${ICON.flag}<span>Daily climb</span>${done?"":`<i class="dot"></i>`}</button>
-    <button class="wtool ${S.mapPop==="@kit"?"on":""}" data-k="@kit">${ICON.hook}<span>Kit</span></button>`;}
-function wireTools(el){el.querySelectorAll(".wtool").forEach(b=>b.onclick=e=>{e.stopPropagation();sfx("pop");S.mapPop=S.mapPop===b.dataset.k?null:b.dataset.k;S.worldKey=null;renderWorld(S.team);});}
+    <button class="wtool ${S.mapPop==="@kit"?"on":""}" data-k="@kit">${ICON.hook}<span>Kit</span></button>
+    <button class="wtool" data-k="@char"><img class="wtface" src="${typeof portrait==="function"?portrait(lookOf(t,S.uid)):""}" alt=""><span>Climber</span></button>`;}
+function wireTools(el){el.querySelectorAll(".wtool").forEach(b=>b.onclick=e=>{e.stopPropagation();sfx("pop");
+  if(b.dataset.k==="@char"){S.charOpen=true;S.mapPop=null;charScreen(S.team,true);return;}S.mapPop=S.mapPop===b.dataset.k?null:b.dataset.k;S.worldKey=null;renderWorld(S.team);});}
 function toolPopHtml(t,k){
   if(k==="@daily"){const day=dayOf(),m=MOUNTAINS[dailyMtn(day)],done=(t.stats?.daily||{})[day],ids=memberIds(t),v=t.round.votes||{},pid=partnerId(t);
     const lead=ids.length<2||leaderOf(t)===S.uid||leaderOf(t)===SIM||(pid&&v[pid]?.mtn==="@daily"),mine=v[S.uid]?.mtn==="@daily";
@@ -108,3 +110,39 @@ function profileHtml(){const p=profile(),n=profSummits(p),st=profStars(p),best=O
     <div class="clabel">Best three-star ascents</div>
     ${best.length?`<ol class="lbl">${best.map(([k,v],i)=>`<li><i>${i+1}</i><b>${esc(MOUNTAINS[k].name)}</b><span>${fmtDur(v.ms)}</span></li>`).join("")}</ol>`:`<p class="note">Climb a mountain with no falls and no hooks to set one.</p>`}
     <p class="note">${typeof acctNamed==="function"&&acctNamed()?"Saved to your account.":"Kept on this device. Sign in to keep it on every device."}</p>`;}
+
+/* ---------- choosing your climber ----------
+   Each climber picks who they climb as (members[id].char); two on a rope can't both be the same one. Until they
+   choose, player one is the lumberjack and player two the explorer. The choice shows on the map (a button at the top)
+   and opens by itself the first time a climber reaches the map without having chosen. */
+// (the two new ones are drawn over the first two's frames, in the same poses: js/scene.js gives them those two's measurements)
+const CHARS=[{id:"lumberjack",name:"Lumberjack",desc:"Red beanie, plaid shirt and a big beard."},
+  {id:"woman",name:"Explorer",desc:"Bobble hat, orange jacket and a scarf."},
+  {id:"mullet",name:"Rocker",base:"lumberjack",desc:"A proper mullet and a green shirt."},
+  {id:"redcat",name:"Copper",base:"woman",desc:"Copper hair and bangs, with her grey cat on her shoulder."}];
+const CHAR_DEFAULT=["lumberjack","woman"];
+function charOf(t,id){const ids=memberIds(t),i=Math.max(0,ids.indexOf(id)),m=t.members[id]||{},o=ids.find(x=>x!==id),om=o&&t.members[o]?.char;
+  let c=CHARS.some(x=>x.id===m.char)?m.char:CHAR_DEFAULT[i]||CHAR_DEFAULT[0];
+  // (if both ended up the same, the second in the team takes the first one free)
+  if(o&&i>0&&c===(CHARS.some(x=>x.id===om)?om:CHAR_DEFAULT[1-i]))c=CHARS.find(x=>x.id!==c&&x.id!==(om||CHAR_DEFAULT[0]))?.id||c;
+  return c;}
+async function pickChar(id){if(!S.code||TV())return;sfx("pop");
+  try{await fb.patch(`teams/${S.code}/members/${S.uid}`,{char:id});LS.set("char",id);}catch(e){toast("Couldn't save your climber.");}}
+function charScreen(t,open){let el=$("#charPick");
+  if(!open||!t||TV()){if(el)el.remove();S.charOpen=false;return;}
+  if(!el){el=document.createElement("div");el.id="charPick";el.className="charpick";el.setAttribute("role","dialog");el.setAttribute("aria-label","Choose your climber");document.body.appendChild(el);}
+  const mine=charOf(t,S.uid),pid=partnerId(t),theirs=pid&&charOf(t,pid),key=[mine,theirs,pid&&nameOf(pid)].join("|");
+  if(el.dataset.key===key)return;el.dataset.key=key;
+  el.innerHTML=`<div class="cpbox"><h2>Choose your climber</h2><p class="note">${pid?`${esc(nameOf(pid))} climbs as ${esc(CHARS.find(c=>c.id===theirs).name)}.`:"Your partner picks theirs when they join."}</p>
+    <div class="cpgrid">${CHARS.map(c=>{const taken=c.id===theirs;return `<button class="cpcard ${c.id===mine?"on":""}" data-id="${c.id}" ${taken?"disabled":""} aria-pressed="${c.id===mine}">
+      <img src="${asset(`assets/climbers/${c.id}/south.png`)}" alt=""><b>${esc(c.name)}</b><span>${esc(c.desc)}</span>${taken?`<em>${esc(nameOf(pid))}</em>`:c.id===mine?`<em class="me">You</em>`:""}</button>`;}).join("")}</div>
+    <button class="btn rope" id="cpDone">Let's climb</button></div>`;
+  el.querySelectorAll(".cpcard").forEach(b=>b.onclick=()=>pickChar(b.dataset.id));
+  el.querySelector("#cpDone").onclick=()=>{sfx("pop");S.charOpen=false;S.charSeen=true;charScreen(t,false);};}
+// (called on every render: open it the first time a climber without a choice reaches the map; keep it up to date)
+function charCheck(t){const me=t.members[S.uid];if(!me||TV()){charScreen(null,false);return;}
+  if(t.round.phase==="map"&&!me.char&&!S.charSeen&&!S.charOpen){S.charOpen=true;
+    // (a choice made on this device before joins a new team with it)
+    const was=LS.get("char",null),pid=partnerId(t);if(was&&CHARS.some(c=>c.id===was)&&!(pid&&charOf(t,pid)===was))pickChar(was);}
+  if(S.charOpen&&t.round.phase!=="map")S.charOpen=false;
+  charScreen(t,S.charOpen);}

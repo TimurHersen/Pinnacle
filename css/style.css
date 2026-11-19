@@ -723,3 +723,20 @@ body.tv .wpin{pointer-events:none}
 .pmaps span{display:flex;gap:6px;align-items:center;padding:6px 8px;border-radius:8px;background:rgba(255,255,255,.04);color:var(--muted);font:600 14px/1.2 var(--body)}
 .pmaps span.on{color:var(--cream);background:rgba(242,178,51,.14)}.pmaps span:not(.on) .px{opacity:.35}.pmaps .px{width:16px;height:16px}
 .sgrid.p4{grid-template-columns:1fr 1fr}
+
+/* choosing your climber */
+.wtface{width:26px;height:26px;image-rendering:pixelated;border-radius:4px}
+.charpick{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:16px;background:rgba(6,10,16,.78);backdrop-filter:blur(2px);overflow:auto}
+.cpbox{width:min(560px,100%);background:#0e141c;border:2px solid #0b0f14;box-shadow:0 0 0 2px rgba(242,178,51,.35),0 10px 40px rgba(0,0,0,.6);border-radius:14px;padding:18px 16px;display:grid;gap:12px}
+.cpbox h2{margin:0;font:400 30px/1 var(--head);letter-spacing:.04em;text-transform:uppercase;color:var(--gold,#f2b233)}
+.cpbox .note{margin:0}
+.cpgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media (min-width:640px){.cpgrid{grid-template-columns:repeat(4,1fr)}}
+.cpcard{position:relative;display:grid;justify-items:center;gap:4px;padding:10px 8px 12px;border-radius:12px;border:2px solid rgba(255,255,255,.12);background:linear-gradient(#1a2634,#121a24);color:var(--cream);text-align:center;cursor:pointer}
+.cpcard img{width:96px;height:96px;image-rendering:pixelated;margin:-6px 0 -8px}
+.cpcard b{font:400 20px/1 var(--head);letter-spacing:.04em;text-transform:uppercase}
+.cpcard span{font:600 13px/1.25 var(--body);color:var(--dim)}
+.cpcard.on{border-color:var(--gold,#f2b233);background:linear-gradient(#2a3446,#1a2230)}
+.cpcard:disabled{opacity:.5;cursor:default}
+.cpcard em{position:absolute;top:6px;right:6px;font:400 12px/1 var(--head);font-style:normal;letter-spacing:.05em;text-transform:uppercase;padding:3px 6px;border-radius:6px;background:#2a3446;color:var(--dim)}
+.cpcard em.me{background:var(--gold,#f2b233);color:#1a1208}

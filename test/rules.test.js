@@ -105,6 +105,12 @@ test("profiles from two devices merge without losing anything",()=>{
   const m=g.profMerge(a,b);assert.equal(Object.keys(m.seen).length,2);assert.equal(m.peaks.moss.g,7);assert.equal(m.peaks.moss.ms,400);
   assert.deepEqual(Object.keys(m.maps).sort(),["0","1"]);assert.ok(m.daily["2026-11-19"]);assert.equal(m.peaks.fernhill.ms,undefined);
   assert.equal(g.weekOf(Date.UTC(2026,10,16)),g.weekOf(Date.UTC(2026,10,22,23)));assert.notEqual(g.weekOf(Date.UTC(2026,10,16)),g.weekOf(Date.UTC(2026,10,15,23)));});
+test("choosing climbers: defaults by seat, a choice kept, never both the same",()=>{
+  const t=team();assert.equal(g.charOf(t,"a"),"lumberjack");assert.equal(g.charOf(t,"b"),"woman");
+  t.members.a.char="redcat";t.members.b.char="mullet";assert.equal(g.charOf(t,"a"),"redcat");assert.equal(g.charOf(t,"b"),"mullet");
+  t.members.b.char="redcat";assert.notEqual(g.charOf(t,"b"),"redcat");
+  delete t.members.a.char;t.members.b.char="lumberjack";assert.notEqual(g.charOf(t,"b"),"lumberjack");
+  t.members.a.char="nobody";assert.equal(g.charOf(t,"a"),"lumberjack");});
 test("the ascent score: right answers, less 5 a fall and 2 a rope jerk, never below 0",()=>{
   assert.equal(g.ascentScore({q:10,right:10,falls:1,jerks:1}),93);
   assert.equal(g.ascentScore({q:10,right:1,falls:5}),0);

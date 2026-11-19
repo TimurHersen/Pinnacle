@@ -538,7 +538,7 @@ function closeTeam(){
   S.unsubTeam=S.unsubAns=S.unsubPres=null;S.team=null;S.code=null;S.answers={};S.ansRound=null;S.panelKey=null;S.online=new Set();S.pres={};
   S.sus=S.seen=S.step=null;S.unread=0;S.radioOpen=false;closeMenu();const rb=$("#radioBtn"),bb=$("#rbubble");if(rb)rb.hidden=true;if(bb)bb.hidden=true;
 }
-function goLobby(){document.body.classList.remove("atmap","mapfull");closeTeam();renderWorld(null);try{history.replaceState(null,"",location.pathname+location.search);}catch(e){}renderLobby();}
+function goLobby(){document.body.classList.remove("atmap","mapfull");closeTeam();if(typeof charScreen==="function")charScreen(null,false);renderWorld(null);try{history.replaceState(null,"",location.pathname+location.search);}catch(e){}renderLobby();}
 // the heartbeat: "I'm here", stamped by the server with its own time. The stamp comes straight back, and against
 // the moment it was sent (the middle of the round trip) it gives this device's offset from the server's clock
 function beat(){if(!S.code||document.visibilityState!=="visible")return;
@@ -733,6 +733,7 @@ function render(){
     setTimeout(()=>{if(S.sus===r.id){S.sus=null;S.susDone=r.id;if(S.team)render();}},SUSPENSE_MS);}
   S.seen={id:r.id,phase:r.phase};
   if(typeof climberSeen==="function")climberSeen(t);
+  if(typeof charCheck==="function")charCheck(t);
   if(typeof MUSIC!=="undefined"){const m=r.phase==="map"?"map":r.phase==="camp"?"camp":r.phase==="summit"?"summit":"climb";
     if(m==="climb")MUSIC.level(stageOf(t.exp,Math.max(...memberIds(t).map(i=>posOf(t.exp,i)),0)).s);if(m!=="climb")MUSIC.tension(false);MUSIC.want(true,m);}
   const atMap=r.phase==="map";$("#hud").hidden=atMap;document.body.classList.toggle("atmap",atMap);

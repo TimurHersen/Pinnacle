@@ -446,7 +446,7 @@ function climbPhase(y,still){const D=-y,h=Math.floor(D/CYC_H),odd=k=>((k%2)+2)%2
   if(still)return {f:odd(h-1)*6+5,rise:h*CYC_H};
   const sub=Math.min(5,Math.floor((D/CYC_H-h)*6));return {f:odd(h)*6+sub,rise:h*CYC_H+CYC_RISE[sub]};}
 // the sprite's top left on the wall for a climber whose body is at y
-function climbAt(L,y,still){const g=CLIMB_GEO[CLIMBER_ART[L.name]],P=climbPhase(y,still),top=-P.rise-CYC_PELV;
+function climbAt(L,y,still){const g=CLIMB_GEO[L.art?.who||CLIMBER_ART[L.name]],P=climbPhase(y,still),top=-P.rise-CYC_PELV;
   return {f:P.f,x:rockEdge(top+CLIMB_BOOT)+1-g.wall[P.f],y:top};}
 const REST_N=9,REST_MS=1700; // the resting and dangling clips: nine frames each, the rest played once through
 const TUMBLE_N=8;    // a long fall: flailing on a loop, after the dangle's frames in the fall clip
@@ -478,10 +478,12 @@ function feetOf(im){if(im.feet)return im.feet;const b=boxOf(im),[,g]=mk(im.width
   const d=g.getImageData(0,0,im.width,im.height).data,y0=b.y1-((b.y1-b.y0)>>2);let fx=b.x0,fy=b.y1;
   for(let y=y0;y<=b.y1;y++)for(let x=b.x1;x>fx;x--)if(d[(y*im.width+x)*4+3]>40){fx=x;fy=y;break;}
   return im.feet={x:fx,y:fy};}
-function loadClimber(L){const who=CLIMBER_ART[L.name],A=L.art={clips:{},ready:0};let left=1;
-  const img=src=>{left++;const im=new Image();im.onload=()=>{if(--left===0)A.ready=1;};im.src=src;return im;};
+// (a climber who changes character keeps the old art on screen until the new one has loaded, then swaps)
+function loadClimber(L){const who=CLIMBER_ART[L.name],A={clips:{},ready:0,who};let left=1;if(!L.art||!L.art.ready)L.art=A;
+  const done=()=>{A.ready=1;if(L.art!==A&&CLIMBER_ART[L.name]===who){L.art=A;if(typeof PORT!=="undefined")PORT.delete(L);if(typeof S!=="undefined")S.hudHtml=null;}};
+  const img=src=>{left++;const im=new Image();im.onload=()=>{if(--left===0)done();};im.onerror=im.onload;im.src=src;return im;};
   for(const [k,n] of Object.entries(CLIP_N))A.clips[k]=Array.from({length:n},(_,i)=>img(asset(`assets/climbers/${who}/${k}/${i}.png`)));
-  A.front=img(asset(`assets/climbers/${who}/south.png`));if(--left===0)A.ready=1;
+  A.front=img(asset(`assets/climbers/${who}/south.png`));if(--left===0)done();
   // the extra clips ride at the end of the clips whose placement they share: both rests after the climb's frames
   // (hand up as in frame 3, then as in frame 7), the dangle after the fall's
   const extra=(dir,n,done)=>{const fr=[];let k=n;for(let i=0;i<n;i++){const im=new Image();im.onload=()=>{if(!--k)done(fr);};im.src=asset(`assets/climbers/${who}/${dir}/${i}.png`);fr.push(im);}};
@@ -490,6 +492,11 @@ function loadClimber(L){const who=CLIMBER_ART[L.name],A=L.art={clips:{},ready:0}
   extra("mantle",MANTLE_N,a=>{A.mantle=a;A.mantleAt=MANTLE_SK[who];});
   extra("look",STAND_N,a=>extra("drink",STAND_N,b=>extra("land",LAND_N,c=>extra("sit",SIT_N,d=>{A.clips.idle.push(...a,...b,...c,...d);A.stand=1;A.sit=1;extra("slump",SLUMP_N,e=>{A.clips.idle.push(...e);A.slump=1;});}))));}
 loadClimber(LOOK.me);loadClimber(LOOK.mate);
+/* the climbers a player can be. The two new ones are drawn over the first two's frames (the same poses, so the same
+   grips on the rock and the same pull-up over a ledge), so they share those two's measurements */
+for(const c of CHARS)if(c.base){CLIMB_GEO[c.id]=CLIMB_GEO[c.base];MANTLE_SK[c.id]=MANTLE_SK[c.base];}
+// (player one's climber and player two's)
+function setChars(a,b){for(const [k,who] of [["me",a],["mate",b]]){if(!CHARS.some(c=>c.id===who)||CLIMBER_ART[k]===who)continue;CLIMBER_ART[k]=who;loadClimber(LOOK[k]);}}
 // all of the climb's pictures are in (until then the scene draws simple stand-ins; the loading screen waits for this)
 const artReady=()=>!!(ART.valley&&ART.rockLo&&ART.ledge&&ART.tent&&ART.trees[0]&&ART.trees[1]&&ART.ground&&LOOK.me.art.ready&&LOOK.mate.art.ready);
 function ik(rx,ry,tx,ty,a,b,bend){let dx=tx-rx,dy=ty-ry,d=Math.hypot(dx,dy)||1e-4;const m=a+b-.01;if(d>m){tx=rx+dx/d*m;ty=ry+dy/d*m;d=m;}
@@ -1393,8 +1400,9 @@ function snap(exp,t){FX.ch.main++;const A=FX.A,ix=idxOf(exp,exp.pitch);placeTeam
 function drawTopo(t){
   if(!ensureScene())return;
   if(!t){FX.focus="me";FX.label=null;FX.lit={c1:1,c2:1};FX.litAt={};FX.A.me.gear=3;
-    if(FX.mode!=="lobby"){FX.mode="lobby";FX.exp=DEMO;FX.cam=null;runDemo();}return;}
+    if(FX.mode!=="lobby"){FX.mode="lobby";FX.exp=DEMO;setChars("lumberjack","woman");FX.cam=null;runDemo();}return;}
   const exp=t.exp,r=t.round;FX.exp=exp;setLead(t);
+  if(typeof charOf==="function"){const ids=memberIds(t);setChars(charOf(t,ids[0]),charOf(t,ids[1]));}
   // (the team's kit: its rope colour and summit flag)
   if(typeof ropeOf==="function"){Object.assign(ROPE,ropeOf(t).c);FX.flagC=flagOf(t).c;}FX.stormOn=r.phase==="answer"&&r.ev==="storm";
   // the hooks in the wall, each where it was clipped; a new one drops in with a word from whoever clipped it
