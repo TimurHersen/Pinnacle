@@ -769,7 +769,7 @@ class Rig{
       // (handed on as the standing figure the next draw puts at the feet, so it joins up without a jump)
       const b=boxOf(A.clips.idle[0]);this.lastDraw={kind:"feet:idle>",wx:X+S.foot[i]-((b.x0+b.x1)>>1),wy:Y+S.sole[i]-b.y1-1};
       this.lastArt=["idle",0];this.tieW={x:X+TIE[0],y:Y+TIE[1]};return;}
-    if(A&&A.ready){const [k,i]=this.lastArt=this.artFrame(t),fr=A.clips[k],b=boxOf(fr[0]),W=fr[0].width,flip=this.dir<0,key=`${k}|${i}|${flip}`;
+    if(A&&A.ready){const [k,i]=this.lastArt=this.artFrame(t),fr=A.clips[k],b=boxOf(fr[0]),W=fr[0].width,flip=this.dir<0,key=`${A.who}|${k}|${i}|${flip}`; // (by character too: a climber who changes character never shows an old frame)
       let img=this.cache.get(key);
       if(!img){if(flip){const [c,cg]=mk(W,fr[i].height);cg.translate(W,0);cg.scale(-1,1);cg.drawImage(fr[i],0,0);img=c;}else img=fr[i];this.cache.set(key,img);}
       // on the wall the clip's raised hand and its wall-side edge sit on the hold; on a ledge the feet stand
