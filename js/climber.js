@@ -135,7 +135,12 @@ function charOf(t,id){const ids=memberIds(t),i=Math.max(0,ids.indexOf(id)),m=t.m
   // (if both ended up the same, the second in the team takes the first one free)
   if(o&&i>0&&c===(CHARS.some(x=>x.id===om)?om:CHAR_DEFAULT[1-i]))c=CHARS.find(x=>!x.soon&&x.id!==c&&x.id!==(om||CHAR_DEFAULT[0]))?.id||c;
   return c;}
-async function pickChar(id){if(!S.code||TV())return;sfx("pop");
+// (on the title screen, with no team yet: a rope team of one, so the same screen can show; the pick is kept on the
+// device and taken into the next team joined or made)
+function soloTeam(){const c=LS.get("char",null);return {members:{[S.uid||"me"]:{name:S.myName||"You",joined:1,...(CHARS.some(x=>x.id===c&&!x.soon)?{char:c}:{})}},exp:{},round:{phase:"map"}};}
+const csTeam=()=>S.team||soloTeam();
+function openCharTitle(){S.charOpen=true;CS.view=null;charScreen(soloTeam(),true);}
+async function pickChar(id){if(TV())return;if(!S.code){sfx("pop");LS.set("char",id);charScreen(soloTeam(),true);if(typeof acctRender==="function")acctRender();return;}sfx("pop");
   try{await fb.patch(`teams/${S.code}/members/${S.uid}`,{char:id});LS.set("char",id);}catch(e){toast("Couldn't save your climber.");}}
 /* the climber select: one climber at a time on a lit stage (breathing, in their own idle frames), arrows and a swipe
    to go through them, the roster below (faces), and the partner's pick marked and locked. A pick is saved at once. */
@@ -143,7 +148,7 @@ const CS={view:null,frame:0,timer:0};
 function charFace(id){return asset(`assets/climbers/${id}/south.png`);}
 function charScreen(t,open){let el=$("#charPick");
   if(!open||!t||TV()){if(el)el.remove();clearInterval(CS.timer);CS.timer=0;S.charOpen=false;return;}
-  const mine=charOf(t,S.uid),pid=partnerId(t),theirs=pid&&charOf(t,pid),list=CHARS.filter(c=>!c.soon);
+  const me0=t.members[S.uid]?S.uid:Object.keys(t.members)[0],mine=charOf(t,me0),pid=S.team?partnerId(t):null,theirs=pid&&charOf(t,pid),list=CHARS.filter(c=>!c.soon);
   if(!CS.view||!list.some(c=>c.id===CS.view))CS.view=mine;
   const v=list.find(c=>c.id===CS.view)||list[0],taken=c=>pid&&c.id===theirs,key=[mine,theirs,pid&&nameOf(pid),v.id].join("|");
   if(!el){el=document.createElement("div");el.id="charPick";el.className="gscreen charpick";el.setAttribute("role","dialog");el.setAttribute("aria-label","Choose your climber");
@@ -156,8 +161,8 @@ function charScreen(t,open){let el=$("#charPick");
         <div class="cs-roster" role="listbox" aria-label="Climbers"></div>
         <button class="btn rope cs-go" id="cpDone">Let's climb</button></div>`;
     document.body.appendChild(el);requestAnimationFrame(()=>el.classList.add("in"));
-    const step=d=>{const L=CHARS.filter(c=>!c.soon);let k=L.findIndex(c=>c.id===CS.view);for(let n=0;n<L.length;n++){k=(k+d+L.length)%L.length;if(!(partnerId(S.team)&&L[k].id===charOf(S.team,partnerId(S.team))))break;}
-      CS.view=L[k].id;sfx("pop");pickChar(CS.view);el.dataset.dir=d>0?"r":"l";charScreen(S.team,true);};
+    const step=d=>{const L=CHARS.filter(c=>!c.soon),T=csTeam(),P=S.team?partnerId(T):null;let k=L.findIndex(c=>c.id===CS.view);for(let n=0;n<L.length;n++){k=(k+d+L.length)%L.length;if(!(P&&L[k].id===charOf(T,P)))break;}
+      CS.view=L[k].id;sfx("pop");pickChar(CS.view);el.dataset.dir=d>0?"r":"l";charScreen(csTeam(),true);};
     el.querySelector(".cs-arrow.l").onclick=()=>step(-1);el.querySelector(".cs-arrow.r").onclick=()=>step(1);
     el.querySelector("#cpDone").onclick=()=>{sfx("pop");S.charOpen=false;S.charSeen=true;el.classList.remove("in");setTimeout(()=>charScreen(null,false),220);};
     el.onkeydown=e=>{if(e.key==="ArrowLeft")step(-1);else if(e.key==="ArrowRight")step(1);else if(e.key==="Escape"||e.key==="Enter")el.querySelector("#cpDone").click();};
@@ -172,8 +177,8 @@ function charScreen(t,open){let el=$("#charPick");
   el.querySelector(".cs-name").textContent=v.name;
   el.querySelector(".cs-sub").innerHTML=v.id===mine?`<span class="me">You</span>`:"";
   el.querySelector(".cs-roster").innerHTML=list.map(c=>`<button class="cs-tile ${c.id===mine?"on":""} ${taken(c)?"taken":""}" role="option" aria-selected="${c.id===mine}" data-id="${c.id}" ${taken(c)?"disabled":""} aria-label="${esc(c.name)}${taken(c)?`, ${esc(nameOf(pid))}'s pick`:""}">
-      <span class="cs-face" style="background-image:url('${charFace(c.id)}')"></span><b>${esc(c.name)}</b>${taken(c)?`<em>${esc(ptag(t,pid))}</em>`:c.id===mine?`<em class="me">${esc(ptag(t,S.uid))}</em>`:""}</button>`).join("");
-  el.querySelectorAll(".cs-tile").forEach(b=>b.onclick=()=>{if(b.dataset.id===CS.view)return;el.dataset.dir=list.findIndex(c=>c.id===b.dataset.id)>list.findIndex(c=>c.id===CS.view)?"r":"l";CS.view=b.dataset.id;pickChar(CS.view);charScreen(S.team,true);});
+      <span class="cs-face" style="background-image:url('${charFace(c.id)}')"></span><b>${esc(c.name)}</b>${taken(c)?`<em>${esc(ptag(t,pid))}</em>`:c.id===mine?`<em class="me">${S.team?esc(ptag(t,S.uid)):"You"}</em>`:""}</button>`).join("");
+  el.querySelectorAll(".cs-tile").forEach(b=>b.onclick=()=>{if(b.dataset.id===CS.view)return;el.dataset.dir=list.findIndex(c=>c.id===b.dataset.id)>list.findIndex(c=>c.id===CS.view)?"r":"l";CS.view=b.dataset.id;pickChar(CS.view);charScreen(csTeam(),true);});
   if(was!==v.id){const bu=el.querySelector(".cs-burst");bu.classList.remove("go");void bu.offsetWidth;bu.classList.add("go");}}
 // (called on every render: open it the first time a climber without a choice reaches the map; keep it up to date)
 function charCheck(t){const me=t.members[S.uid];if(!me||TV()){charScreen(null,false);return;}

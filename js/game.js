@@ -9,7 +9,7 @@ const $=s=>document.querySelector(s);
 // device is off (see beat)
 let SKEW=0;const now=()=>Date.now()+SKEW;
 // a pitch opens with a short count before its clock starts, and its result waits a beat before it shows
-const LEAD_MS=3000,SUSPENSE_MS=1400;
+const LEAD_MS=2200,SUSPENSE_MS=1400;
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const clone=o=>JSON.parse(JSON.stringify(o));
 const fmt=n=>Math.round(n).toLocaleString("en-US").replace(/,/g," ");
@@ -468,14 +468,14 @@ function renderLobby(invite){
   $("#joinBtn").onclick=()=>joinTeam();
   $("#jcode").onkeydown=e=>{if(e.key==="Enter")joinTeam();};
   main.querySelectorAll(".teamrow").forEach(b=>b.onclick=()=>openTeam(b.dataset.code));
-  const open=id=>{if(id==="secProf"&&typeof openProfile==="function"){openProfile();return;}main.querySelectorAll(".card").forEach(c=>c.hidden=!(c.id===id||(c.dataset.for||"").split(" ").includes(id)));
+  const open=id=>{if(id==="secProf"&&typeof openProfile==="function"){openProfile();return;}if(id==="secChar"&&typeof openCharTitle==="function"){openCharTitle();return;}main.querySelectorAll(".card").forEach(c=>c.hidden=!(c.id===id||(c.dataset.for||"").split(" ").includes(id)));
     main.hidden=false;main.scrollTop=0;homeMenu(false);
     const f={secNew:"tname",secJoin:"jcode"}[id];if(f)setTimeout(()=>$("#"+f)?.focus({preventScroll:true}),60);};
   const close=()=>{main.hidden=true;homeMenu(true);};
   $("#backBtn").onclick=()=>{sfx("pop");close();};
   main.onkeydown=e=>{if(e.key==="Escape")close();};
   showHome([...(S.myTeams.length?[{id:"secCont",label:"Continue"}]:[]),{id:"secNew",label:"New expedition"},{id:"secTv",label:"Big screen"},{id:"secJoin",label:"Join team"},
-    {id:"secHow",label:"How to play"},{id:"secProf",label:"Profile"},{id:"secAcct",label:typeof acctNamed==="function"&&acctNamed()?"Account":"Sign in"},{id:"secSet",label:"Settings"}],open);
+    {id:"secHow",label:"How to play"},{id:"secChar",label:"Climber"},{id:"secProf",label:"Profile"},{id:"secAcct",label:typeof acctNamed==="function"&&acctNamed()?"Account":"Sign in"},{id:"secSet",label:"Settings"}],open);
   if(typeof acctRender==="function")acctRender();
   if(invite)open("secJoin");
   syncSettings();
@@ -726,12 +726,15 @@ function renderBar(){
 function render(){
   const t=S.team;if(!t)return;renderBar();
   const main=$("#main");
-  if(!main.classList.contains("game2")){main.className="game2";main.innerHTML=`<div class="panel qpanel" id="panel"></div><div class="card radio2" id="radio"></div>`;S.hudHtml=S.radioKey=null;}
+  if(!main.classList.contains("game2")){main.className="game2";main.innerHTML=`<button class="qgrab" id="qgrab" type="button" aria-expanded="true"><span>Less</span></button><div class="panel qpanel" id="panel"></div><div class="card radio2" id="radio"></div>`;S.hudHtml=S.radioKey=null;
+    // (on a phone, the cards after a question can fold down to how it went and the button on, so the climb has the screen)
+    const gb=$("#qgrab");const sync=()=>{const m=!!LS.get("qmin",false);document.body.classList.toggle("qmin",m);gb.setAttribute("aria-expanded",String(!m));gb.firstChild.textContent=m?"More":"Less";};
+    gb.onclick=()=>{LS.set("qmin",!LS.get("qmin",false));sfx("pop");sync();};sync();}
   // a result seen as it happens waits a beat: the answers show first, then (with the climb) how it went
   const r=t.round;
   if(r.phase==="reveal"&&S.seen&&S.seen.id===r.id&&S.seen.phase==="answer"){S.sus=r.id;
     setTimeout(()=>{if(S.sus===r.id){S.sus=null;S.susDone=r.id;if(S.team)render();}},SUSPENSE_MS);}
-  S.seen={id:r.id,phase:r.phase};
+  S.seen={id:r.id,phase:r.phase};for(const ph of ["answer","reveal","camp","summit","map"])document.body.classList.toggle("ph-"+ph,r.phase===ph);
   if(typeof climberSeen==="function")climberSeen(t);
   if(typeof charCheck==="function")charCheck(t);
   if(typeof MUSIC!=="undefined"){const m=r.phase==="map"?"map":r.phase==="camp"?"camp":r.phase==="summit"?"summit":"climb";
@@ -1375,7 +1378,7 @@ const AUTO_NEXT_MS=15000;
 // to read how it went; a long pitch on a short climb has more holds to it)
 function nextAfterMs(t){const o=t.round.result||{},e=t.exp;let n=0;
   if(typeof idxOf==="function")for(const x of Object.values(o.pl||{}))n=Math.max(n,Math.abs(idxOf(e,x.to)-idxOf(e,x.from)));
-  const hold=typeof HOLD_MS==="number"?HOLD_MS:650;return Math.max(9000,SUSPENSE_MS+900+n*hold+5000);} // (long enough for the slower climb to finish and the result to be read)
+  const hold=typeof HOLD_MS==="number"?HOLD_MS:650;return Math.max(7000,SUSPENSE_MS+900+n*hold+3500);} // (long enough for the slower climb to finish and the result to be read)
 function autoNext(t){const r=t.round,el=$("#nextIn");
   if(r.phase!=="reveal"||!r.resolvedAt||r.result?.arrived||S.sus===r.id){if(el)el.textContent="";return;}
   const left=Math.ceil((r.resolvedAt+nextAfterMs(t)-now())/1000);if(el)el.textContent=left>0?` · ${left}`:"";

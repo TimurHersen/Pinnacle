@@ -37,3 +37,22 @@ def plank(name,wood,trim=None):
 plank("plank",[(200,140,84,255),(150,98,54,255),(102,62,32,255),(126,80,42,255)])
 plank("plank-gold",[(214,154,92,255),(160,106,58,255),(104,64,32,255),(134,86,46,255)],trim=[(242,178,51,255),(255,236,150,255)])
 plank("plank-grey",[(150,146,138,255),(110,106,100,255),(70,68,66,255),(92,88,84,255)])
+# (3) the game's own frame for panels, cards and small buttons: a dark wooden frame, lit on its top and left edges,
+# iron brackets in the corners, the middle left open for the panel's own colour. Nine-slice, slice 8.
+def frame(name,wood):
+    W=24;im=Image.new("RGBA",(W,W),(0,0,0,0));d=ImageDraw.Draw(im);L,M,D,G=wood;INK=(16,10,8,255)
+    d.rectangle([0,0,W-1,W-1],outline=INK)
+    for i in range(1,6):d.rectangle([i,i,W-1-i,W-1-i],outline=M)
+    d.line([(1,1),(W-2,1)],fill=L);d.line([(1,1),(1,W-2)],fill=L);d.line([(2,2),(W-3,2)],fill=L)
+    d.line([(1,W-2),(W-2,W-2)],fill=D);d.line([(W-2,1),(W-2,W-2)],fill=D)
+    for x,y,l in [(9,3,5),(10,W-4,4),(3,10,0),(W-4,11,0)]:
+        if l:d.line([(x,y),(x+l,y)],fill=G)
+        else:d.line([(x,y),(x,y+4)],fill=G)
+    d.rectangle([6,6,W-7,W-7],outline=INK)                                          # (the inner edge)
+    for cx,cy,sx,sy in [(1,1,1,1),(W-2,1,-1,1),(1,W-2,1,-1),(W-2,W-2,-1,-1)]:       # iron brackets
+        for k in range(5):d.point((cx+sx*k,cy),fill=(120,124,132,255));d.point((cx,cy+sy*k),fill=(120,124,132,255))
+        d.point((cx+sx,cy+sy),fill=(200,204,212,255))
+    im.save(f"assets/ui/{name}.png")
+os.makedirs("assets/ui",exist_ok=True)
+frame("frame",[(122,82,48,255),(84,54,30,255),(46,28,16,255),(66,42,22,255)])
+frame("frame-gold",[(232,176,72,255),(170,116,44,255),(100,66,24,255),(140,94,36,255)])
