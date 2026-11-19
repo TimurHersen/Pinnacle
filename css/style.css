@@ -817,3 +817,55 @@ body.home:has(#main:not([hidden])) .acctbub{display:none}
 .acctdot{position:absolute;right:-3px;bottom:-3px;width:11px;height:11px;border-radius:50%;background:#46d07a;box-shadow:0 0 0 2px #0e141c;display:none}
 .acctwrap.signed .acctface,.acctwrap.signed .acctdot{display:block}.acctwrap.signed #acctBtn svg{visibility:hidden}
 .acctwrap.signed #acctBtn{box-shadow:0 0 0 2px #f2b233}
+
+/* ============ the map's signposts: carved wooden plaques on a post, as if planted on each mountain ============ */
+.wpin .wplate{position:relative;background:none;box-shadow:none;border:14px solid transparent;border-image:url("../assets/maps/plank.png") 7 fill/14px stretch;
+  image-rendering:pixelated;padding:0 2px;margin:-6px 0 0;gap:1px;filter:drop-shadow(0 3px 0 rgba(10,6,4,.45))}
+.wpin .wplate::after{content:"";position:absolute;left:50%;bottom:-24px;width:5px;height:12px;transform:translateX(-50%);
+  background:linear-gradient(90deg,#1c100a 0 1px,#8a5a30 1px 3px,#5c3a1c 3px 4px,#1c100a 4px)}
+.wpin b{color:#2b170b;text-shadow:0 1px 0 rgba(255,222,160,.5);font-size:11px;letter-spacing:.04em}
+.wpin small{color:#4e2f16;text-shadow:0 1px 0 rgba(255,222,160,.35);font-size:10px}
+.wpin small .px{filter:brightness(.55) sepia(1)}
+.wpin .wflag{margin-bottom:10px}
+.wpin.dn .wplate{border-image-source:url("../assets/maps/plank-gold.png")}
+.wpin.lk{filter:none}.wpin.lk .wplate{border-image-source:url("../assets/maps/plank-grey.png");opacity:1}
+.wpin.lk b,.wpin.lk small{color:#2a2a2c;text-shadow:0 1px 0 rgba(230,230,224,.35)}
+.wpin.lk .wplate::after{background:linear-gradient(90deg,#16161a 0 1px,#7a7670 1px 3px,#4e4a46 3px 4px,#16161a 4px)}
+.wpin.sel .wplate,.wpin.dn.sel .wplate{border-image-source:url("../assets/maps/plank-gold.png");background:none;filter:drop-shadow(0 0 6px rgba(255,210,110,.75)) drop-shadow(0 3px 0 rgba(10,6,4,.45))}
+@media (hover:hover){.wpin:hover .wplate{filter:drop-shadow(0 0 5px rgba(255,210,110,.6)) drop-shadow(0 3px 0 rgba(10,6,4,.45))}}
+/* the next stop: the sign sways a little and glows, so the eye finds it */
+.wpin.nx .wplate{animation:signsway 2.4s ease-in-out infinite;transform-origin:50% 120%;filter:drop-shadow(0 0 5px rgba(255,214,120,.7)) drop-shadow(0 3px 0 rgba(10,6,4,.45))}
+@keyframes signsway{0%,100%{transform:rotate(-2deg)}50%{transform:rotate(2deg)}}
+@media (prefers-reduced-motion:reduce){.wpin.nx .wplate{animation:none}}
+.wpin.sel::after{bottom:-4px}
+.wmap.tight .wpin .wplate{border-width:11px;border-image-width:11px;padding:0 1px}
+@media (max-width:420px){.wpin b{font-size:9px}.wpin small{font-size:9px}.wpin .wplate{border-width:11px;border-image-width:11px}}
+/* (climbed and behind the team: still its gold-trimmed plank, only not tappable; grey is for what's not known yet) */
+.wpin.lk.dn .wplate{border-image-source:url("../assets/maps/plank-gold.png")}
+.wpin.lk.dn b{color:#2b170b;text-shadow:0 1px 0 rgba(255,222,160,.5)}.wpin.lk.dn small{color:#3a2210;text-shadow:0 1px 0 rgba(255,222,160,.35)}
+.wpin.lk.dn .wplate::after{background:linear-gradient(90deg,#1c100a 0 1px,#8a5a30 1px 3px,#5c3a1c 3px 4px,#1c100a 4px)}
+/* the difficulty pennant: a little flag on a pin at the plaque's top corner */
+.wpin .wflag{position:absolute;right:6px;top:-15px;margin:0;z-index:1}
+.wpin .wplate{margin:0 0 22px}
+.wpin small{color:#3a2210}
+.wpin small .px{filter:none}
+/* (the plaque stands on its post on the peak; on a peak near the map's top edge it hangs below it instead) */
+.wpin .wplate{position:relative;top:auto;left:auto;transform:none}
+.wpin.nx .wplate{transform:none}
+.wpin.low{transform:translate(-50%,-8px)}
+.wpin.low .wplate{margin:22px 0 0}.wpin.low .wplate::after{bottom:auto;top:-24px}
+.wpin.low .wflag{top:auto;bottom:-6px;right:auto;left:-14px}
+/* the map's name board along the bottom, and its arrows: the same carved wood as the signposts */
+.wnplate,.wnarrow{background:none;box-shadow:none;border:16px solid transparent;border-image:url("../assets/maps/plank-gold.png") 7 fill/16px stretch;image-rendering:pixelated;filter:drop-shadow(0 4px 0 rgba(10,6,4,.5))}
+.wnplate{padding:0 4px}
+.wnplate b{color:#2b170b;text-shadow:0 1px 0 rgba(255,222,160,.55)}
+.wnplate small,.wpline{color:#3a2210;text-shadow:0 1px 0 rgba(255,222,160,.35)}
+.wprog{background:#3a2412;box-shadow:inset 0 1px 0 rgba(0,0,0,.4);border:1px solid #1c100a}.wprog i{background:linear-gradient(#ffd36b,#e0a030)}
+.wndots i{background:#5c3a1c}.wndots i.dn{background:#f2b233}.wndots i.op{background:#a06a36}.wndots i.on{outline-color:#2b170b}
+.wnarrow{width:52px;color:#2b170b;text-shadow:0 1px 0 rgba(255,222,160,.55);padding:0;font-size:18px}
+.wnarrow:disabled{border-image-source:url("../assets/maps/plank-grey.png");color:#3a3a3c;opacity:.85}
+.wnarrow:not(:disabled):active{transform:translateY(2px);filter:drop-shadow(0 2px 0 rgba(10,6,4,.5))}
+@media (max-width:899px),(max-height:520px){.wnplate,.wnarrow{border-width:13px;border-image-width:13px}.wnarrow{width:44px}}
+.wnplate{width:290px;border-width:12px;border-image-width:12px}.wnarrow{border-width:12px;border-image-width:12px}
+@media (max-width:899px),(max-height:520px){.wnplate{width:230px}}
+.wcamp{background:none;box-shadow:none;border:7px solid transparent;border-image:url("../assets/maps/plank.png") 7 fill/7px stretch;image-rendering:pixelated;color:#2b170b;text-shadow:0 1px 0 rgba(255,222,160,.5);padding:0 2px;filter:drop-shadow(0 2px 0 rgba(10,6,4,.45))}

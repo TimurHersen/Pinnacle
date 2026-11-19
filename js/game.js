@@ -906,7 +906,7 @@ function renderWorld(t){const el=$("#world");if(!el)return;const r=t&&t.round,on
     const M=MAPS[mi],A=M.art[shape],P=A.pins,open=mapOpen(t,mi),done=mapDone(t,mi),next=done||!open?[]:nextOn(t,mi);
     // a banner on each mountain: named where the team has been or can go, "???" further along the trail
     const pin=k=>{const m=MOUNTAINS[k],[x,y]=P[k],op=isOpen(t,k),known=op||climbed(t,k),tags=ids.filter(i=>votes[i]?.mtn===k).map(i=>`<em class="${i===S.uid?"me":""}">${ptag(t,i)}</em>`).join("");
-      return `<button class="wpin d${m.diff} ${votes[S.uid]?.mtn===k||S.mapPop===k?"sel":""} ${op?"":"lk"} ${pk[k]?"dn":""} ${next.includes(k)?"nx":""}" data-mtn="${k}" style="left:${100*x/A.w}%;top:${100*y/A.h}%" ${op&&!TV()?"":"disabled"} aria-label="${esc(known?m.name:"Unknown mountain")}${pk[k]?", climbed":op?", next stop":", further along the trail"}">
+      return `<button class="wpin d${m.diff} ${votes[S.uid]?.mtn===k||S.mapPop===k?"sel":""} ${op?"":"lk"} ${pk[k]?"dn":""} ${next.includes(k)?"nx":""} ${y<A.h*.3?"low":""}" data-mtn="${k}" style="left:${100*x/A.w}%;top:${100*y/A.h}%" ${op&&!TV()?"":"disabled"} aria-label="${esc(known?m.name:"Unknown mountain")}${pk[k]?", climbed":op?", next stop":", further along the trail"}">
         <span class="wflag" aria-hidden="true"></span><span class="wplate"><b>${known?esc(m.name):"???"}</b><small>${m.final?`${ICON.flag} Summit`:known?`Stop ${m.step+1}`:"Ahead"}</small>${known?starRow(starsOf(t,k)):""}${tags?`<span class="wtags">${tags}</span>`:""}</span></button>`;};
     if(fresh||!el.querySelector(".wmap")){
       // (sliding to another map: the old one is kept for a moment as a picture, frozen, and slides away)
@@ -985,6 +985,13 @@ function placePop(){const el=$("#world .wpop"),tool=(S.mapPop||"")[0]==="@",b=S.
    where they last climbed; after a climb, back on the map, they walk the trail to it. Over it all, clouds drift by
    with their shadows on the ground, birds cross now and then, water sparkles (lava glows), and the camp's fire smokes. */
 const MAPFX=(()=>{let cv=null,g=null,raf=0,st=null,last=0,T=0,DT=0,TEAM=null;const SURV={};
+  // the trails traced along the footpaths painted in each map (art/tools/trails.py), and each climber at map size
+  // (six walking frames and a standing one, art/tools/mapart.py)
+  const TRAILS={};let trailsIn=false;fetch(asset("assets/maps/trails.json")).then(r=>r.json()).then(j=>{Object.assign(TRAILS,j);trailsIn=true;}).catch(()=>{});
+  const MINI={};const mini=c=>{if(!MINI[c]){const im=new Image();im.src=asset(`assets/maps/mini/${c}.png`);MINI[c]=im;}return MINI[c];};
+  const trailOf=A=>TRAILS[(Object.values(MAPS).find(M=>M.art.wide===A||M.art.tall===A)||{}).id+"|"+(A.h>A.w?"tall":"wide")]||null;
+  // (a polyline, resampled to a point a pixel)
+  const dense=pl=>{const o=[];for(let i=0;i+1<pl.length;i++){const [x0,y0]=pl[i],[x1,y1]=pl[i+1],n=Math.max(1,Math.ceil(Math.hypot(x1-x0,y1-y0)));for(let k=0;k<n;k++)o.push([x0+(x1-x0)*k/n,y0+(y1-y0)*k/n]);}o.push(pl[pl.length-1]);return o;};
   const R=Math.round,hsh=(a,b)=>{const v=Math.sin(a*127.1+b*311.7)*43758.5453;return v-Math.floor(v);};
   // the two little climbers: red beanie and plaid, and orange; o outline, s skin, l/L legs
   const FIG=[[".oooo.","orrrro","ossbso","oRrrRo","ooRRoo",".oLLo.",".oLLo.",".o.o.."],[".oooo.","oyyyyo","osssso","oyYYyo","ooYYoo",".oLLo.",".oLLo.",".o.o.."]];
@@ -996,18 +1003,19 @@ const MAPFX=(()=>{let cv=null,g=null,raf=0,st=null,last=0,T=0,DT=0,TEAM=null;con
   function curve(a,b,seed){const mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy)||1,k=(hsh(seed,3)-.5)*.35*L;
     const cx=mx-dy/L*k,cy=my+dx/L*k,pts=[];const n=Math.max(2,Math.ceil(L));for(let i=0;i<=n;i++){const u=i/n,v=1-u;pts.push([v*v*a[0]+2*u*v*cx+u*u*b[0],v*v*a[1]+2*u*v*cy+u*u*b[1]]);}return pts;}
   // each mountain's stop on the trail: on the ground at its foot, below its peak (the pin)
-  function feet(A){const F={},tall=A.h>A.w;for(const [k,[x,y]] of Object.entries(A.pins))F[k]=[x,Math.min(A.camp[1]-26,y+A.h*(tall?.2:.3))];return F;}
+  function feet(A){const tr=trailOf(A);if(tr)return tr.feet;const F={},tall=A.h>A.w;for(const [k,[x,y]] of Object.entries(A.pins))F[k]=[x,Math.min(A.camp[1]-26,y+A.h*(tall?.2:.3))];return F;}
+  const campOf=A=>trailOf(A)?.camp||A.camp;
   function graph(t,M,A){const P=feet(A),S2=M.steps,E=[],cen=ks=>[ks.reduce((a,k)=>a+P[k][0],0)/ks.length,ks.reduce((a,k)=>a+P[k][1],0)/ks.length];
     const pos=posOn(t,M===MAPS[st.mi]?st.mi:0),done=mapDone(t,st.mi),next=done?[]:nextOn(t,st.mi);
-    const add=(a,b,state,from,to)=>E.push({pts:curve(a,b,E.length+7),state,from,to});
-    add(A.camp,P[S2[0][0]],climbed(t,S2[0][0])?"walked":"open","camp",S2[0][0]);
+    const tr=trailOf(A),add=(a,b,state,from,to)=>{const pl=tr&&tr.e[from+">"+to];E.push({pts:pl?dense(pl):curve(a,b,E.length+7),state,from,to});};
+    add(campOf(A),P[S2[0][0]],climbed(t,S2[0][0])?"walked":"open","camp",S2[0][0]);
     for(let k=0;k+1<S2.length;k++){const a=S2[k],b=S2[k+1];
       if(a.length===1&&b.length===1){add(P[a[0]],P[b[0]],climbed(t,b[0])?"walked":next.includes(b[0])?"open":"ahead",a[0],b[0]);continue;}
-      const J=cen([...a,...b]),Jc=[(cen(a)[0]+cen(b)[0])/2,(cen(a)[1]+cen(b)[1])/2];J[0]=Jc[0];J[1]=Jc[1];const jid="J"+k,past=b.some(x=>climbed(t,x));
+      const J=tr&&tr.J["J"+k]?tr.J["J"+k].slice():[(cen(a)[0]+cen(b)[0])/2,(cen(a)[1]+cen(b)[1])/2];const jid="J"+k,past=b.some(x=>climbed(t,x));
       for(const x of a)add(P[x],J,climbed(t,x)&&(past||x===pos)?(past?"walked":"open"):"ahead",x,jid);
       for(const y of b)add(J,P[y],climbed(t,y)?"walked":next.includes(y)?"open":"ahead",jid,y);}
     // (and for each mountain climbed, its way up from the foot to the summit)
-    for(const k of S2.flat())if(climbed(t,k))E.push({pts:curve(P[k],A.pins[k],k.length*13),state:"summit",from:k,to:k});
+    for(const k of S2.flat())if(climbed(t,k)){const pl=tr&&tr.e[k+">"+k];E.push({pts:pl?dense(pl):curve(P[k],A.pins[k],k.length*13),state:"summit",from:k,to:k});}
     return E;}
   // the route the team walked to reach a stop: camp, then each stop, through the junctions
   function routeTo(E,to){const out=[];let cur=to;for(let guard=0;guard<12&&cur!=="camp";guard++){const e=E.find(e=>e.to===cur&&e.state!=="summit"&&(e.state==="walked"||e.to===to));if(!e)break;out.unshift(e);cur=e.from;}return out;}
@@ -1032,11 +1040,13 @@ const MAPFX=(()=>{let cv=null,g=null,raf=0,st=null,last=0,T=0,DT=0,TEAM=null;con
     if(!st.walk&&seen!==at&&pos&&!RM.matches){const route=routeTo(st.E,pos),from=route.findIndex(e=>e.from===seen),use=from>=0?route.slice(from):route.slice(-1);
       const pts=use.flatMap(e=>e.pts);if(pts.length>1){st.walk={pts,t0:T+.8,dur:Math.min(4.5,.8+pts.length/50)};TEAM={x:pts[0][0],y:pts[0][1],walking:true};}}
     LS.set(seenKey,at);
-    st.at=pos?feet(A)[pos]:A.camp;
+    st.at=pos?feet(A)[pos]:campOf(A);st.trailsIn=trailsIn;
     if(!raf){last=0;raf=requestAnimationFrame(loop);}}
   function stop(){cancelAnimationFrame(raf);raf=0;st=null;cv=null;TEAM=null;}
   function loop(now){raf=requestAnimationFrame(loop);if(!cv||!cv.isConnected){stop();return;}
-    const dt=Math.min(.05,last?(now-last)/1000:.016);if(last&&dt<1/31)return;last=now;T+=dt;DT=dt;draw(dt);fitWorld();}
+    const dt=Math.min(.05,last?(now-last)/1000:.016);if(last&&dt<1/31)return;last=now;T+=dt;DT=dt;
+    if(trailsIn&&!st.trailsIn){st.trailsIn=true;st.E=graph(st.t,st.M,st.A);const pos=posOn(st.t,st.mi);st.at=pos?feet(st.A)[pos]:campOf(st.A);}
+    draw(dt);fitWorld();}
   function dot(x,y,c,o){g.fillStyle=o;g.fillRect(R(x)-1,R(y)-1,4,4);g.fillStyle=c;g.fillRect(R(x),R(y),2,2);}
   function draw(dt){const {A}=st,W=A.w,H=A.h,calm=RM.matches;g.clearRect(0,0,W,H);
     // cloud shadows on the ground
@@ -1046,12 +1056,18 @@ const MAPFX=(()=>{let cv=null,g=null,raf=0,st=null,last=0,T=0,DT=0,TEAM=null;con
     const sv=st.sv;if(sv&&!calm){if(sv.water.length)for(let i=0;i<3;i++){const p=sv.water[(Math.random()*sv.water.length)|0];st.spark.push({x:p%sv.w,y:(p/sv.w)|0,l:.6});}
       st.spark=st.spark.filter(s=>(s.l-=dt)>0);for(const s of st.spark){g.fillStyle=s.l>.3?"#ffffff":"#d8fbff";g.fillRect(s.x,s.y,1,1);if(s.l>.45){g.fillRect(s.x-1,s.y,1,1);g.fillRect(s.x+1,s.y,1,1);}}
       if(sv.glow){g.globalAlpha=.18+.14*Math.sin(T*2.2)+.06*Math.sin(T*5.3);g.globalCompositeOperation="lighter";g.drawImage(sv.glow,0,0);g.globalCompositeOperation="source-over";g.globalAlpha=1;}}
-    // the trail
-    const sp=6;for(const e of st.E){const pts=e.pts,n=pts.length,off=e.state==="open"&&!calm?R(T*8)%sp:0;
-      for(let i=sp-off;i<n-4;i+=sp){if(i<4)continue;const [x,y]=pts[i];
-        if(e.state==="walked")dot(x,y,"#f2b233","#3a2410");else if(e.state==="open")dot(x,y,"#fff3d6","#2a1a10");
-        else if(e.state==="summit"){if(i%12===0){g.fillStyle="#f2b233";g.fillRect(R(x),R(y),1,1);}}
-        else{g.fillStyle="rgba(20,14,10,.55)";g.fillRect(R(x),R(y),2,2);}}}
+    // the trail, along the painted footpaths. Walked: a pair of boot prints every few steps, pressed into the earth.
+    // To the next stop: pale chalk dashes, drifting along toward it. Further on: faint pebbles. Up each mountain
+    // climbed: a thin line of gold specks to its top.
+    for(const e of st.E){const pts=e.pts,n=pts.length;if(n<6)continue;
+      const dir=i=>{const a=pts[Math.max(0,i-2)],b=pts[Math.min(n-1,i+2)],dx=b[0]-a[0],dy=b[1]-a[1],l=Math.hypot(dx,dy)||1;return [dx/l,dy/l];};
+      if(e.state==="walked"){for(let i=5,k=0;i<n-4;i+=5,k++){const [x,y]=pts[i],[ux,uy]=dir(i),s2=k%2?1.6:-1.6,px=R(x-uy*s2),py=R(y+ux*s2);
+          g.fillStyle="rgba(58,34,16,.82)";g.fillRect(px,py,2,1);g.fillRect(px+(ux>0?1:0),py+1,1,1);g.fillStyle="rgba(255,226,170,.35)";g.fillRect(px,py-1,2,1);}}
+      else if(e.state==="open"){const off=calm?0:(T*10)%9;for(let i=6+off;i<n-5;i+=9){const a=pts[R(i)],b=pts[Math.min(n-1,R(i)+3)],tail=Math.min(1,(n-i)/30);
+          g.strokeStyle=`rgba(40,24,12,${(.55*tail).toFixed(2)})`;g.lineWidth=3;g.beginPath();g.moveTo(a[0],a[1]+.5);g.lineTo(b[0],b[1]+.5);g.stroke();
+          g.strokeStyle=`rgba(255,246,222,${(.95*tail).toFixed(2)})`;g.lineWidth=1.6;g.beginPath();g.moveTo(a[0],a[1]);g.lineTo(b[0],b[1]);g.stroke();}}
+      else if(e.state==="summit"){for(let i=8;i<n-2;i+=7){const [x,y]=pts[i];g.fillStyle="rgba(40,24,10,.5)";g.fillRect(R(x),R(y)+1,2,1);g.fillStyle="#f6c64a";g.fillRect(R(x),R(y),2,1);}}
+      else{for(let i=8;i<n-6;i+=8){const [x,y]=pts[i];g.fillStyle="rgba(24,18,14,.4)";g.fillRect(R(x),R(y),2,2);g.fillStyle="rgba(230,220,200,.22)";g.fillRect(R(x),R(y),1,1);}}}
     // the camp's smoke
     if(!calm){if(Math.random()<dt*3)st.smoke.push({x:A.camp[0]+2,y:A.camp[1]-6,l:3});st.smoke=st.smoke.filter(p=>(p.l-=dt)>0);
       for(const p of st.smoke){p.y-=6*dt;p.x+=2.5*dt;g.fillStyle=`rgba(225,225,232,${(.5*p.l/3).toFixed(2)})`;const z=p.l>2?2:3;g.fillRect(R(p.x),R(p.y),z,z);}}
@@ -1059,12 +1075,16 @@ const MAPFX=(()=>{let cv=null,g=null,raf=0,st=null,last=0,T=0,DT=0,TEAM=null;con
     let tx=st.at[0],ty=st.at[1],walking=false,flip=false;
     if(st.walk){const w=st.walk,k=(T-w.t0)/w.dur;if(k>=1)st.walk=null;else{const u=Math.max(0,k),i=Math.min(w.pts.length-1,R(u*(w.pts.length-1))),q=w.pts[i],q0=w.pts[Math.max(0,i-3)];
       tx=q[0];ty=q[1];walking=u>0;flip=q[0]<q0[0];}}
-    const step=walking&&Math.floor(T*8)%2,bob=walking?0:(Math.floor(T*2)%2);
-    g.fillStyle="rgba(10,10,20,.4)";g.fillRect(R(tx)-14,R(ty),28,3);
     TEAM={x:tx,y:ty,walking:!!st.walk};if(!mapOpen(st.t,st.mi)){TEAM=null;return finishDraw(dt);}
-    drawFig(tx-7,ty-bob,0,step,flip);drawFig(tx+7,ty-(1-bob)*(walking?0:1),1,!step&&walking,flip);
+    // (one behind the other on the path while they walk, side by side when they stop; a soft shadow under each)
+    const ids=memberIds(st.t),c0=typeof charOf==="function"?charOf(st.t,ids[0]):"lumberjack",c1=ids[1]?charOf(st.t,ids[1]):(c0==="woman"?"lumberjack":"woman");
+    const who=[[c0,walking?(flip?6:-6):-7],[c1,walking?(flip?-6:6):7]];
+    for(const [c,dx] of (flip?who.slice().reverse():who)){const im=mini(c);if(!im.complete||!im.naturalWidth)continue;const fw=im.naturalWidth/7,fh=im.naturalHeight,x=R(tx+dx),y=R(ty);
+      g.fillStyle="rgba(10,12,20,.35)";g.fillRect(x-5,y-1,10,2);g.fillRect(x-4,y+1,8,1);
+      const f=walking?Math.floor(T*9+(dx>0?3:0))%6:6;g.save();g.translate(x,0);if(walking?flip:dx>0)g.scale(-1,1);
+      g.drawImage(im,f*fw,0,fw,fh,-R(fw/2),y-fh+1,fw,fh);g.restore();}
     // (a gold marker bobbing over them while they wait)
-    if(!walking){const my=R(ty)-26-(Math.floor(T*2.5)%2)*2;g.fillStyle="#141018";g.fillRect(R(tx)-5,my-1,11,7);g.fillStyle="#f2b233";
+    if(!walking){const my=R(ty)-34-(Math.floor(T*2.5)%2)*2;g.fillStyle="#141018";g.fillRect(R(tx)-5,my-1,11,7);g.fillStyle="#f2b233";
       for(let j=0;j<5;j++)g.fillRect(R(tx)-4+j,my+j,9-2*j,1);}
     finishDraw(dt);}
   function finishDraw(dt){const {A}=st,W=A.w,H=A.h,calm=RM.matches;
