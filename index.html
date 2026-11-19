@@ -25,7 +25,7 @@
 /* GitHub Pages lets browsers keep every file for ten minutes. The game's styles and scripts are fetched at one code
    version, so a browser keeps them between visits and never mixes files from two updates: raise the number with every
    change to css/ or js/, and everyone gets the new files the next time this page loads. */
-window.V="code=47";
+window.V="code=50";
 /* The art (everything under assets/) changes rarely and is most of the download, so it keeps one version, which
    browsers may hold on to: raise the number whenever a picture is changed or added. */
 window.AV="art=18";
@@ -55,6 +55,7 @@ document.write('<link rel="stylesheet" href="css/style.css?'+V+'">');
   <div class="spacer"></div>
   <button class="ibtn" id="radioBtn" type="button" title="Rope radio" aria-label="Rope radio" aria-pressed="false" hidden><svg viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><path fill-rule="evenodd" d="M3 0h1v3H3zM2 3h7v9H2zM3 4v2h5V4zM3 7v1h1V7zM5 7v1h1V7zM7 7v1h1V7zM3 9v2h5V9z" fill="currentColor"/></svg></button>
   <button class="linkbtn" id="homeBtn" hidden>Menu</button>
+  <div class="acctwrap" id="acctWrap"><button class="ibtn" id="acctBtn" type="button" title="Account" aria-label="Sign in to save your progress"><svg viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><path d="M4 1h4v1h1v3H8v1H4V5H3V2h1zM2 7h8v1h1v3H1V8h1z" fill="currentColor"/><path class="ok" d="M8 8h1v1h1v1h-1v1H8zM7 9h1v1H7z" fill="#0e141c"/></svg></button><span class="acctbub" id="acctBub" aria-hidden="true">Sign in to save progress</span></div>
   <button class="ibtn" id="sndBtn" type="button" title="Sound" aria-label="Sound"><svg viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><path d="M1 4h2v4H1zM3 4h1V3h1V2h1v8H5V9H4V8H3z" fill="currentColor"/><path class="on" d="M8 4h1v4H8zM10 2h1v8h-1z" fill="currentColor"/><path class="off" d="M8 4h1v1H8zM9 5h1v2H9zM8 7h1v1H8zM10 4h1v1h-1zM10 7h1v1h-1z" fill="currentColor"/></svg></button>
   <button class="ibtn" id="fsBtn" type="button" title="Fullscreen" aria-label="Fullscreen" aria-pressed="false"><svg viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><path class="off" d="M1 1h4v1H2v3H1zM7 1h4v4h-1V2H7zM1 7h1v3h3v1H1zM10 7h1v4H7v-1h3z" fill="currentColor"/><path class="on" d="M4 1h1v4H1V4h3zM7 1h1v3h3v1H7zM1 7h4v4H4V8H1zM7 7h4v1H8v3H7z" fill="currentColor"/></svg></button>
 </header>

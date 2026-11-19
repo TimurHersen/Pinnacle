@@ -64,7 +64,26 @@ async function acctEmail(mode){const em=($("#acctEmail")?.value||"").trim(),pw=$
     else await A.signInWithEmailAndPassword(em,pw);
     toast(mode==="up"?"Account created. Your progress is saved to it.":"Signed in");}
   catch(e){acctError(e);}}
-async function acctGoogle(){const A=ACCT.auth;if(!A)return;$("#acctErr").textContent="";const P=new firebase.auth.GoogleAuthProvider();
+/* Google, in the page: Google's own account chooser slides up over the game ("Continue as …"), and its ID token signs
+   in to Firebase, so the game never leaves the page. It needs this site listed as an authorised JavaScript origin of
+   the project's web client (Google Cloud console, APIs & Services, Credentials). If Google won't show it there (not
+   listed yet, the browser blocks it, or the player closes it), the second tap goes the old way: Google's own page. */
+const GOOGLE_CLIENT="454707911322-unnb0e635hbeb1fuc6odtp5ul1nooapf.apps.googleusercontent.com";
+let GIS=null;
+function gisLoad(){return GIS||(GIS=acctScript("https://accounts.google.com/gsi/client").then(()=>{
+  google.accounts.id.initialize({client_id:GOOGLE_CLIENT,callback:r=>gisToken(r.credential),use_fedcm_for_prompt:true,cancel_on_tap_outside:true,context:"signin",itp_support:true});return true;}).catch(()=>false));}
+async function gisToken(idToken){const A=ACCT.auth,cred=firebase.auth.GoogleAuthProvider.credential(idToken);
+  try{if(A.currentUser&&A.currentUser.isAnonymous){try{await A.currentUser.linkWithCredential(cred);}
+      catch(e){if(e.code==="auth/credential-already-in-use")await A.signInWithCredential(e.credential||cred);else throw e;}}
+    else await A.signInWithCredential(cred);toast("Signed in with Google");}
+  catch(e){acctError(e);}}
+async function acctGoogle(){const A=ACCT.auth;if(!A)return;$("#acctErr").textContent="";
+  if(!ACCT.gisFailed&&await gisLoad()){
+    google.accounts.id.prompt(n=>{const bad=(n.isNotDisplayed&&n.isNotDisplayed())||(n.isSkippedMoment&&n.isSkippedMoment()&&n.getSkippedReason&&n.getSkippedReason()!=="user_cancel");
+      if(bad){ACCT.gisFailed=true;const el=$("#acctErr");if(el)el.textContent="Tap Continue with Google again to sign in on Google's page.";}});
+    return;}
+  acctGoogleRedirect();}
+async function acctGoogleRedirect(){const A=ACCT.auth;const P=new firebase.auth.GoogleAuthProvider();P.setCustomParameters({prompt:"select_account"});
   const narrow=matchMedia("(pointer:coarse)").matches; // (phones: a redirect, which popups often can't)
   try{if(A.currentUser&&A.currentUser.isAnonymous){
       try{narrow?await A.currentUser.linkWithRedirect(P):await A.currentUser.linkWithPopup(P);}
@@ -93,7 +112,11 @@ function acctHtml(){
     <button class="linkbtn" id="acctReset" type="button">Forgot password?</button>
     <div class="err" id="acctErr"></div>`;}
 function acctRender(){const el=$("#acctBody");if(el){el.innerHTML=acctHtml();acctWire();}
-  const b=document.querySelector('.pbtn[data-id="secAcct"]');if(b)b.classList.toggle("signed",acctNamed());}
+  const b=document.querySelector('.pbtn[data-id="secAcct"]');if(b)b.classList.toggle("signed",acctNamed());
+  if(ACCT.on&&!acctNamed())gisLoad(); // (ready before the tap, so the sheet comes up at once)
+  const w=$("#acctWrap");if(w){w.classList.toggle("signed",acctNamed());w.classList.toggle("off",!ACCT.on);
+    const ab=$("#acctBtn");ab.setAttribute("aria-label",acctNamed()?"Your account":"Sign in to save your progress");
+    ab.onclick=()=>{sfx("pop");if(S.code&&typeof goLobby==="function")goLobby();setTimeout(()=>document.querySelector('.pbtn[data-id="secAcct"]')?.click(),S.code?300:0);};}}
 function acctWire(){$("#acctG")&&($("#acctG").onclick=acctGoogle);$("#acctIn")&&($("#acctIn").onclick=()=>acctEmail("in"));
   $("#acctUp")&&($("#acctUp").onclick=()=>acctEmail("up"));$("#acctReset")&&($("#acctReset").onclick=acctReset);$("#acctOut")&&($("#acctOut").onclick=acctSignOut);
   $("#acctPw")&&($("#acctPw").onkeydown=e=>{if(e.key==="Enter")acctEmail("in");});}

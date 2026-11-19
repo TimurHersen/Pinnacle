@@ -740,3 +740,16 @@ body.tv .wpin{pointer-events:none}
 .cpcard:disabled{opacity:.5;cursor:default}
 .cpcard em{position:absolute;top:6px;right:6px;font:400 12px/1 var(--head);font-style:normal;letter-spacing:.05em;text-transform:uppercase;padding:3px 6px;border-radius:6px;background:#2a3446;color:var(--dim)}
 .cpcard em.me{background:var(--gold,#f2b233);color:#1a1208}
+
+/* the account button in the corner of the title screen, with a speech bubble for guests */
+.acctwrap{position:relative;display:none}
+body.home .acctwrap{display:block}.acctwrap.off{display:none!important}
+#acctBtn .ok{display:none}.acctwrap.signed #acctBtn{color:var(--gold,#f2b233)}.acctwrap.signed #acctBtn .ok{display:inline}
+.acctbub{position:absolute;top:50%;right:calc(100% + 12px);white-space:nowrap;padding:6px 9px;border-radius:7px;background:var(--cream,#f4ead2);color:#1a1208;
+  font:400 10px/1 var(--head);letter-spacing:.04em;text-transform:uppercase;box-shadow:0 2px 0 #000,0 0 0 2px #0b0f14;transform:translateY(-50%);transform-origin:100% 50%;
+  animation:bubpulse 1.6s ease-in-out infinite;pointer-events:none;z-index:30}
+.acctbub::before{content:"";position:absolute;top:50%;right:-7px;margin-top:-7px;border:7px solid transparent;border-right:0;border-left-color:var(--cream,#f4ead2)}
+.acctwrap.signed .acctbub,body:not(.home) .acctbub{display:none}
+body.home:has(#main:not([hidden])) .acctbub{display:none}
+@keyframes bubpulse{0%,100%{transform:translateY(-50%) scale(1)}50%{transform:translateY(-50%) scale(1.1)}}
+@media (prefers-reduced-motion:reduce){.acctbub{animation:none}}
