@@ -78,7 +78,7 @@ test("judging only counts real picks",()=>{
 
 test("each mountain shifts the difficulty a tier, within 1 to 4",()=>{
   const e=m=>Object.assign(g.newExp(1),{m});
-  assert.equal(g.tierAt(e("moss"),0),1);assert.equal(g.tierAt(e("stonehorn"),0),1);assert.equal(g.tierAt(e("stonehorn"),4),3);
+  assert.equal(g.tierAt(e("moss"),0),1);assert.equal(g.tierAt(e("sunspire"),0),1);assert.equal(g.tierAt(e("sunspire"),4),3);
   assert.equal(g.tierAt(e("frostfang"),4),4);});
 
 test("a question the team had lately isn't drawn again while others are left",()=>{

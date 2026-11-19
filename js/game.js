@@ -108,7 +108,8 @@ const MT=e=>MOUNTAINS[e&&e.m]||MOUNTAINS.moss;
    done map can be climbed again. */
 const climbed=(t,id)=>!!(t.stats?.peaks||{})[id];
 const mapDone=(t,mi)=>MAPS[mi].steps[MAPS[mi].steps.length-1].some(id=>climbed(t,id));
-const mapOpen=(t,mi)=>mi===0||mapDone(t,mi-1);
+// (a map opens once the one before is done; one a team was already on before the maps changed stays open)
+const mapOpen=(t,mi)=>mi===0||mapDone(t,mi-1)||MAPS[mi].steps.flat().some(k=>climbed(t,k));
 function posOn(t,mi){const tr=(t.stats?.trail||{})["m"+mi];if(MOUNTAINS[tr]&&MOUNTAINS[tr].map===mi&&climbed(t,tr))return tr;
   let best=null;for(const step of MAPS[mi].steps)for(const k of step)if(climbed(t,k))best=k;return best;}
 function nextOn(t,mi){const p=posOn(t,mi);return p?MAPS[mi].steps[MOUNTAINS[p].step+1]||[]:MAPS[mi].steps[0];}
@@ -661,7 +662,9 @@ function render(){
   S.seen={id:r.id,phase:r.phase};
   if(typeof MUSIC!=="undefined"){const m=r.phase==="map"?"map":r.phase==="camp"?"camp":r.phase==="summit"?"summit":"climb";
     if(m==="climb")MUSIC.level(stageOf(t.exp,Math.max(...memberIds(t).map(i=>posOf(t.exp,i)),0)).s);if(m!=="climb")MUSIC.tension(false);MUSIC.want(true,m);}
-  const atMap=r.phase==="map";$("#hud").hidden=atMap;document.body.classList.toggle("atmap",atMap);drawTopo(t);if(S.sus!==r.id&&!atMap)renderHud(t);renderPanel(t);renderRadio(t);renderWorld(t);coach(t);
+  const atMap=r.phase==="map";$("#hud").hidden=atMap;document.body.classList.toggle("atmap",atMap);
+  // (on the map the painting has the whole screen: no panel, except on a phone that's the big screen's controller)
+  document.body.classList.toggle("mapfull",atMap&&!PAD());drawTopo(t);if(S.sus!==r.id&&!atMap)renderHud(t);renderPanel(t);renderRadio(t);renderWorld(t);coach(t);
 }
 // who leads this pitch (or the next one, between pitches)
 function leaderOf(t){const r=t.round,ids=memberIds(t);return ["pre","answer","reveal"].includes(r.phase)?r.leader:ids[(r.id+1)%ids.length];}
@@ -794,51 +797,81 @@ function revealView(t){
 }
 // the map's panel: the mountains open on the map being looked at as cards (the climbed ones marked, the next step
 // glowing), the picked one's details, the way to set off, and along the bottom the maps: collected, current, locked
-const viewMap=t=>{const c=currentMap(t);if(S.mapView==null||S.mapView>c||S.mapCur!==c){S.mapView=c;S.mapCur=c;}return S.mapView;};
-function mapView(t){
-  const r=t.round,votes=r.votes||{},ids=memberIds(t),solo=ids.length<2,lead=solo||leaderOf(t)===S.uid||leaderOf(t)===SIM,mine=votes[S.uid]?.mtn,pk=t.stats?.peaks||{};
-  const pick=mapPick(t),agreed=ids.every(i=>votes[i]?.mtn===pick),can=pick&&(lead||agreed)&&isOpen(t,pick);
-  const who=k=>ids.filter(i=>votes[i]?.mtn===k).map(i=>esc(nameOf(i))).join(", ")||"&nbsp;";
-  const mi=viewMap(t),M=MAPS[mi],done=mapDone(t,mi),next=done?M.steps.flat():nextOn(t,mi),at=posOn(t,mi);
-  const card=k=>{const m=MOUNTAINS[k],rec=pk[k];return `<button class="route mcard d${m.diff} ${mine===k?"sel":""} ${!done?"next":""} ${rec?"done":""}" data-mtn="${k}">
-    <h4>${esc(m.name)}</h4><span class="rmeta">${m.final?`${ICON.flag} Summit of ${esc(M.name)}`:`Stop ${m.step+1} of ${M.steps.length}`}</span>
-    <span class="mfacts">${fmt(m.alt.top)} m · ${m.secs} s · ${m.hooks} hooks</span>
-    ${rec?`<span class="mrec">${ICON.flag} Climbed ${rec.n}×</span>`:""}<span class="votes">${who(k)}</span></button>`;};
-  const strip=`<div class="mapstrip" role="tablist" aria-label="Your maps">${MAPS.map((X,k)=>{const op=mapOpen(t,k),dn=mapDone(t,k);
-    return `<button class="mthumb ${k===mi?"on":""} ${dn?"dn":""} ${op?"":"lk"}" data-map="${k}" role="tab" aria-selected="${k===mi}" ${op?"":"disabled"} aria-label="${esc(X.name)}${dn?", collected":op?", open":", locked"}">
-      <i style="background-image:url('${asset(X.art.wide.src)}')"></i><span>${op?esc(X.name):"Locked"}</span>${dn?`<em>${ICON.flag}</em>`:""}</button>`;}).join("")}</div>`;
-  // the progress along this map's trail: a pip for each stop, filled where the team has been
-  const pips=`<div class="tpips" aria-label="${M.steps.filter(st=>st.some(k=>climbed(t,k))).length} of ${M.steps.length} stops">${M.steps.map(st=>`<i class="${st.some(k=>climbed(t,k))?"on":""} ${st.length>1?"fork":""}"></i>`).join("")}</div>`;
-  const lead1=done?`<b>${esc(M.name)} is in your collection.</b> Climb any of its mountains again.`:next.length>1?`<b>The trail forks.</b> Choose your path${solo?"":" together"}.`:at?`<b>Next stop on the trail.</b>`:`<b>The trail starts here.</b> ${esc(M.blurb)}`;
-  const m=pick&&MOUNTAINS[pick];
-  return frameQ(t,`<div class="qhead"><span>${esc(M.name)} · Map ${mi+1} of ${MAPS.length} · ${M.label}</span>${pips}</div>
-   <p class="qsub">${lead1}</p>
-   <div class="routes mts ${next.length>1?"fork":""}">${next.map(card).join("")}</div>
-   ${m?`<p class="qsub"><b>${esc(m.name)}.</b> ${esc(m.desc)}</p>`:""}
-   ${TV()?`<p class="note">Choose on your phones.</p>`:can?`<button class="btn rope" id="setOffBtn">Set off for ${esc(m.name)}</button>`:pick&&isOpen(t,pick)?`<p class="note">Waiting for ${esc(nameOf(ids.find(i=>i!==S.uid)))} to pick ${esc(m.name)} too, or to set off.</p>`:next.length===1&&!done&&!TV()?`<p class="note">Tap ${esc(MOUNTAINS[next[0]].name)} to set off.</p>`:""}
-   ${strip}`);
-}
+const viewMap=t=>{const c=currentMap(t);if(S.mapView==null||S.mapCur!==c){S.mapView=c;S.mapCur=c;}return S.mapView=Math.max(0,Math.min(MAPS.length-1,S.mapView));};
+// look at another map: dir -1 or +1 (the painting slides that way)
+function lookMap(dir){if(!S.team)return;const v=viewMap(S.team)+dir;if(v<0||v>=MAPS.length)return;S.mapView=v;S.mapSlide=dir;S.mapPop=null;sfx("pop");
+  S.panelKey=null;S.worldKey=null;renderPanel(S.team);renderWorld(S.team);}
+// the map's panel: on screens that show the map, nothing (you choose on the map itself); on a phone that's the big
+// screen's controller, the next stop(s) as cards, and the way to set off
+function mapView(t){if(!PAD())return "";
+  const r=t.round,votes=r.votes||{},ids=memberIds(t),mine=votes[S.uid]?.mtn;
+  const mi=currentMap(t),M=MAPS[mi],done=mapDone(t,mi),next=done?M.steps.flat():nextOn(t,mi),pick=mapPick(t),m=pick&&MOUNTAINS[pick],can=m&&mayGo(t,pick);
+  const card=k=>{const x=MOUNTAINS[k];return `<button class="route mcard ${mine===k?"sel":""}" data-mtn="${k}"><h4>${esc(x.name)}</h4>
+    <span class="rmeta">${x.final?`${ICON.flag} Summit`:`Stop ${x.step+1} of ${M.steps.length}`}</span><span class="mfacts">${fmt(x.alt.top)} m · ${x.secs} s · ${x.hooks} hooks</span></button>`;};
+  return frameQ(t,`<div class="qhead"><span>${esc(M.name)} · Map ${mi+1} of ${MAPS.length}</span></div>
+   <p class="qsub">${next.length>1?"<b>The trail forks.</b> Choose your path.":"<b>Next stop on the trail.</b>"}</p>
+   <div class="routes mts">${next.map(card).join("")}</div>
+   ${can?`<button class="btn rope" id="setOffBtn">Set off for ${esc(m.name)}</button>`:m?`<p class="note">Waiting for your partner to choose ${esc(m.name)} too.</p>`:""}`);}
+// may this climber set off for k now (alone, leading this choice, or both chose it)?
+function mayGo(t,k){const ids=memberIds(t),v=t.round.votes||{},solo=ids.length<2,lead=solo||leaderOf(t)===S.uid||leaderOf(t)===SIM;
+  return isOpen(t,k)&&(lead||ids.every(i=>i===S.uid||v[i]?.mtn===k));}
 /* the map itself, while the team chooses: one painting filling the whole screen (the part of it the question box
    leaves, when that is a column down the side), a pin on each mountain (its name, its difficulty, who picked it, a
    flag once climbed) and the team's camp at the foot of the trails */
-function renderWorld(t){const el=$("#world");if(!el)return;const r=t&&t.round,on=!!(r&&r.phase==="map");
-  if(!on){if(!el.hidden){el.hidden=true;el.innerHTML="";S.worldKey=null;MAPFX.stop();}return;}
-  const votes=r.votes||{},ids=memberIds(t),pk=t.stats?.peaks||{},shape=mapShape(),mi=viewMap(t),key=JSON.stringify([votes,pk,ids,shape,mi,t.stats?.trail||{}]);
+function renderWorld(t){const el=$("#world");if(!el)return;const r=t&&t.round,on=!!(r&&r.phase==="map"&&!PAD());
+  if(!on){if(!el.hidden){el.hidden=true;el.innerHTML="";S.worldKey=null;S.mapPop=null;MAPFX.stop();}return;}
+  const votes=r.votes||{},ids=memberIds(t),pk=t.stats?.peaks||{},shape=mapShape(),mi=viewMap(t),key=JSON.stringify([votes,pk,ids,shape,mi,t.stats?.trail||{},S.mapPop]);
   if(el.hidden){el.hidden=false;el.classList.remove("in");void el.offsetWidth;el.classList.add("in");}
-  if(S.worldKey!==key){const fresh=S.worldMap!==mi||S.worldShape!==shape;S.worldKey=key;S.worldMap=mi;S.worldShape=shape;const M=MAPS[mi],A=M.art[shape],P=A.pins,done=mapDone(t,mi),next=done?[]:nextOn(t,mi);
-    // a pin on each mountain: named where the team has been or can go, "???" further along the trail
+  if(S.worldKey!==key){const fresh=S.worldMap!==mi||S.worldShape!==shape;S.worldKey=key;S.worldMap=mi;S.worldShape=shape;
+    const M=MAPS[mi],A=M.art[shape],P=A.pins,open=mapOpen(t,mi),done=mapDone(t,mi),next=done||!open?[]:nextOn(t,mi);
+    // a banner on each mountain: named where the team has been or can go, "???" further along the trail
     const pin=k=>{const m=MOUNTAINS[k],[x,y]=P[k],op=isOpen(t,k),known=op||climbed(t,k),tags=ids.filter(i=>votes[i]?.mtn===k).map(i=>`<em class="${i===S.uid?"me":""}">${ptag(t,i)}</em>`).join("");
-      return `<button class="wpin d${m.diff} ${votes[S.uid]?.mtn===k?"sel":""} ${op?"":"lk"} ${pk[k]?"dn":""} ${next.includes(k)?"nx":""}" data-mtn="${k}" style="left:${100*x/A.w}%;top:${100*y/A.h}%" ${op?"":"disabled"} aria-label="${esc(m.name)}${pk[k]?", climbed":op?", next stop":", further along the trail"}">
+      return `<button class="wpin d${m.diff} ${votes[S.uid]?.mtn===k||S.mapPop===k?"sel":""} ${op?"":"lk"} ${pk[k]?"dn":""} ${next.includes(k)?"nx":""}" data-mtn="${k}" style="left:${100*x/A.w}%;top:${100*y/A.h}%" ${op&&!TV()?"":"disabled"} aria-label="${esc(known?m.name:"Unknown mountain")}${pk[k]?", climbed":op?", next stop":", further along the trail"}">
         <span class="wflag" aria-hidden="true"></span><span class="wplate"><b>${known?esc(m.name):"???"}</b><small>${m.final?`${ICON.flag} Summit`:known?`Stop ${m.step+1}`:"Ahead"}${pk[k]?ICON.flag:""}</small>${tags?`<span class="wtags">${tags}</span>`:""}</span></button>`;};
     if(fresh||!el.querySelector(".wmap")){
-      el.innerHTML=`<div class="wmap" data-shape="${shape}" data-map="${mi}"><img src="${asset(A.src)}" alt="A painted map of ${esc(M.name)}: six mountains along a winding trail">
-        <canvas class="wfx" width="${A.w}" height="${A.h}" aria-hidden="true"></canvas><span class="wcamp" style="left:${100*A.camp[0]/A.w}%;top:${100*A.camp[1]/A.h}%">Camp</span><div class="wpins"></div></div>`;
-      S.mapPan=null;el.classList.remove("in");void el.offsetWidth;el.classList.add("in");}
+      el.innerHTML=`<div class="wmap ${open?"":"locked"}" data-shape="${shape}" data-map="${mi}"><img src="${asset(A.src)}" alt="A painted map of ${esc(M.name)}: six mountains along a winding trail">
+        <canvas class="wfx" width="${A.w}" height="${A.h}" aria-hidden="true"></canvas><span class="wcamp" style="left:${100*A.camp[0]/A.w}%;top:${100*A.camp[1]/A.h}%">Camp</span><div class="wpins"></div></div>
+        <div class="wlock" ${open?"hidden":""}></div><div class="wnav"></div><div class="wpop" hidden></div>`;
+      S.mapPan=null;el.classList.remove("in","slideL","slideR");void el.offsetWidth;el.classList.add(S.mapSlide>0?"slideL":S.mapSlide<0?"slideR":"in");S.mapSlide=0;}
     el.querySelector(".wpins").innerHTML=M.steps.flat().map(pin).join("");
-    el.querySelectorAll(".wpin").forEach(b=>b.onclick=()=>pickMountain(b.dataset.mtn));
+    // the map's own plate along the bottom: its name and place, the stops climbed, and arrows to the maps either side
+    const stops=M.steps.map(st=>`<i class="${st.some(k=>climbed(t,k))?"on":""} ${st.length>1?"fork":""}"></i>`).join("");
+    el.querySelector(".wnav").innerHTML=`<button class="wnarrow" id="mapPrev" ${mi>0?"":"disabled"} aria-label="Previous map">◀</button>
+      <div class="wnplate"><b>${esc(M.name)}</b><small>Map ${mi+1} of ${MAPS.length} · ${M.label}${done?" · Collected":""}</small><span class="tpips">${stops}</span>
+        <span class="wndots">${MAPS.map((X,k)=>`<i class="${k===mi?"on":""} ${mapDone(t,k)?"dn":mapOpen(t,k)?"op":""}"></i>`).join("")}</span></div>
+      <button class="wnarrow" id="mapNext" ${mi<MAPS.length-1?"":"disabled"} aria-label="Next map">▶</button>`;
+    el.querySelector("#mapPrev").onclick=()=>lookMap(-1);el.querySelector("#mapNext").onclick=()=>lookMap(1);
+    // a map not reached yet: seen through, darker, under a lock
+    const lk=el.querySelector(".wlock");lk.hidden=open;if(!open)lk.innerHTML=`<div class="wlplate">${ICON.flag}<b>${esc(M.name)}</b><span>Complete ${esc(MAPS[mi-1].name)} to unlock</span></div>`;
+    el.querySelector(".wmap").classList.toggle("locked",!open);
+    // (on the big screen the phones choose; it only shows the map)
+    if(TV()&&open){lk.hidden=false;lk.innerHTML=`<div class="wlplate tvnote"><b>Choose on your phones</b><span>${next.length>1?"The trail forks: pick one of two mountains.":"Next stop: "+esc(MOUNTAINS[next[0]]?.name||"")}</span></div>`;lk.classList.add("tv");}else lk.classList.remove("tv");
+    el.querySelectorAll(".wpin").forEach(b=>b.onclick=e=>{e.stopPropagation();openPop(b.dataset.mtn);});
+    renderPop(t,mi,shape);
     MAPFX.set(t,mi,shape,el.querySelector(".wfx"),el.querySelector(".wmap>img"));}
   fitWorld();}
-
+// the confirm card on a banner: the mountain, its numbers and what it is, and the way to set off (or to choose it, if
+// the partner leads this choice); a tap anywhere else on the map closes it
+function openPop(k){if(!S.team||!isOpen(S.team,k)||TV())return;sfx("pop");S.mapPop=S.mapPop===k?null:k;S.worldKey=null;renderWorld(S.team);}
+function renderPop(t,mi,shape){const el=$("#world .wpop");if(!el)return;const k=S.mapPop,m=k&&MOUNTAINS[k];
+  if(!m||m.map!==mi||!isOpen(t,k)){el.hidden=true;return;}
+  const ids=memberIds(t),votes=t.round.votes||{},mine=votes[S.uid]?.mtn===k,go=mayGo(t,k),pid=partnerId(t),theirs=pid&&votes[pid]?.mtn;
+  el.innerHTML=`<div class="wphead"><b>${esc(m.name)}</b><button class="ibtn wpx" type="button" aria-label="Close">${ICON.x}</button></div>
+    <small>${m.final?`${ICON.flag} Summit of ${esc(MAPS[mi].name)}`:`Stop ${m.step+1} of 4`} · ${fmt(m.alt.top)} m</small>
+    <p>${esc(m.desc)}</p>
+    <div class="wpfacts"><span><b>${m.secs} s</b>to answer</span><span><b>${m.hooks}</b>hooks a stage</span><span>${tierMarks(Math.max(1,Math.min(4,2+m.tier)))}<i>questions</i></span></div>
+    ${climbed(t,k)?`<p class="note">${ICON.flag} Climbed ${t.stats.peaks[k].n}×</p>`:""}
+    ${go?`<button class="btn rope" id="popGo">Set off for ${esc(m.name)}</button>`:mine?`<p class="note">Waiting for ${esc(nameOf(pid))} to choose it too.</p>`:`<button class="btn rope" id="popPick">Choose ${esc(m.name)}</button>${theirs&&theirs!==k?`<p class="note">${esc(nameOf(pid))} chose ${esc(MOUNTAINS[theirs].name)}.</p>`:""}`}`;
+  el.hidden=false;
+  el.querySelector(".wpx").onclick=()=>{S.mapPop=null;S.worldKey=null;renderWorld(S.team);};
+  el.querySelector("#popGo")?.addEventListener("click",()=>{pickMountain(k);chooseMountain(k);S.mapPop=null;});
+  el.querySelector("#popPick")?.addEventListener("click",()=>{pickMountain(k);});
+  placePop();}
+// (next to its banner: below it if there's room, else above; kept on the screen)
+function placePop(){const el=$("#world .wpop"),b=S.mapPop&&$(`#world .wpin[data-mtn="${S.mapPop}"]`);if(!el||el.hidden||!b)return;
+  const W=$("#world").getBoundingClientRect(),r=b.getBoundingClientRect(),w=Math.min(300,W.width-24);el.style.width=w+"px";const h=el.offsetHeight;
+  let x=r.left+r.width/2-w/2-W.left,y=r.bottom+10-W.top;if(y+h>W.height-90)y=r.top-h-10-W.top;
+  el.style.left=Math.max(12,Math.min(W.width-w-12,x))+"px";el.style.top=Math.max(64,Math.min(W.height-h-12,y))+"px";}
 /* ---------- the living map: the trail, the team walking it, and the weather over the painting ----------
    One canvas over the painting, at the painting's own pixels. The trail runs from the camp from stop to stop; where it
    forks it parts at a junction and meets again at the next one. It's drawn as dots of packed earth: gold where the
@@ -919,11 +952,13 @@ const MAPFX=(()=>{let cv=null,g=null,raf=0,st=null,last=0,T=0,DT=0,TEAM=null;
       tx=q[0];ty=q[1];walking=u>0;flip=q[0]<q0[0];}}
     const step=walking&&Math.floor(T*8)%2,bob=walking?0:(Math.floor(T*2)%2);
     g.fillStyle="rgba(10,10,20,.4)";g.fillRect(R(tx)-14,R(ty),28,3);
-    TEAM={x:tx,y:ty,walking:!!st.walk};
+    TEAM={x:tx,y:ty,walking:!!st.walk};if(!mapOpen(st.t,st.mi)){TEAM=null;return finishDraw(dt);}
     drawFig(tx-7,ty-bob,0,step,flip);drawFig(tx+7,ty-(1-bob)*(walking?0:1),1,!step&&walking,flip);
     // (a gold marker bobbing over them while they wait)
     if(!walking){const my=R(ty)-26-(Math.floor(T*2.5)%2)*2;g.fillStyle="#141018";g.fillRect(R(tx)-5,my-1,11,7);g.fillStyle="#f2b233";
       for(let j=0;j<5;j++)g.fillRect(R(tx)-4+j,my+j,9-2*j,1);}
+    finishDraw(dt);}
+  function finishDraw(dt){const {A}=st,W=A.w,H=A.h,calm=RM.matches;
     // clouds
     for(const c of st.clouds){for(let i=0;i<5;i++){const r=R((7+hsh(i,c.s)*6)*c.s),x=R(c.x+i*9*c.s-18),y=R(c.y+hsh(i,7)*5);
       g.fillStyle="rgba(255,255,255,.78)";g.beginPath();g.arc(x,y,r,0,7);g.fill();g.fillStyle="rgba(200,212,230,.6)";g.fillRect(x-r,y+R(r*.5),r*2,R(r*.4));}}
@@ -948,15 +983,14 @@ function fitWorld(){const el=$("#world"),map=el&&el.querySelector(".wmap");if(!m
   if(map.dataset.shape!==mapShape()){S.worldKey=null;if(S.team)renderWorld(S.team);return;}
   const R=mapRect(),mi=+map.dataset.map,M=MAPS[mi].art[map.dataset.shape],dpr=Math.max(1,window.devicePixelRatio||1),bar=$("#bar").getBoundingClientRect().bottom;
   // the painting covers its space at a whole number of device pixels per painted pixel (or just enough to cover)
-  // (on a phone, where the question box covers the lower part, at least 1.5 times as tall as what's left above it)
-  const cover=Math.max((R.cw||R.w)/M.w,R.h/M.h,R.cw?0:(R.vis-R.y)*1.5/M.h),whole=Math.ceil(cover*dpr-1e-6)/dpr,s=whole<=cover*1.35?whole:cover,w=M.w*s,h=M.h*s,snap=v=>Math.round(v*dpr)/dpr;
+  const cover=Math.max((R.cw||R.w)/M.w,R.h/M.h),whole=Math.ceil(cover*dpr-1e-6)/dpr,s=whole<=cover*1.35?whole:cover,w=M.w*s,h=M.h*s,snap=v=>Math.round(v*dpr)/dpr;
   // it's centred on what matters now: the next step to climb (else the picked mountain, else the camp), in the part
   // of the screen between the bar and the question box; dragging it moves it from there, within the painting
   // (what it looks at: the team while they walk the trail; then the team and their next stop(s) together if they
   // fit, else the next stop(s); it glides from one to the other)
-  const t=S.team,P=M.pins,next=t&&!mapDone(t,mi)?nextOn(t,mi):[],pick=t&&t.round.votes?.[S.uid]?.mtn,tm=MAPFX.team();
+  const t=S.team,P=M.pins,next=t&&mapOpen(t,mi)&&!mapDone(t,mi)?nextOn(t,mi):[],pick=t&&t.round.votes?.[S.uid]?.mtn,tm=MAPFX.team();
   const top=Math.max(0,bar-R.y),vis=R.vis-R.y;
-  let pts=next.length?next.map(k=>P[k]):pick&&P[pick]?[P[pick]]:[M.camp];
+  let pts=next.length?next.map(k=>P[k]):pick&&P[pick]?[P[pick]]:t&&!mapOpen(t,mi)?[[M.w/2,M.h/2]]:[M.camp];
   if(tm&&tm.walking)pts=[[tm.x,tm.y-20]];
   else if(tm){const all=[...pts,[tm.x,tm.y-10]],ys=all.map(q=>q[1]),xs=all.map(q=>q[0]);
     if((Math.max(...ys)-Math.min(...ys))*s+90<=vis-top&&(Math.max(...xs)-Math.min(...xs))*s+60<=(R.cw||R.w))pts=all;}
@@ -973,15 +1007,20 @@ function fitWorld(){const el=$("#world"),map=el&&el.querySelector(".wmap");if(!m
   pan.x=x-(cw/2-fx*s);pan.y=y-((top+vis)/2+20-fy*s);
   Object.assign(el.style,{left:R.x+"px",top:R.y+"px",width:R.w+"px",height:R.h+"px"});
   Object.assign(map.style,{width:w+"px",height:h+"px",left:snap(x)+"px",top:snap(y)+"px"});
-  map.classList.toggle("tight",R.w<430);}
+  map.classList.toggle("tight",R.w<430);placePop();}
 // dragging the map (a finger or the mouse) looks around it; a drag never counts as a tap on a pin
 {let drag=null;const W=()=>$("#world");
-  addEventListener("pointerdown",e=>{const el=W();if(!el||el.hidden||!el.contains(e.target))return;drag={x:e.clientX,y:e.clientY,moved:false,id:e.pointerId};});
+  addEventListener("pointerdown",e=>{const el=W();if(!el||el.hidden||!el.contains(e.target)||e.target.closest(".wpop,.wnav"))return;drag={x:e.clientX,y:e.clientY,x0:e.clientX,y0:e.clientY,t0:performance.now(),moved:false,id:e.pointerId};});
   addEventListener("pointermove",e=>{if(!drag||e.pointerId!==drag.id||!S.mapPan)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
     if(!drag.moved&&Math.hypot(dx,dy)<6)return;drag.moved=true;S.mapPan.x+=dx;S.mapPan.y+=dy;drag.x=e.clientX;drag.y=e.clientY;fitWorld();});
-  addEventListener("pointerup",e=>{if(drag&&drag.moved){const el=W();if(el){const stop=ev=>{ev.stopPropagation();ev.preventDefault();};el.addEventListener("click",stop,{capture:true,once:true});setTimeout(()=>el.removeEventListener("click",stop,{capture:true}),50);}}drag=null;});
+  addEventListener("pointerup",e=>{
+    // (a quick sideways flick looks at the next or previous map)
+    if(drag&&drag.moved){const dx=e.clientX-drag.x0,dy=e.clientY-drag.y0;if(Math.abs(dx)>90&&Math.abs(dx)>2*Math.abs(dy)&&performance.now()-drag.t0<450)setTimeout(()=>lookMap(dx<0?1:-1),0);}
+    else if(drag&&S.mapPop&&!e.target.closest(".wpin")){S.mapPop=null;S.worldKey=null;if(S.team)renderWorld(S.team);}
+    if(drag&&drag.moved){const el=W();if(el){const stop=ev=>{ev.stopPropagation();ev.preventDefault();};el.addEventListener("click",stop,{capture:true,once:true});setTimeout(()=>el.removeEventListener("click",stop,{capture:true}),50);}}drag=null;});
   addEventListener("pointercancel",()=>{drag=null;});
-  addEventListener("wheel",e=>{const el=W();if(!el||el.hidden||!el.contains(e.target)||!S.mapPan)return;S.mapPan.x-=e.deltaX;S.mapPan.y-=e.deltaY;fitWorld();},{passive:true});}
+  addEventListener("keydown",e=>{const el=W();if(!el||el.hidden||e.target.closest&&e.target.closest("input,textarea"))return;if(e.key==="ArrowRight")lookMap(1);else if(e.key==="ArrowLeft")lookMap(-1);});
+  addEventListener("wheel",e=>{const el=W();if(!el||el.hidden||!el.contains(e.target)||!S.mapPan||e.target.closest(".wpop"))return;S.mapPan.x-=e.deltaX;S.mapPan.y-=e.deltaY;fitWorld();},{passive:true});}
 addEventListener("resize",()=>fitWorld());
 // at camp: two rows of cards, the route on and the bonus gear; each climber's picks are shown under the cards
 function campView(t){
@@ -1133,7 +1172,7 @@ function updateDynamic(t){
    result, the rope, the radio, a camp, a hook clipped. Each shows once on this device (and never on the big screen);
    "Got it" moves on, "Skip tips" turns them all off. They wait for the panel to settle, and never cover the answers. */
 const TIPS=[
-  {id:"map",when:t=>t.round.phase==="map",at:"#panel .routes, #panel",text:"Pick a mountain together. The higher it is, the harder the questions and the fewer hooks you carry."},
+  {id:"map",when:t=>t.round.phase==="map"&&!PAD()&&mapOpen(t,viewMap(t)),at:"#world .wpin.nx, #world .wnav",text:"Tap a mountain's banner to choose it. Use the arrows (or swipe) to see the maps ahead: finish one to unlock the next."},
   {id:"answer",when:t=>t.round.phase==="answer"&&now()>t.round.startedAt+600&&!S.answers[S.uid],at:"#panel .qopts",text:"Tap an answer, then Lock in. Your partner answers too, in secret. Right climbs a pitch; wrong falls."},
   {id:"hook",when:t=>t.round.phase==="answer"&&now()>t.round.startedAt+600&&!S.answers[S.uid]&&!$("#hookBtn")?.disabled&&S.tipsSeen.has("answer"),at:"#hookBtn",text:"Not sure? Clip a hook. It stays in the wall where you are, and a fall stops at it instead of at the last camp."},
   {id:"result",when:t=>t.round.phase==="reveal"&&S.sus!==t.round.id&&S.susDone===t.round.id,at:"#panel .result",text:"Right answers climb, wrong ones fall to the highest hook below you, or the last camp. The next question comes by itself."},

@@ -633,3 +633,33 @@ body.pad #main.game2 .routes.mts{grid-template-columns:1fr}
 .tpips{display:flex;gap:5px;align-items:center}.tpips i{width:10px;height:10px;border:2px solid var(--line);background:var(--navy)}
 .tpips i.fork{transform:rotate(45deg);width:9px;height:9px}.tpips i.on{background:var(--gold);border-color:var(--goldL,#ffd27a)}
 .routes.mts.fork .mcard.next{border-color:var(--gold)}
+
+/* ---------- the full-screen map: no panel, the map's plate along the bottom, a lock over maps ahead, the confirm card ---------- */
+body.mapfull #main{display:none}body.mapfull .coach.inline{display:none}
+.world.slideL .wmap{animation:map-slideL .35s steps(6) both}.world.slideR .wmap{animation:map-slideR .35s steps(6) both}
+@keyframes map-slideL{from{transform:translateX(18%);opacity:0}}@keyframes map-slideR{from{transform:translateX(-18%);opacity:0}}
+.wmap.locked img,.wmap.locked .wfx{filter:grayscale(.55) brightness(.55)}
+.wnav{position:absolute;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:4;display:flex;align-items:stretch;gap:8px}
+.wnarrow{width:46px;font:400 20px/1 var(--head);color:var(--gold);background:var(--panel);border:2px solid var(--cream);box-shadow:var(--frame);cursor:pointer}
+.wnarrow:disabled{color:var(--dim);border-color:var(--line);cursor:default}
+.wnplate{display:grid;justify-items:center;gap:4px;padding:8px 16px;background:var(--panel);border:2px solid var(--cream);box-shadow:var(--frame);min-width:200px}
+.wnplate b{font:400 20px/1 var(--head);color:var(--gold);text-transform:uppercase;letter-spacing:.03em}
+.wnplate small{font:600 13px/1 var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.wndots{display:flex;gap:4px}.wndots i{width:7px;height:7px;background:var(--line)}.wndots i.op{background:var(--cream)}.wndots i.dn{background:var(--gold)}.wndots i.on{outline:2px solid var(--gold);outline-offset:1px}
+.wlock{position:absolute;inset:0;z-index:3;display:grid;place-items:center;pointer-events:none}.wlock[hidden]{display:none}
+.wlock.tv{place-items:start center;padding-top:80px}
+.wlplate{display:grid;justify-items:center;gap:6px;padding:14px 20px;background:var(--panel);border:2px solid var(--cream);box-shadow:var(--frame);text-align:center}
+.wlplate .px{width:22px;height:22px;filter:grayscale(1)}.wlplate b{font:400 24px/1 var(--head);color:var(--cream);text-transform:uppercase}.wlplate span{font:600 15px/1.3 var(--body);color:var(--muted)}
+.wlplate.tvnote .px{display:none}.wlplate.tvnote b{color:var(--gold)}
+.wpop{position:absolute;z-index:5;display:grid;gap:8px;padding:12px 14px;background:var(--panel);border:2px solid var(--gold);box-shadow:var(--frame);animation:coach-in .2s steps(3) both;cursor:default}
+.wpop[hidden]{display:none}.wphead{display:flex;justify-content:space-between;align-items:center;gap:8px}.wphead b{font:400 22px/1 var(--head);color:var(--gold);text-transform:uppercase}
+.wpop .wpx{padding:4px}.wpop .wpx .px{width:12px;height:12px}
+.wpop small{font:600 13px/1 var(--body);letter-spacing:.05em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:4px}.wpop small .px{width:12px;height:12px}
+.wpop p{margin:0;font:500 15px/1.35 var(--body);color:var(--ink)}
+.wpfacts{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.wpfacts span{display:grid;gap:2px;padding:6px;background:var(--navy);border:2px solid var(--line);font:600 12px/1.1 var(--body);color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.wpfacts b{font:400 16px/1 var(--head);color:var(--cream)}.wpfacts i{font-style:normal}
+.wpop .btn{width:100%}.wpop .note{margin:0}
+@media (max-width:899px),(max-height:520px){.wnplate{min-width:0;padding:6px 10px}.wnplate b{font-size:17px}.wnarrow{width:40px}}
+.wnplate b{white-space:nowrap}.wnplate small{white-space:nowrap}
+@media (max-width:420px){.wnplate b{font-size:16px}.wnplate small{font-size:11px;letter-spacing:.03em}.wnav{gap:6px}.wnarrow{width:36px}}
+body.tv .wpin{pointer-events:none}
