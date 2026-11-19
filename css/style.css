@@ -1,3 +1,15 @@
+/* the game's two fonts, hosted with it: Jersey 10 for headings, buttons and labels, Jersey 15 for text. They draw
+   smaller than the fonts they replaced, so each is scaled once here (size-adjust), and every size in this file keeps
+   its meaning */
+@font-face{font-family:"Pinnacle Head";src:url("../assets/fonts/jersey10-latin.woff2") format("woff2");size-adjust:180%;font-display:swap;
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Pinnacle Head";src:url("../assets/fonts/jersey10-ext.woff2") format("woff2");size-adjust:180%;font-display:swap;
+  unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+1E00-1E9F,U+20A0-20AB,U+20AD-20C0,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"Pinnacle Pixel";src:url("../assets/fonts/jersey10-latin.woff2") format("woff2");font-display:swap}
+@font-face{font-family:"Pinnacle Body";src:url("../assets/fonts/jersey15-latin.woff2") format("woff2");size-adjust:118%;font-display:swap;
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Pinnacle Body";src:url("../assets/fonts/jersey15-ext.woff2") format("woff2");size-adjust:118%;font-display:swap;
+  unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+1E00-1E9F,U+20A0-20AB,U+20AD-20C0,U+2C60-2C7F,U+A720-A7FF}
 /* Pinnacle UI kit: 16-bit mountain adventure, after the concept sheet.
    Near-black navy panels with a cream pixel line and a hard drop shadow; one bitmap face (Press Start 2P, used at
    multiples of 8px so it stays on its grid) for labels and headings, one readable pixel face (Pixelify Sans) for
@@ -10,7 +22,7 @@
   --cream:#dfeaee;--ink:#eef3f1;--muted:#9db0b6;--dim:#5d747e;
   --gold:#f1c677;--goldD:#a8782e;--goldL:#fff1cf;--orange:#e8792b;--red:#d23c2a;--redD:#8c2a1d;
   --good:#8fd16a;--goodD:#24502a;--warn:#f1c677;--bad:#ff6a5a;--ice:#9fd0f0;
-  --head:"Press Start 2P",monospace;--body:"Pixelify Sans","Trebuchet MS",system-ui,sans-serif;
+  --head:"Pinnacle Head","Trebuchet MS",sans-serif;--body:"Pinnacle Body","Trebuchet MS",system-ui,sans-serif;
   --edge:max(12px,env(safe-area-inset-left,0px));--edgeR:max(12px,env(safe-area-inset-right,0px));--colW:min(440px,38vw);
   /* the frame: a black keyline outside the pale line, a dark gap and a dim teal line inside it, and a hard shadow */
   --frame:0 0 0 2px var(--navy),4px 4px 0 2px rgba(1,6,10,.8),inset 0 0 0 2px var(--navy),inset 0 0 0 4px #17323f;

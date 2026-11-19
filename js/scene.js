@@ -9,7 +9,7 @@ const WK=.8,HS=16,CHK=128;
 const WY=a=>-(a-ALT.base)*WK,TOPY=WY(ALT.top);
 const IDX_C1=Math.round(-WY(ALT.c1)/HS),IDX_C2=Math.round(-WY(ALT.c2)/HS),IDX_TOP=Math.round(-TOPY/HS);
 const RM=matchMedia("(prefers-reduced-motion: reduce)");
-const INK="#141018",PXFONT='"Press Start 2P",monospace';
+const INK="#141018",PXFONT='"Pinnacle Pixel",monospace',PXSIZE=16; // (Jersey 10 at its own pixel size: every pixel lands whole)
 const FX={cv:null,g:null,W:1,H:1,px:3,vw:1,vh:1,ox:0,raf:0,last:0,time:0,dt:0,ch:{main:0},tw:[],A:null,exp:null,mode:"",state:null,
   cam:null,area:null,areaAt:0,focus:"me",shake:0,parts:[],pops:[],chunks:new Map(),lit:{c1:1,c2:1},litAt:{},rope:null,pins:[],visible:true,
   birds:[],nextBird:2,label:null,layers:null,base:null,camps:{},text:new Map(),poofs:[]};
@@ -57,8 +57,8 @@ const mk=(w,h)=>{const c=document.createElement("canvas");c.width=Math.max(1,w);
 function gridSprite(rows,pal){const [c,g]=mk(rows[0].length,rows.length);rows.forEach((row,y)=>[...row].forEach((ch,x)=>{if(pal[ch])dot(g,x,y,pal[ch]);}));return c;}
 // crisp pixel text: drawn with the 8px bitmap face, then every pixel snapped fully on or off; optional 1px outline
 function textSprite(text,col=C.cream,out=INK){const key=text+"|"+col+"|"+out;let s=FX.text.get(key);if(s)return s;
-  const [m,mg]=mk(1,1);mg.font=`8px ${PXFONT}`;const w=Math.ceil(mg.measureText(text).width)+4,h=12;
-  const [c,g]=mk(w,h);g.font=`8px ${PXFONT}`;g.textBaseline="top";g.fillStyle="#fff";g.fillText(text,2,2);
+  const [m,mg]=mk(1,1);mg.font=`${PXSIZE}px ${PXFONT}`;const w=Math.ceil(mg.measureText(text).width)+4,h=PXSIZE+2;
+  const [c,g]=mk(w,h);g.font=`${PXSIZE}px ${PXFONT}`;g.textBaseline="top";g.fillStyle="#fff";g.fillText(text,2,2);
   const id=g.getImageData(0,0,w,h),d=id.data,on=new Uint8Array(w*h);for(let i=0;i<w*h;i++)on[i]=d[i*4+3]>110?1:0;
   const [o,og]=mk(w,h);
   if(out)for(let y=0;y<h;y++)for(let x=0;x<w;x++){if(on[y*w+x])continue;
@@ -66,7 +66,7 @@ function textSprite(text,col=C.cream,out=INK){const key=text+"|"+col+"|"+out;let
   for(let y=0;y<h;y++)for(let x=0;x<w;x++)if(on[y*w+x])dot(og,x,y,col);
   if(FX.text.size>200)FX.text.clear();FX.text.set(key,o);return o;}
 // signs are baked into cached layers, so those repaint once the face has loaded
-if(document.fonts)document.fonts.load(`8px ${PXFONT}`).then(()=>{FX.text.clear();},()=>{});
+if(document.fonts)document.fonts.load(`${PXSIZE}px ${PXFONT}`).then(()=>{FX.text.clear();},()=>{});
 
 /* ---------- small sprites ---------- */
 const SP={};

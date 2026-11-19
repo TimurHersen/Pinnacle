@@ -5,16 +5,16 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Pinnacle test mode</title>
 <meta name="robots" content="noindex">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pixelify+Sans:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jersey+10&family=Jersey+15&display=swap">
 <style>
 /* Test mode: both players of one rope team side by side, on a shared in-memory database, with controls to jump
    around the climb and force results. Nothing here touches the real Firebase teams. */
 :root{--bg:#0b1322;--panel:#16233d;--line:#2c3d5f;--cream:#f4e6c4;--ink:#c9d3e6;--muted:#8796b3;--gold:#f2c14e;--red:#e05a4a;--green:#7cc36a;color-scheme:dark}
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden}
-body{background:var(--bg);color:var(--ink);font:500 15px/1.35 "Pixelify Sans",system-ui,sans-serif;display:flex;flex-direction:column}
+body{background:var(--bg);color:var(--ink);font:400 18px/1.3 "Jersey 15",system-ui,sans-serif;display:flex;flex-direction:column}
 .ctl{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;padding:8px 12px;background:var(--panel);border-bottom:2px solid var(--line)}
-.ctl h1{font:400 11px/1 "Press Start 2P",monospace;color:var(--gold);margin:0 6px 0 0}
+.ctl h1{font:400 20px/1 "Jersey 10",monospace;color:var(--gold);margin:0 6px 0 0}
 .grp{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
 .grp>span{color:var(--muted);font-size:13px;margin-right:2px}
 button,select,input{font:inherit;color:var(--cream);background:#0f1a2e;border:2px solid var(--line);padding:3px 8px;cursor:pointer}
@@ -28,8 +28,8 @@ input[type=text]{cursor:text;width:13em}
 .stage{flex:1;display:flex;gap:8px;padding:8px;min-height:0}
 .seat{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
 .seat[hidden]{display:none}
-.seat header{display:flex;justify-content:space-between;align-items:center;font:400 9px/1 "Press Start 2P",monospace;color:var(--cream);padding:4px 2px 6px}
-.seat header button{font:500 12px/1 "Pixelify Sans",sans-serif;padding:2px 6px}
+.seat header{display:flex;justify-content:space-between;align-items:center;font:400 16px/1 "Jersey 10",monospace;color:var(--cream);padding:4px 2px 6px}
+.seat header button{font:400 15px/1 "Jersey 15",sans-serif;padding:2px 6px}
 .box{flex:1;position:relative;overflow:hidden;border:2px solid var(--line);background:#000;min-height:0}
 .box iframe{position:absolute;left:0;top:0;border:0;transform-origin:0 0;background:#000}
 /* the controls fold away behind a button on a phone (they open as a sheet over the game), so the game gets the
