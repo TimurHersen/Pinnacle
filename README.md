@@ -39,7 +39,7 @@ Play it at **https://timurhersen.github.io/Pinnacle/**
 
 ## Climbers
 
-Each player chooses who they climb as (on the map: the Climber button, and on first reaching the map): the Lumberjack, the Explorer, the Rocker (a mullet and a green shirt) or Copper (copper hair and bangs, with her grey cat). Two on a rope can't pick the same one. The Rocker and Copper are redrawn over the Lumberjack's and the Explorer's frames (`assets/climbers/mullet`, `assets/climbers/redcat`), so they share their poses and grip measurements.
+Each player chooses who they climb as (on the map: the Climber button, and on first reaching the map): the Lumberjack, the Explorer, Mod (a pitch-black mod cut and a navy track jacket) or Copper (copper hair and bangs, with her grey cat). Two on a rope can't pick the same one. Mod and Copper are redrawn over the Lumberjack's and the Explorer's frames (`assets/climbers/modcut`, `assets/climbers/redcat`), so they share their poses and grip measurements.
 
 ## Goals, leaderboards and the daily climb
 

@@ -107,7 +107,7 @@ test("profiles from two devices merge without losing anything",()=>{
   assert.equal(g.weekOf(Date.UTC(2026,10,16)),g.weekOf(Date.UTC(2026,10,22,23)));assert.notEqual(g.weekOf(Date.UTC(2026,10,16)),g.weekOf(Date.UTC(2026,10,15,23)));});
 test("choosing climbers: defaults by seat, a choice kept, never both the same",()=>{
   const t=team();assert.equal(g.charOf(t,"a"),"lumberjack");assert.equal(g.charOf(t,"b"),"woman");
-  t.members.a.char="redcat";t.members.b.char="mullet";assert.equal(g.charOf(t,"a"),"redcat");assert.equal(g.charOf(t,"b"),"mullet");
+  t.members.a.char="redcat";t.members.b.char="modcut";assert.equal(g.charOf(t,"a"),"redcat");assert.equal(g.charOf(t,"b"),"modcut");
   t.members.b.char="redcat";assert.notEqual(g.charOf(t,"b"),"redcat");
   delete t.members.a.char;t.members.b.char="lumberjack";assert.notEqual(g.charOf(t,"b"),"lumberjack");
   t.members.a.char="nobody";assert.equal(g.charOf(t,"a"),"lumberjack");});
