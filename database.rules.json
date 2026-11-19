@@ -102,8 +102,107 @@
         "teams": {
           ".validate": "newData.hasChildren() || !newData.exists()"
         },
+        "profile": {
+          ".validate": "newData.hasChildren() || !newData.exists()"
+        },
         "$other": {
           ".validate": false
+        }
+      }
+    },
+    "lb": {
+      "$m": {
+        ".validate": "$m.matches(/^[a-z]{2,20}$/)",
+        ".read": true,
+        ".indexOn": [
+          "ms"
+        ],
+        "$code": {
+          ".write": "auth != null",
+          ".validate": "$code.matches(/^[A-Z0-9]{6}$/) && newData.hasChildren(['name','ms','at']) && (!data.exists() || newData.child('ms').val() <= data.child('ms').val())",
+          "name": {
+            ".validate": "newData.isString() && newData.val().length <= 40"
+          },
+          "ms": {
+            ".validate": "newData.isNumber() && newData.val() > 0"
+          },
+          "at": {
+            ".validate": "newData.isNumber()"
+          },
+          "right": {
+            ".validate": "newData.isNumber()"
+          },
+          "q": {
+            ".validate": "newData.isNumber()"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
+    "lbw": {
+      "$week": {
+        ".validate": "$week.matches(/^w[0-9]{4,6}$/)",
+        "$m": {
+          ".validate": "$m.matches(/^[a-z]{2,20}$/)",
+          ".read": true,
+          ".indexOn": [
+            "ms"
+          ],
+          "$code": {
+            ".write": "auth != null",
+            ".validate": "$code.matches(/^[A-Z0-9]{6}$/) && newData.hasChildren(['name','ms','at']) && (!data.exists() || newData.child('ms').val() <= data.child('ms').val())",
+            "name": {
+              ".validate": "newData.isString() && newData.val().length <= 40"
+            },
+            "ms": {
+              ".validate": "newData.isNumber() && newData.val() > 0"
+            },
+            "at": {
+              ".validate": "newData.isNumber()"
+            },
+            "right": {
+              ".validate": "newData.isNumber()"
+            },
+            "q": {
+              ".validate": "newData.isNumber()"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        }
+      }
+    },
+    "lbd": {
+      "$day": {
+        ".validate": "$day.matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)",
+        ".read": true,
+        ".indexOn": [
+          "ms"
+        ],
+        "$code": {
+          ".write": "auth != null",
+          ".validate": "$code.matches(/^[A-Z0-9]{6}$/) && newData.hasChildren(['name','ms','at']) && (!data.exists() || newData.child('ms').val() <= data.child('ms').val())",
+          "name": {
+            ".validate": "newData.isString() && newData.val().length <= 40"
+          },
+          "ms": {
+            ".validate": "newData.isNumber() && newData.val() > 0"
+          },
+          "at": {
+            ".validate": "newData.isNumber()"
+          },
+          "right": {
+            ".validate": "newData.isNumber()"
+          },
+          "q": {
+            ".validate": "newData.isNumber()"
+          },
+          "$other": {
+            ".validate": false
+          }
         }
       }
     }

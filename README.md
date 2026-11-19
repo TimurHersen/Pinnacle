@@ -36,3 +36,13 @@ Play it at **https://timurhersen.github.io/Pinnacle/**
   and Anonymous; Authentication → Settings → Authorized domains: add `timurhersen.github.io`; paste the `apiKey`
   and push; only then paste `database.rules.json` (its writes need a signed-in player, guest or account).
 - `database.rules.json` holds the database access rules. Paste them into Firebase console → Realtime Database → Rules whenever they change. They keep a team from being deleted, check the shape of what's written, cap the length of names and messages, and let each climber clear their own entry from the list of who's online.
+
+## Goals, leaderboards and the daily climb
+
+- Every mountain has three stars to win: reach the top, climb with no falls, climb with no hooks used. A star once won stays won.
+- Climbs on the first maps are shorter (Greenvale about 8–10 pitches) and grow to full length by Frostreach. Each map leans on one question category.
+- About one pitch in five asks a question built from real peaks' heights (which is higher, put three in order, pick the right height range), and now and then a pitch brings a wall event: a storm (less time), loose rock (nearby hooks won't hold) or a calm spell (a free hint).
+- The climber profile (title screen → Profile) counts summits, stars, maps and best times across every rope team, on the device and on the account when signed in.
+- Leaderboards: the fastest three-star ascent of each mountain, all-time and this week (on a mountain's card), and the daily climb's fastest teams. The daily climb is one short route a day, the same mountain and questions for every team, opened from the map.
+- The kit (on the map): rope colours won by collecting maps, summit flags won with stars, and the lucky charm (three maps), which forgives one fall a climb.
+- These use new database paths (`lb`, `lbw`, `lbd`, `users/<id>/profile`): paste the updated `database.rules.json` into the Firebase console.

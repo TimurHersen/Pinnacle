@@ -965,7 +965,7 @@ function baseLayer(ox=FX.ox,w=FX.vw){const hit=[FX.base,FX.base2].find(B=>B&&B.o
 // camp it covered the signpost; the two tall trees behind the tent carry the forest)
 function drawFrontPines(g,ox,oy){}
 // a tall flag on the tip (a red pennant on a pole, in a little cairn), and a signpost down the left ridge
-function drawSummit(g,t,ox,oy){const fx=SX-18,fy=R0(peakTop(fx))+1,F=pennant(15,9,C.red,"summit");
+function drawSummit(g,t,ox,oy){const fx=SX-18,fy=R0(peakTop(fx))+1,fc=FX.flagC||C.red,F=pennant(15,9,fc,"summit"+fc);
   rect(g,fx+ox-1,fy-36+oy,3,37,INK);rect(g,fx+ox,fy-35+oy,1,35,C.metal);dot(g,fx+ox,fy-37+oy,INK);
   g.drawImage(F[RM.matches?0:Math.floor(t*6)%4],fx+2+ox,fy-37+oy);
   for(const [dx,dy,w,col] of [[-4,-2,4,C.metalD],[1,-3,5,C.metal],[-2,-5,4,"#9aa2b0"],[-5,0,11,INK]])rect(g,fx+dx+ox,fy+dy+oy,w,dy===0?1:2,col);
@@ -1394,7 +1394,9 @@ function drawTopo(t){
   if(!ensureScene())return;
   if(!t){FX.focus="me";FX.label=null;FX.lit={c1:1,c2:1};FX.litAt={};FX.A.me.gear=3;
     if(FX.mode!=="lobby"){FX.mode="lobby";FX.exp=DEMO;FX.cam=null;runDemo();}return;}
-  const exp=t.exp,r=t.round;FX.exp=exp;setLead(t);FX.stormOn=r.phase==="answer"&&r.ev==="storm";
+  const exp=t.exp,r=t.round;FX.exp=exp;setLead(t);
+  // (the team's kit: its rope colour and summit flag)
+  if(typeof ropeOf==="function"){Object.assign(ROPE,ropeOf(t).c);FX.flagC=flagOf(t).c;}FX.stormOn=r.phase==="answer"&&r.ev==="storm";
   // the hooks in the wall, each where it was clipped; a new one drops in with a word from whoever clipped it
   {const hs=(exp.hooks||[]).map(p=>hookIdxAt(exp,p)).filter(i=>i!=null),old=FX.hooks||[],fresh=hs.filter(i=>!old.includes(i));
     if(fresh.length&&FX.mode==="game"&&r.phase==="answer"&&FX.hooksOf===exp.n){FX.hookNew=fresh[fresh.length-1];FX.hookAt=FX.time;if(r.hookBy!==(typeof S!=="undefined"&&S.uid))sfx("clip");const who=rigOfId(t,r.hookBy);if(who)pop(who,"CLIPPED!");}

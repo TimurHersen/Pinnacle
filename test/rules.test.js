@@ -87,6 +87,24 @@ test("loose rock: hooks within two pitches below don't hold; a calm spell gives 
     assert.ok(p.ev);if(p.ev==="storm")assert.ok(p.dur<g.MOUNTAINS.snowcap.secs);if(p.ev==="calm")assert.ok(p.scout);
     const v=team({pitch:0});v.round={id:1,phase:"reveal"};Math.random=()=>0.01;assert.equal(g.startPitch(v).round.ev,undefined);
   }finally{Math.random=R;}});
+test("the daily climb: the same mountain, route and questions for everyone; short; not counted on the map",()=>{
+  const d="2026-11-19";assert.equal(g.dailyMtn(d),g.dailyMtn(d));assert.ok([1,2,3].includes(MOUNTAINS[g.dailyMtn(d)].map));
+  for(let k=0;k<5;k++)assert.equal(g.dailyQuiz(d,2,k).id,g.dailyQuiz(d,2,k).id);
+  assert.notEqual([0,1,2,3].map(k=>g.dailyQuiz(d,2,k).id).join(),[0,1,2,3].map(k=>g.dailyQuiz("2026-11-20",2,k).id).join());
+  const t=team({m:g.dailyMtn(d),choice:["B","B"]});t.exp.daily=d;assert.ok(g.total(t.exp)<=8,String(g.total(t.exp)));
+  t.round={id:1,phase:"reveal"};t.exp.pitch=1;const a=g.startPitch(JSON.parse(JSON.stringify(t))).round,b=g.startPitch(JSON.parse(JSON.stringify(t))).round;
+  assert.equal(a.qid,b.qid);assert.equal(a.ev,undefined);
+  const u=team({m:g.dailyMtn(d),choice:["B","B"]});u.exp.daily=d;u.exp.pitch=g.total(u.exp)-1;const n=play(u,RIGHT,RIGHT);
+  assert.equal(n.round.result.arrived,"summit");assert.ok(n.stats.daily[d]);assert.equal(n.stats.peaks,undefined);assert.equal(n.stats.trail,undefined);});
+test("the lucky charm forgives the first fall of a climb, once",()=>{
+  const t=team({pitch:3});t.exp.charm=1;let n=play(t,WRONG,RIGHT);
+  assert.equal(pos(n,"a"),3);assert.ok(n.round.result.pl.a.charm);assert.equal(n.exp.charm,0);assert.equal(n.exp.run.falls,0);
+  n.round={...n.round,phase:"answer"};n=play(n,WRONG,RIGHT);assert.ok(pos(n,"a")<3);});
+test("profiles from two devices merge without losing anything",()=>{
+  const a={seen:{"X:1":"moss"},maps:{0:1},peaks:{moss:{g:3,ms:500}},daily:{}},b={seen:{"Y:2":"moss"},maps:{1:1},peaks:{moss:{g:4,ms:400},fernhill:{g:1}},daily:{"2026-11-19":{ms:90}}};
+  const m=g.profMerge(a,b);assert.equal(Object.keys(m.seen).length,2);assert.equal(m.peaks.moss.g,7);assert.equal(m.peaks.moss.ms,400);
+  assert.deepEqual(Object.keys(m.maps).sort(),["0","1"]);assert.ok(m.daily["2026-11-19"]);assert.equal(m.peaks.fernhill.ms,undefined);
+  assert.equal(g.weekOf(Date.UTC(2026,10,16)),g.weekOf(Date.UTC(2026,10,22,23)));assert.notEqual(g.weekOf(Date.UTC(2026,10,16)),g.weekOf(Date.UTC(2026,10,15,23)));});
 test("the ascent score: right answers, less 5 a fall and 2 a rope jerk, never below 0",()=>{
   assert.equal(g.ascentScore({q:10,right:10,falls:1,jerks:1}),93);
   assert.equal(g.ascentScore({q:10,right:1,falls:5}),0);

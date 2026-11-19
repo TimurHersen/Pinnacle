@@ -106,7 +106,7 @@ function fixTeam(t){
 /* each stage's pitches (their question tiers) on this mountain: the route's own, shortened on the first maps, so a
    new team reaches a summit quickly (len: the share kept; the pitches kept are spread out and include the last) */
 function trimTiers(T,len){if(!len||len>=1)return T;const n=Math.max(2,Math.round(T.length*len));return Array.from({length:n},(_,i)=>T[Math.round(i*(T.length-1)/(n-1))]);}
-function stageTiers(exp,s,choice){const len=MT(exp).len,c=choice??(s?exp.choice[s-1]:null);
+function stageTiers(exp,s,choice){const len=exp.daily?DAILY.len:MT(exp).len,c=choice??(s?exp.choice[s-1]:null);
   if(s===0)return trimTiers(SEG0_TIERS,len);return c?trimTiers(FORKS[s-1][c].tiers,len):null;}
 function lens(exp){return [stageTiers(exp,0).length, exp.choice[0]?stageTiers(exp,1).length:null, exp.choice[1]?stageTiers(exp,2).length:null];}
 function total(exp){const L=lens(exp);return L[0]+(L[1]||0)+(L[2]||0);}
@@ -186,6 +186,17 @@ function pickQuiz(tier,used,theme){const pool=QUIZ.filter(q=>q.tier===tier);let 
   return fresh[Math.floor(Math.random()*fresh.length)];}
 const themeOf=exp=>exp.daily?"":(MAPS[MT(exp).map]||{}).theme||"";
 const quizById=id=>typeof id==="string"&&id.startsWith("gen:")?genById(id):QUIZ.find(q=>q.id===id);
+/* the daily climb: one short route a day, the same for every team: the same mountain, the same way up (no route to
+   choose at the camps) and the same questions in the same order (the nth question of a tier is the same for all).
+   The day is the UTC date, so it changes at the same moment everywhere. */
+const DAILY={len:.4,route:["B","B"]};
+const dayOf=(ms=Date.now())=>new Date(ms).toISOString().slice(0,10);
+function seedOf(str){let h=2166136261;for(const c of str){h^=c.charCodeAt(0);h=Math.imul(h,16777619);}return h>>>0;}
+function seeded(seed){let a=seed>>>0;return ()=>{a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return ((t^t>>>14)>>>0)/4294967296;};}
+// (a medium mountain from the second to the fourth map, so it's a fair test whoever climbs it)
+function dailyMtn(day){const ks=Object.keys(MOUNTAINS).filter(k=>MOUNTAINS[k].map>=1&&MOUNTAINS[k].map<=3);return ks[seedOf("m"+day)%ks.length];}
+function dailyQuiz(day,tier,k){const pool=QUIZ.filter(q=>q.tier===tier),R=seeded(seedOf(day+":"+tier)),a=pool.slice();
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(R()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a[k%a.length];}
 /* wall events: now and then a pitch comes with something on the wall, the same for both climbers
      storm  less time on the clock
      loose  loose rock: hooks clipped within two pitches below won't hold, so a fall goes further
@@ -219,6 +230,8 @@ function applyOutcome(t,o){
     if(ok)x.to=Math.min(from+1,cap);
     else{x.fall=true;const f=Math.min(from,fallTo(exp,r.ev==="loose"?from-2:from)),onHook=(exp.hooks||[]).includes(f);if(f<Math.min(from,fallTo(exp,from)))x.loose=true;
       if(f===from&&onHook)x.caught=true;else{x.to=f;if(onHook&&f<from)x.hooked=true;}}}
+  // the lucky charm: the first fall of the climb is forgiven (they stay where they were)
+  if(exp.charm>0)for(const id of ids){const x=pl[id];if(x.fall&&x.to<x.from&&exp.charm>0){x.to=x.from;x.caught=true;x.charm=true;exp.charm--;}}
   // the rope: the one who would get too far ahead is held where they were; one who falls too far is caught by it
   if(ids.length>1)for(const [hi,lo] of [[ids[0],ids[1]],[ids[1],ids[0]]]){const H=pl[hi],L=pl[lo];
     if(H.to-L.to>MAX_GAP&&H.to>H.from){H.to=H.from;H.held=true;}
@@ -233,9 +246,12 @@ function applyOutcome(t,o){
   if(ids.length>1&&all.every(x=>x.ok))stats.synced=(stats.synced||0)+1;stats.falls=(stats.falls||0)+n(x=>x.fall&&!x.caught);
   // this expedition's own tally, for the end of the climb
   const run=exp.run={...(exp.run||{})};run.q=(run.q||0)+ids.length;run.right=(run.right||0)+n(x=>x.ok);run.jerks=(run.jerks||0)+n(x=>x.held);
-  if(ids.length>1&&all.every(x=>x.ok))run.synced=(run.synced||0)+1;run.slips=(run.slips||0)+n(x=>x.caught);run.falls=(run.falls||0)+n(x=>x.fall&&!x.caught);
+  if(ids.length>1&&all.every(x=>x.ok))run.synced=(run.synced||0)+1;run.slips=(run.slips||0)+n(x=>x.caught&&!x.charm);run.falls=(run.falls||0)+n(x=>x.fall&&!x.caught);
   // the summit: the ascent is timed and scored, and goes down as the team's best if it is
   if(arrived==="summit"){if(exp.t0)run.ms=Math.max(0,now()-exp.t0);run.pts=ascentScore(run);run.hu=run.hu||0;run.g=goalsOf(run);stats.summits=(stats.summits||0)+1;
+    if(exp.daily){const dd=stats.daily=clone(stats.daily||{});dd[exp.daily]={ms:run.ms||0,g:run.g,right:run.right||0,q:run.q||0};
+      for(const k of Object.keys(dd).sort().slice(0,-14))delete dd[k];}
+    else{
     if(!stats.best||run.pts>stats.best.pts){run.best=!!stats.best;stats.best={pts:run.pts,right:run.right||0,q:run.q||0,falls:run.falls||0,jerks:run.jerks||0,ms:run.ms||0,n:exp.n,m:exp.m};}
     // (and on the mountain's own record, which the map shows)
     const pk=stats.peaks=clone(stats.peaks||{}),mine=pk[exp.m]||{n:0,pts:0},was=mine.g!=null?mine.g:mine.n?[0,1,3,7][ascentStars({pts:mine.pts||0})]:0;
@@ -243,8 +259,8 @@ function applyOutcome(t,o){
     // (the first time a map's own summit is climbed, the map is collected and the next one opens)
     const M=MT(exp);if(M.final&&!mine.n)run.mapDone=M.map;
     // (and the team moves along the map's trail to it, unless it was a mountain behind them, climbed again)
-    const tr=stats.trail=clone(stats.trail||{}),at=MOUNTAINS[tr["m"+M.map]];if(!at||M.step>=at.step)tr["m"+M.map]=exp.m;}
-  const word=x=>x.held?"held by the rope":x.loose&&!x.roped?"fell when the loose rock gave way":x.ok?(x.to>x.from?"climbed":"waited at the ledge"):x.caught?"slipped onto the hook":x.hooked?"fell to the hook":x.roped?"fell onto the rope":x.to<x.from?"fell":"came off";
+    const tr=stats.trail=clone(stats.trail||{}),at=MOUNTAINS[tr["m"+M.map]];if(!at||M.step>=at.step)tr["m"+M.map]=exp.m;}}
+  const word=x=>x.charm?"was saved by the lucky charm":x.held?"held by the rope":x.loose&&!x.roped?"fell when the loose rock gave way":x.ok?(x.to>x.from?"climbed":"waited at the ledge"):x.caught?"slipped onto the hook":x.hooked?"fell to the hook":x.roped?"fell onto the rope":x.to<x.from?"fell":"came off";
   const headline=ids.map(id=>`${t.members[id]?.name||"Climber"} ${word(pl[id])}`).join(", ")+".";
   const log=(t.log||[]).slice(-39);
   log.push({at:Date.now(),text:`${q.cat}: ${headline}`});
@@ -270,8 +286,9 @@ function startPitch(t){
   const ids=memberIds(t),id=(t.round?.id||0)+1,exp=t.exp,nc=needsChoice(exp);
   if(nc>=0)return {...t,round:{id,phase:"camp",stage:nc,votes:{}}};
   if(exp.pitch>=total(exp))return {...t,round:{id,phase:"summit"}};
-  const tier=tierAt(exp,exp.pitch),gq=Math.random()<GEN_SHARE?genQuiz(tier):null;
-  const q=gq?{...gq,id:gq.id+":"+tier}:pickQuiz(tier,exp.used,themeOf(exp));exp.used=[...exp.used,q.id].slice(-100);if(!exp.t0)exp.t0=now();
+  const tier=tierAt(exp,exp.pitch);let q;
+  if(exp.daily){const k=(exp.dq||{})[tier]||0;exp.dq={...(exp.dq||{}),[tier]:k+1};q=dailyQuiz(exp.daily,tier,k);}
+  else{const gq=Math.random()<GEN_SHARE?genQuiz(tier):null;q=gq?{...gq,id:gq.id+":"+tier}:pickQuiz(tier,exp.used,themeOf(exp));}exp.used=[...exp.used,q.id].slice(-100);if(!exp.t0)exp.t0=now();
   const ev=rollEvent(exp),dur=window.TEST?.secs()||MT(exp).secs;
   return {...t,exp,round:{id,phase:"answer",qid:q.id,leader:ids[id%ids.length],order:shuffled4(q.o.length),startedAt:now()+LEAD_MS,
     dur:ev==="storm"?Math.max(12,Math.round(dur*EVENTS.storm.cut)):dur,...(ev?{ev}:{}),...(ev==="calm"?{scout:true,free:true}:{})}};}
@@ -333,8 +350,17 @@ function mapPick(t){const v=t.round.votes||{},ids=memberIds(t),mine=v[S.uid]?.mt
   return mine||(all.length&&all.every(x=>x&&x===all[0])?all[0]:null);}
 function chooseMountain(id){const rid=S.team.round.id;
   guarded(t=>{if(t.round.id!==rid||t.round.phase!=="map"||!MOUNTAINS[id]||!isOpen(t,id))return null;const m=MOUNTAINS[id];
-    t.exp.m=id;t.exp.rope=m.hooks;t.log=t.log.slice(-39);t.log.push({at:Date.now(),text:`Set off for ${m.name} (${m.label.toLowerCase()}), ${fmt(m.alt.top)} m.`});
+    t.exp.m=id;t.exp.rope=m.hooks;if(t.look?.charm&&charmOK(t))t.exp.charm=1;t.log=t.log.slice(-39);t.log.push({at:Date.now(),text:`Set off for ${m.name} (${m.label.toLowerCase()}), ${fmt(m.alt.top)} m.`});
     return startPitch(t);});}
+// the daily climb, set off from the map like a mountain (once a day per team)
+function chooseDaily(){const rid=S.team.round.id,day=dayOf();
+  guarded(t=>{if(t.round.id!==rid||t.round.phase!=="map"||(t.stats?.daily||{})[day])return null;const id=dailyMtn(day),m=MOUNTAINS[id];
+    Object.assign(t.exp,{m:id,daily:day,choice:DAILY.route.slice(),rope:m.hooks});t.log=t.log.slice(-39);t.log.push({at:Date.now(),text:`Set off on the daily climb: ${m.name}.`});
+    return startPitch(t);});}
+// (the lucky charm: once the team (or the climber) has collected three maps; it forgives one fall a climb)
+const CHARM_MAPS=3;
+function charmOK(t){return mapsGot(t)>=CHARM_MAPS;}
+function mapsGot(t){const mine=typeof profile==="function"?Object.keys(profile().maps).length:0;return Math.max(mine,MAPS.filter((M,i)=>mapDone(t,i)).length);}
 function newExpedition(){
   const rid=S.team.round.id;
   guarded(t=>{if(t.round.id!==rid)return null;
@@ -428,6 +454,7 @@ function renderLobby(invite){
         <li><b>Maps.</b> ${MAPS.map(M=>esc(M.name)).join(", ")}: six mountains each, along a trail. Climb one to open the next step, sometimes one mountain, sometimes a choice of two. Climb a map's summit to collect it and open the next. The further you go, the harder the questions, the less time you get and the fewer hooks you carry.</li>
         <li><b>Camps</b> restock your gear. There you pick the route on, short and hard or long and gentler, and one extra piece of gear.</li>
         <li><b>The rope radio</b> lets you talk when you're apart. Side by side, just talk.</li></ul></div>
+    <div class="card" id="secProf"><h3>Climber profile</h3><div id="profBody">${typeof profileHtml==="function"?profileHtml():""}</div></div>
     <div class="card" id="secAcct"><h3>Account</h3><div id="acctBody" class="acct"></div></div>
     <div class="card" id="secSet"><h3>Settings</h3>
       ${settingsHtml()}
@@ -441,14 +468,14 @@ function renderLobby(invite){
   $("#joinBtn").onclick=()=>joinTeam();
   $("#jcode").onkeydown=e=>{if(e.key==="Enter")joinTeam();};
   main.querySelectorAll(".teamrow").forEach(b=>b.onclick=()=>openTeam(b.dataset.code));
-  const open=id=>{main.querySelectorAll(".card").forEach(c=>c.hidden=!(c.id===id||(c.dataset.for||"").split(" ").includes(id)));
+  const open=id=>{if(id==="secProf"&&typeof profileHtml==="function")$("#profBody").innerHTML=profileHtml();main.querySelectorAll(".card").forEach(c=>c.hidden=!(c.id===id||(c.dataset.for||"").split(" ").includes(id)));
     main.hidden=false;main.scrollTop=0;homeMenu(false);
     const f={secNew:"tname",secJoin:"jcode"}[id];if(f)setTimeout(()=>$("#"+f)?.focus({preventScroll:true}),60);};
   const close=()=>{main.hidden=true;homeMenu(true);};
   $("#backBtn").onclick=()=>{sfx("pop");close();};
   main.onkeydown=e=>{if(e.key==="Escape")close();};
   showHome([...(S.myTeams.length?[{id:"secCont",label:"Continue"}]:[]),{id:"secNew",label:"New expedition"},{id:"secTv",label:"Big screen"},{id:"secJoin",label:"Join team"},
-    {id:"secHow",label:"How to play"},{id:"secAcct",label:typeof acctNamed==="function"&&acctNamed()?"Account":"Sign in"},{id:"secSet",label:"Settings"}],open);
+    {id:"secHow",label:"How to play"},{id:"secProf",label:"Profile"},{id:"secAcct",label:typeof acctNamed==="function"&&acctNamed()?"Account":"Sign in"},{id:"secSet",label:"Settings"}],open);
   if(typeof acctRender==="function")acctRender();
   if(invite)open("secJoin");
   syncSettings();
@@ -511,7 +538,7 @@ function closeTeam(){
   S.unsubTeam=S.unsubAns=S.unsubPres=null;S.team=null;S.code=null;S.answers={};S.ansRound=null;S.panelKey=null;S.online=new Set();S.pres={};
   S.sus=S.seen=S.step=null;S.unread=0;S.radioOpen=false;closeMenu();const rb=$("#radioBtn"),bb=$("#rbubble");if(rb)rb.hidden=true;if(bb)bb.hidden=true;
 }
-function goLobby(){document.body.classList.remove("atmap");closeTeam();try{history.replaceState(null,"",location.pathname+location.search);}catch(e){}renderLobby();}
+function goLobby(){document.body.classList.remove("atmap","mapfull");closeTeam();renderWorld(null);try{history.replaceState(null,"",location.pathname+location.search);}catch(e){}renderLobby();}
 // the heartbeat: "I'm here", stamped by the server with its own time. The stamp comes straight back, and against
 // the moment it was sent (the middle of the round trip) it gives this device's offset from the server's clock
 function beat(){if(!S.code||document.visibilityState!=="visible")return;
@@ -705,6 +732,7 @@ function render(){
   if(r.phase==="reveal"&&S.seen&&S.seen.id===r.id&&S.seen.phase==="answer"){S.sus=r.id;
     setTimeout(()=>{if(S.sus===r.id){S.sus=null;S.susDone=r.id;if(S.team)render();}},SUSPENSE_MS);}
   S.seen={id:r.id,phase:r.phase};
+  if(typeof climberSeen==="function")climberSeen(t);
   if(typeof MUSIC!=="undefined"){const m=r.phase==="map"?"map":r.phase==="camp"?"camp":r.phase==="summit"?"summit":"climb";
     if(m==="climb")MUSIC.level(stageOf(t.exp,Math.max(...memberIds(t).map(i=>posOf(t.exp,i)),0)).s);if(m!=="climb")MUSIC.tension(false);MUSIC.want(true,m);}
   const atMap=r.phase==="map";$("#hud").hidden=atMap;document.body.classList.toggle("atmap",atMap);
@@ -857,7 +885,8 @@ function mapView(t){if(!PAD())return "";
   return frameQ(t,`<div class="qhead"><span>${esc(M.name)} · Map ${mi+1} of ${MAPS.length}</span></div>
    <p class="qsub">${next.length>1?"<b>The trail forks.</b> Choose your path.":"<b>Next stop on the trail.</b>"}</p>
    <div class="routes mts">${next.map(card).join("")}</div>
-   ${can?`<button class="btn rope" id="setOffBtn">Set off for ${esc(m.name)}</button>`:m?`<p class="note">Waiting for your partner to choose ${esc(m.name)} too.</p>`:""}`);}
+   ${can?`<button class="btn rope" id="setOffBtn">Set off for ${esc(m.name)}</button>`:m?`<p class="note">Waiting for your partner to choose ${esc(m.name)} too.</p>`:""}
+   ${(t.stats?.daily||{})[dayOf()]?"":`<button class="btn" id="padDaily">Daily climb: ${esc(MOUNTAINS[dailyMtn(dayOf())].name)}</button>`}`);}
 // may this climber set off for k now (alone, leading this choice, or both chose it)?
 function mayGo(t,k){const ids=memberIds(t),v=t.round.votes||{},solo=ids.length<2,lead=solo||leaderOf(t)===S.uid||leaderOf(t)===SIM;
   return isOpen(t,k)&&(lead||ids.every(i=>i===S.uid||v[i]?.mtn===k));}
@@ -870,7 +899,7 @@ function mapImg(src){let im=MAPIMG[src];if(!im){im=MAPIMG[src]=new Image();im.de
 function preloadMaps(){for(const M of MAPS)for(const sh of ["wide","tall"])mapImg(M.art[sh].src);}
 function renderWorld(t){const el=$("#world");if(!el)return;const r=t&&t.round,on=!!(r&&r.phase==="map"&&!PAD());
   if(!on){if(!el.hidden){el.hidden=true;el.innerHTML="";S.worldKey=null;S.mapPop=null;MAPFX.stop();}return;}
-  const votes=r.votes||{},ids=memberIds(t),pk=t.stats?.peaks||{},shape=mapShape(),mi=viewMap(t),key=JSON.stringify([votes,pk,ids,shape,mi,t.stats?.trail||{},S.mapPop]);
+  const votes=r.votes||{},ids=memberIds(t),pk=t.stats?.peaks||{},shape=mapShape(),mi=viewMap(t),key=JSON.stringify([votes,pk,ids,shape,mi,t.stats?.trail||{},S.mapPop,t.look||{},t.stats?.daily||{},S.popTab]);
   if(el.hidden){el.hidden=false;el.classList.remove("in");void el.offsetWidth;el.classList.add("in");preloadMaps();}
   if(S.worldKey!==key){const fresh=S.worldMap!==mi||S.worldShape!==shape;S.worldKey=key;S.worldMap=mi;S.worldShape=shape;
     const M=MAPS[mi],A=M.art[shape],P=A.pins,open=mapOpen(t,mi),done=mapDone(t,mi),next=done||!open?[]:nextOn(t,mi);
@@ -886,12 +915,12 @@ function renderWorld(t){const el=$("#world");if(!el)return;const r=t&&t.round,on
       const dx0=S.mapDragX||0;S.mapDragX=0;el.querySelector(".wpeek")?.remove();
       let ghost=null;if(dir&&old&&!RM.matches){ghost=old;ghost.classList.add("wghost");ghost.querySelector(".wpins")?.remove();ghost.style.transition="none";ghost.style.transform=`translate3d(${dx0}px,0,0)`;}
       else old?.remove();
-      if(!el.querySelector(".wnav"))el.insertAdjacentHTML("beforeend",`<div class="wlock" hidden></div><div class="wnav"></div><div class="wpop" hidden></div>`);
+      if(!el.querySelector(".wnav"))el.insertAdjacentHTML("beforeend",`<div class="wlock" hidden></div><div class="wtools"></div><div class="wnav"></div><div class="wpop" hidden></div>`);
       const im=mapImg(A.src).cloneNode();im.alt=`A painted map of ${M.name}: six mountains along a winding trail`;
       const box=document.createElement("div");box.className=`wmap ${open?"":"locked"}`;box.dataset.shape=shape;box.dataset.map=mi;box.append(im);
       box.insertAdjacentHTML("beforeend",`<canvas class="wfx" width="${A.w}" height="${A.h}" aria-hidden="true"></canvas><span class="wcamp" style="left:${100*A.camp[0]/A.w}%;top:${100*A.camp[1]/A.h}%">Camp</span><div class="wpins"></div>`);
       el.insertBefore(box,el.querySelector(".wlock"));S.liveMap=box;
-      S.mapPan=null;S.mapPop=null;S.mapSlide=0;
+      S.mapPan=null;if(!(S.mapPop||"").startsWith("@"))S.mapPop=null;S.mapSlide=0;
       if(ghost){const W=dx0?ghost.offsetWidth:el.getBoundingClientRect().width;box.style.transition="none";box.style.transform=`translate3d(${dir*W+dx0}px,0,0)`;
         const go=()=>requestAnimationFrame(()=>requestAnimationFrame(()=>{const ease="transform .5s cubic-bezier(.22,.8,.25,1)";
           box.style.transition=ease;box.style.transform="translate3d(0,0,0)";ghost.style.transition=ease;ghost.style.transform=`translate3d(${-dir*W*.6}px,0,0)`;ghost.style.opacity="0";ghost.style.transitionProperty="transform,opacity";
@@ -914,6 +943,7 @@ function renderWorld(t){const el=$("#world");if(!el)return;const r=t&&t.round,on
     // (on the big screen the phones choose; it only shows the map)
     if(TV()&&open){lk.hidden=false;lk.innerHTML=`<div class="wlplate tvnote"><b>Choose on your phones</b><span>${next.length>1?"The trail forks: pick one of two mountains.":"Next stop: "+esc(MOUNTAINS[next[0]]?.name||"")}</span></div>`;lk.classList.add("tv");}else lk.classList.remove("tv");
     el.querySelectorAll(".wpin").forEach(b=>b.onclick=e=>{e.stopPropagation();openPop(b.dataset.mtn);});
+    {const tl=el.querySelector(".wtools");tl.innerHTML=typeof toolsHtml==="function"?toolsHtml(t):"";if(typeof wireTools==="function")wireTools(tl);}
     renderPop(t,mi,shape);
     MAPFX.set(t,mi,shape,S.liveMap.querySelector(".wfx"),S.liveMap.querySelector("img"));}
   fitWorld();}
@@ -921,25 +951,32 @@ function renderWorld(t){const el=$("#world");if(!el)return;const r=t&&t.round,on
 // the partner leads this choice); a tap anywhere else on the map closes it
 function openPop(k){if(!S.team||!isOpen(S.team,k)||TV())return;sfx("pop");S.mapPop=S.mapPop===k?null:k;S.worldKey=null;renderWorld(S.team);}
 function renderPop(t,mi,shape){const el=$("#world .wpop");if(!el)return;const k=S.mapPop,m=k&&MOUNTAINS[k];
+  if(k&&k[0]==="@"&&typeof toolPopHtml==="function"){el.innerHTML=toolPopHtml(t,k);el.hidden=false;el.classList.add("tool");
+    el.querySelector(".wpx").onclick=()=>{S.mapPop=null;S.worldKey=null;renderWorld(S.team);};wireToolPop(el,k);placePop();return;}
+  el.classList.remove("tool");
   if(!m||m.map!==mi||!isOpen(t,k)){el.hidden=true;return;}
   const ids=memberIds(t),votes=t.round.votes||{},mine=votes[S.uid]?.mtn===k,go=mayGo(t,k),pid=partnerId(t),theirs=pid&&votes[pid]?.mtn;
   el.innerHTML=`<div class="wphead"><b>${esc(m.name)}</b><button class="ibtn wpx" type="button" aria-label="Close">${ICON.x}</button></div>
     <small>${m.final?`${ICON.flag} Summit of ${esc(MAPS[mi].name)}`:`Stop ${m.step+1} of 4`} · ${fmt(m.alt.top)} m</small>
     <p>${esc(m.desc)}</p>
     <div class="wpfacts"><span><b>${m.secs} s</b>to answer</span><span><b>${m.hooks}</b>hooks a stage</span><span>${tierMarks(Math.max(1,Math.min(4,2+m.tier)))}<i>questions</i></span></div>
-    <div class="goals">${GOALS.map(G=>{const w=goalsWon(t,k)&G.b;return `<span class="${w?"on":""}">${w?ICON.star:ICON.starOff}${G.name}</span>`;}).join("")}</div>
-    ${climbed(t,k)?`<p class="note">Climbed ${t.stats.peaks[k].n}×</p>`:""}
+    <div class="ptabs" role="tablist">${[["stars","Stars"],["all","Fastest"],["week","Week"]].map(([id,n])=>`<button role="tab" data-tab="${id}" class="${(S.popTab||"stars")===id?"on":""}" aria-selected="${(S.popTab||"stars")===id}">${n}</button>`).join("")}</div>
+    ${(S.popTab||"stars")==="stars"?`<div class="goals">${GOALS.map(G=>{const w=goalsWon(t,k)&G.b;return `<span class="${w?"on":""}">${w?ICON.star:ICON.starOff}${G.name}</span>`;}).join("")}</div>
+    ${climbed(t,k)?`<p class="note">Climbed ${t.stats.peaks[k].n}×${t.stats.peaks[k].ms?` · best ${fmtDur(t.stats.peaks[k].ms)}`:""}</p>`:""}`
+    :`<div class="lbbox" id="lbMtn"></div><p class="note">Fastest three-star ascents (no falls, no hooks), by rope team.</p>`}
     ${go?`<button class="btn rope" id="popGo">Set off for ${esc(m.name)}</button>`:mine?`<p class="note">Waiting for ${esc(nameOf(pid))} to choose it too.</p>`:`<button class="btn rope" id="popPick">Choose ${esc(m.name)}</button>${theirs&&theirs!==k?`<p class="note">${esc(nameOf(pid))} chose ${esc(MOUNTAINS[theirs].name)}.</p>`:""}`}`;
   el.hidden=false;
   el.querySelector(".wpx").onclick=()=>{S.mapPop=null;S.worldKey=null;renderWorld(S.team);};
   el.querySelector("#popGo")?.addEventListener("click",()=>{pickMountain(k);chooseMountain(k);S.mapPop=null;});
   el.querySelector("#popPick")?.addEventListener("click",()=>{pickMountain(k);});
+  el.querySelectorAll(".ptabs button").forEach(b=>b.onclick=e=>{e.stopPropagation();S.popTab=b.dataset.tab;S.worldKey=null;renderWorld(S.team);});
+  const tab=S.popTab||"stars";if(tab!=="stars"&&typeof lbFill==="function")lbFill(el.querySelector("#lbMtn"),tab==="week"?`lbw/${weekOf()}/${k}`:`lb/${k}`,tab==="week"?"No three-star ascent this week yet.":"No three-star ascent yet. Be the first.");
   placePop();}
 // (next to its banner: below it if there's room, else above; kept on the screen)
-function placePop(){const el=$("#world .wpop"),b=S.mapPop&&$(`#world .wpin[data-mtn="${S.mapPop}"]`);if(!el||el.hidden||!b)return;
+function placePop(){const el=$("#world .wpop"),tool=(S.mapPop||"")[0]==="@",b=S.mapPop&&$(tool?`#world .wtool[data-k="${S.mapPop}"]`:`#world .wpin[data-mtn="${S.mapPop}"]`);if(!el||el.hidden||!b)return;
   const W=$("#world").getBoundingClientRect(),r=b.getBoundingClientRect(),w=Math.min(300,W.width-24);el.style.width=w+"px";const h=el.offsetHeight;
   let x=r.left+r.width/2-w/2-W.left,y=r.bottom+10-W.top;if(y+h>W.height-90)y=r.top-h-10-W.top;
-  el.style.left=Math.max(12,Math.min(W.width-w-12,x))+"px";el.style.top=Math.max(64,Math.min(W.height-h-12,y))+"px";}
+  el.style.left=Math.max(12,Math.min(W.width-w-12,x))+"px";el.style.top=Math.max(64,Math.min(W.height-h-(h<W.height-250?100:12),y))+"px";}
 /* ---------- the living map: the trail, the team walking it, and the weather over the painting ----------
    One canvas over the painting, at the painting's own pixels. The trail runs from the camp from stop to stop; where it
    forks it parts at a junction and meets again at the next one. It's drawn as dots of packed earth: gold where the
@@ -1081,7 +1118,7 @@ function fitWorld(){const el=$("#world"),map=el&&S.liveMap&&S.liveMap.isConnecte
   map.classList.toggle("tight",R.w<430);placePop();}
 // dragging the map (a finger or the mouse) looks around it; a drag never counts as a tap on a pin
 {let drag=null;const W=()=>$("#world");
-  addEventListener("pointerdown",e=>{const el=W();if(!el||el.hidden||!el.contains(e.target)||e.target.closest(".wpop,.wnav"))return;drag={x:e.clientX,y:e.clientY,x0:e.clientX,y0:e.clientY,t0:performance.now(),moved:false,id:e.pointerId};});
+  addEventListener("pointerdown",e=>{const el=W();if(!el||el.hidden||!el.contains(e.target)||e.target.closest(".wpop,.wnav,.wtools"))return;drag={x:e.clientX,y:e.clientY,x0:e.clientX,y0:e.clientY,t0:performance.now(),moved:false,id:e.pointerId};});
   addEventListener("pointermove",e=>{if(!drag||e.pointerId!==drag.id||!S.mapPan)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
     if(!drag.moved&&Math.hypot(dx,dy)<6)return;drag.moved=true;
     // (sideways, whatever the map can't pan any further carries the whole painting with the finger, toward the next map)
@@ -1106,7 +1143,7 @@ function fitWorld(){const el=$("#world"),map=el&&S.liveMap&&S.liveMap.isConnecte
       else if(dd){const m=(S.liveMap||null),pk=$("#world .wpeek");S.mapDragX=0;
         if(pk){pk.style.transition="transform .35s cubic-bezier(.22,.8,.25,1)";pk.style.transform="translate3d(0,0,0)";setTimeout(()=>pk.remove(),360);}
         if(m){m.style.transition="transform .35s cubic-bezier(.22,.8,.25,1)";m.style.transform="translate3d(0,0,0)";setTimeout(()=>{m.style.transition="";m.style.transform="";},360);}}}
-    else if(drag&&S.mapPop&&!e.target.closest(".wpin")){S.mapPop=null;S.worldKey=null;if(S.team)renderWorld(S.team);}
+    else if(drag&&S.mapPop&&!e.target.closest(".wpin,.wtool")){S.mapPop=null;S.worldKey=null;if(S.team)renderWorld(S.team);}
     if(drag&&drag.moved){const el=W();if(el){const stop=ev=>{ev.stopPropagation();ev.preventDefault();};el.addEventListener("click",stop,{capture:true,once:true});setTimeout(()=>el.removeEventListener("click",stop,{capture:true}),50);}}drag=null;});
   addEventListener("pointercancel",()=>{drag=null;});
   addEventListener("keydown",e=>{const el=W();if(!el||el.hidden||e.target.closest&&e.target.closest("input,textarea"))return;if(e.key==="ArrowRight")lookMap(1);else if(e.key==="ArrowLeft")lookMap(-1);});
@@ -1134,10 +1171,11 @@ function summitView(t){const e=t.exp,st=e.run||{},two=memberIds(t).length>1;
   const cell=(k,v)=>`<div class="scell"><b>${v}</b><span>${k}</span></div>`;
   const grade=["","Made it to the top","A solid climb","A clean ascent"][ascentStars(st)],g=st.g??goalsOf(st);
   return frameQ(t,`<div class="qhead"><span>Summit · ${fmt(mAlt(e,ALT.top))} m · Expedition ${e.n}</span></div>
-   <div class="qtitle">Top of ${esc(MT(e).name)}!</div>
+   <div class="qtitle">${e.daily?"Daily climb done!":`Top of ${esc(MT(e).name)}!`}</div>
+   ${e.daily?`<p class="qsub">${esc(MT(e).name)}${st.ms?` in ${fmtDur(st.ms)}`:""}. Today's fastest:</p><div class="lbbox" id="lbDailyTop"></div>`:""}
    <div class="grade">${stars(st)}<b>${grade}</b>${st.best?`<span class="chip0 new">New team best</span>`:""}</div>
    <div class="goals">${GOALS.map(G=>`<span class="${g&G.b?"on":""}">${g&G.b?ICON.star:ICON.starOff}${G.name}</span>`).join("")}</div>
-   ${st.newStars>0?`<p class="note">${st.newStars===1?"A new star":`${st.newStars} new stars`} on ${esc(MT(e).name)}.</p>`:""}
+   ${st.newStars>0&&!e.daily?`<p class="note">${st.newStars===1?"A new star":`${st.newStars} new stars`} on ${esc(MT(e).name)}.</p>`:""}
    ${via?`<p class="qsub">By way of ${esc(via)}.</p>`:""}
    ${st.mapDone!=null?`<div class="result good">${ICON.flag}<div><b>${esc(MAPS[st.mapDone].name)} complete!</b><span>${MAPS[st.mapDone+1]?`The map joins your collection, and ${esc(MAPS[st.mapDone+1].name)} is open.`:"Every map is in your collection. You've climbed them all."}</span></div></div>`:""}
    <div class="sgrid">${cell("Right",`${st.right||0}/${st.q||0}`)}${two?cell("In sync",st.synced||0)+cell("Rope jerks",st.jerks||0):""}${cell("Hooks held",st.slips||0)}${cell("Falls",st.falls||0)}${st.ms?cell("Time",fmtDur(st.ms)):""}</div>
@@ -1233,6 +1271,8 @@ function wirePanel(t){
   P.querySelectorAll(".route[data-mtn]").forEach(b=>b.addEventListener("click",()=>pickMountain(b.dataset.mtn)));
   P.querySelectorAll(".mthumb[data-map]").forEach(b=>b.addEventListener("click",()=>{if(b.disabled)return;S.mapView=+b.dataset.map;sfx("pop");S.panelKey=null;if(S.team){renderPanel(S.team);renderWorld(S.team);}}));
   P.querySelector("#setOffBtn")?.addEventListener("click",()=>{const v=mapPick(t);if(v)chooseMountain(v);});
+  P.querySelector("#padDaily")?.addEventListener("click",()=>chooseDaily());
+  if(t.round.phase==="summit"&&t.exp.daily&&typeof lbFill==="function")lbFill(P.querySelector("#lbDailyTop"),`lbd/${t.exp.daily}`,"You're the first today.");
   P.querySelector("#campBtn")?.addEventListener("click",()=>{const v=(t.round.votes||{})[S.uid];if(v?.route&&v?.bonus)campPick(v.route,v.bonus);});
   if(r.phase!=="answer")return;
   P.querySelector("#hookBtn")?.addEventListener("click",()=>{sfx("clip");useHook();});

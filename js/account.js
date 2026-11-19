@@ -46,6 +46,7 @@ async function acctAdopt(u){
     S.myTeams=teams;LS.set("teams",teams);
     const name=p?.name||S.myName||(u.displayName||"").split(" ")[0].slice(0,24);if(name&&!S.myName){S.myName=name;LS.set("name",name);}
     await fb.put("users/"+u.uid,{pid:S.uid,name:S.myName||name||"",teams,email:u.email||"",since:p?.since||Date.now()});
+    if(typeof profSync==="function")await profSync(u.uid);
     if(!S.code&&document.body.classList.contains("home"))renderLobby();
   }catch(e){}}
 // (the account's copy of the team list, kept up to date as teams are made, joined or opened)

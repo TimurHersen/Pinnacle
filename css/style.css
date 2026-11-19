@@ -691,3 +691,35 @@ body.tv .wpin{pointer-events:none}
 .wev{display:flex;gap:8px;align-items:baseline;padding:6px 10px;border-radius:8px;margin:6px 0;font:600 14px/1.25 var(--body);background:rgba(120,140,170,.18);border:1px solid rgba(160,180,210,.35)}
 .wev b{font-family:var(--head);letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
 .wev.loose{background:rgba(190,120,60,.18);border-color:rgba(220,150,80,.4)}.wev.calm{background:rgba(90,170,120,.18);border-color:rgba(110,200,140,.4)}
+
+/* on the map: the daily climb and the kit, top left */
+.wtools{position:absolute;left:12px;top:calc(12px + env(safe-area-inset-top));display:flex;gap:8px;z-index:6}
+.wtools:empty{display:none}
+.wtool{position:relative;display:flex;align-items:center;gap:6px;height:44px;padding:0 12px;border-radius:10px;border:2px solid #0b0f14;background:rgba(14,20,28,.88);color:var(--cream);font:400 16px/1 var(--head);letter-spacing:.04em;text-transform:uppercase;box-shadow:0 2px 0 #000}
+.wtool .px{width:18px;height:18px}.wtool.on{background:#2a3a4c}
+.wtool .dot{position:absolute;top:5px;right:5px;width:8px;height:8px;border-radius:50%;background:var(--gold,#f2b233)}
+@media (max-width:420px){.wtool span{display:none}.wtool{padding:0 11px}}
+.wpop.tool{max-height:calc(100% - 140px);overflow:auto}
+.wpop .clabel{margin-top:10px}
+/* leaderboards */
+.lbbox{min-height:40px}
+.lbl{list-style:none;margin:6px 0 4px;padding:0;display:grid;gap:3px}
+.lbl li{display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:baseline;font:600 14px/1.25 var(--body);padding:3px 6px;border-radius:6px;background:rgba(255,255,255,.04)}
+.lbl li i{font-style:normal;color:var(--muted)}.lbl li b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.lbl li span{font-variant-numeric:tabular-nums;color:var(--cream)}.lbl li.me{background:rgba(242,178,51,.16)}
+.ptabs{display:flex;gap:4px;margin:8px 0 6px}
+.ptabs button{flex:1;height:32px;border-radius:8px;border:1px solid rgba(255,255,255,.14);background:transparent;color:var(--dim);font:400 14px/1 var(--head);letter-spacing:.04em;text-transform:uppercase}
+.ptabs button.on{background:rgba(242,178,51,.18);border-color:rgba(242,178,51,.5);color:var(--cream)}
+/* the kit */
+.kitrow{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0}
+.kitsw{position:relative;width:44px;height:44px;border-radius:10px;border:2px solid rgba(255,255,255,.16);background:rgba(0,0,0,.25);display:grid;place-items:center;padding:0}
+.kitsw i{width:24px;height:24px;border-radius:6px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.3)}
+.kitsw.on{border-color:var(--gold,#f2b233)}.kitsw:disabled{opacity:.45}.kitsw:disabled i{filter:grayscale(.6)}
+.kitsw .px{position:absolute;width:14px;height:14px;right:-4px;bottom:-4px}
+.kitcharm{display:flex;gap:10px;align-items:center;font:600 14px/1.3 var(--body)}
+.kitcharm input{width:22px;height:22px;accent-color:#f2b233}
+/* the climber profile */
+.pmaps{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:4px 0 8px}
+.pmaps span{display:flex;gap:6px;align-items:center;padding:6px 8px;border-radius:8px;background:rgba(255,255,255,.04);color:var(--muted);font:600 14px/1.2 var(--body)}
+.pmaps span.on{color:var(--cream);background:rgba(242,178,51,.14)}.pmaps span:not(.on) .px{opacity:.35}.pmaps .px{width:16px;height:16px}
+.sgrid.p4{grid-template-columns:1fr 1fr}
