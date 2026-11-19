@@ -328,7 +328,7 @@ body:has(#main.game2) .hud{left:var(--edge)}
 /* ---------- the map: where an expedition starts. The painted island floats over a dusky sky in the open part of
    the screen (js/game.js fitWorld sizes it), a pin on each mountain ---------- */
 .world{position:fixed;inset:0;z-index:1;background:#0b1a26;overflow:hidden}
-.world.in .wmap{animation:map-in .5s steps(6) both}
+.world.in .wmap{animation:map-in .35s ease-out both}
 @keyframes map-in{from{opacity:0}}
 .wmap{position:absolute}
 .wmap>img{display:block;width:100%;height:100%;image-rendering:pixelated}
@@ -636,8 +636,7 @@ body.pad #main.game2 .routes.mts{grid-template-columns:1fr}
 
 /* ---------- the full-screen map: no panel, the map's plate along the bottom, a lock over maps ahead, the confirm card ---------- */
 body.mapfull #main{display:none}body.mapfull .coach.inline{display:none}
-.world.slideL .wmap{animation:map-slideL .35s steps(6) both}.world.slideR .wmap{animation:map-slideR .35s steps(6) both}
-@keyframes map-slideL{from{transform:translateX(18%);opacity:0}}@keyframes map-slideR{from{transform:translateX(-18%);opacity:0}}
+.wmap{will-change:transform}.wghost{pointer-events:none;z-index:0}
 .wmap.locked img,.wmap.locked .wfx{filter:grayscale(.55) brightness(.55)}
 .wnav{position:absolute;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:4;display:flex;align-items:stretch;gap:8px}
 .wnarrow{width:46px;font:400 20px/1 var(--head);color:var(--gold);background:var(--panel);border:2px solid var(--cream);box-shadow:var(--frame);cursor:pointer}
@@ -663,3 +662,4 @@ body.mapfull #main{display:none}body.mapfull .coach.inline{display:none}
 .wnplate b{white-space:nowrap}.wnplate small{white-space:nowrap}
 @media (max-width:420px){.wnplate b{font-size:16px}.wnplate small{font-size:11px;letter-spacing:.03em}.wnav{gap:6px}.wnarrow{width:36px}}
 body.tv .wpin{pointer-events:none}
+.wpeek{position:absolute;image-rendering:pixelated;pointer-events:none;will-change:transform}.wpeek.locked{filter:grayscale(.55) brightness(.55)}

@@ -818,10 +818,14 @@ function mayGo(t,k){const ids=memberIds(t),v=t.round.votes||{},solo=ids.length<2
 /* the map itself, while the team chooses: one painting filling the whole screen (the part of it the question box
    leaves, when that is a column down the side), a pin on each mountain (its name, its difficulty, who picked it, a
    flag once climbed) and the team's camp at the foot of the trails */
+// every map painting, loaded and decoded once (on the first visit to the map), so switching maps never waits on one
+const MAPIMG={};
+function mapImg(src){let im=MAPIMG[src];if(!im){im=MAPIMG[src]=new Image();im.decoding="async";im.src=asset(src);im.ready=(im.decode?im.decode():Promise.resolve()).catch(()=>{});}return im;}
+function preloadMaps(){for(const M of MAPS)for(const sh of ["wide","tall"])mapImg(M.art[sh].src);}
 function renderWorld(t){const el=$("#world");if(!el)return;const r=t&&t.round,on=!!(r&&r.phase==="map"&&!PAD());
   if(!on){if(!el.hidden){el.hidden=true;el.innerHTML="";S.worldKey=null;S.mapPop=null;MAPFX.stop();}return;}
   const votes=r.votes||{},ids=memberIds(t),pk=t.stats?.peaks||{},shape=mapShape(),mi=viewMap(t),key=JSON.stringify([votes,pk,ids,shape,mi,t.stats?.trail||{},S.mapPop]);
-  if(el.hidden){el.hidden=false;el.classList.remove("in");void el.offsetWidth;el.classList.add("in");}
+  if(el.hidden){el.hidden=false;el.classList.remove("in");void el.offsetWidth;el.classList.add("in");preloadMaps();}
   if(S.worldKey!==key){const fresh=S.worldMap!==mi||S.worldShape!==shape;S.worldKey=key;S.worldMap=mi;S.worldShape=shape;
     const M=MAPS[mi],A=M.art[shape],P=A.pins,open=mapOpen(t,mi),done=mapDone(t,mi),next=done||!open?[]:nextOn(t,mi);
     // a banner on each mountain: named where the team has been or can go, "???" further along the trail
@@ -829,11 +833,24 @@ function renderWorld(t){const el=$("#world");if(!el)return;const r=t&&t.round,on
       return `<button class="wpin d${m.diff} ${votes[S.uid]?.mtn===k||S.mapPop===k?"sel":""} ${op?"":"lk"} ${pk[k]?"dn":""} ${next.includes(k)?"nx":""}" data-mtn="${k}" style="left:${100*x/A.w}%;top:${100*y/A.h}%" ${op&&!TV()?"":"disabled"} aria-label="${esc(known?m.name:"Unknown mountain")}${pk[k]?", climbed":op?", next stop":", further along the trail"}">
         <span class="wflag" aria-hidden="true"></span><span class="wplate"><b>${known?esc(m.name):"???"}</b><small>${m.final?`${ICON.flag} Summit`:known?`Stop ${m.step+1}`:"Ahead"}${pk[k]?ICON.flag:""}</small>${tags?`<span class="wtags">${tags}</span>`:""}</span></button>`;};
     if(fresh||!el.querySelector(".wmap")){
-      el.innerHTML=`<div class="wmap ${open?"":"locked"}" data-shape="${shape}" data-map="${mi}"><img src="${asset(A.src)}" alt="A painted map of ${esc(M.name)}: six mountains along a winding trail">
-        <canvas class="wfx" width="${A.w}" height="${A.h}" aria-hidden="true"></canvas><span class="wcamp" style="left:${100*A.camp[0]/A.w}%;top:${100*A.camp[1]/A.h}%">Camp</span><div class="wpins"></div></div>
-        <div class="wlock" ${open?"hidden":""}></div><div class="wnav"></div><div class="wpop" hidden></div>`;
-      S.mapPan=null;el.classList.remove("in","slideL","slideR");void el.offsetWidth;el.classList.add(S.mapSlide>0?"slideL":S.mapSlide<0?"slideR":"in");S.mapSlide=0;}
-    el.querySelector(".wpins").innerHTML=M.steps.flat().map(pin).join("");
+      // (sliding to another map: the old one is kept for a moment as a picture, frozen, and slides away)
+      const dir=S.mapSlide||0,old=el.querySelector(".wmap");el.querySelectorAll(".wghost").forEach(g=>g.remove());
+      const dx0=S.mapDragX||0;S.mapDragX=0;el.querySelector(".wpeek")?.remove();
+      let ghost=null;if(dir&&old&&!RM.matches){ghost=old;ghost.classList.add("wghost");ghost.querySelector(".wpins")?.remove();ghost.style.transition="none";ghost.style.transform=`translate3d(${dx0}px,0,0)`;}
+      else old?.remove();
+      if(!el.querySelector(".wnav"))el.insertAdjacentHTML("beforeend",`<div class="wlock" hidden></div><div class="wnav"></div><div class="wpop" hidden></div>`);
+      const im=mapImg(A.src).cloneNode();im.alt=`A painted map of ${M.name}: six mountains along a winding trail`;
+      const box=document.createElement("div");box.className=`wmap ${open?"":"locked"}`;box.dataset.shape=shape;box.dataset.map=mi;box.append(im);
+      box.insertAdjacentHTML("beforeend",`<canvas class="wfx" width="${A.w}" height="${A.h}" aria-hidden="true"></canvas><span class="wcamp" style="left:${100*A.camp[0]/A.w}%;top:${100*A.camp[1]/A.h}%">Camp</span><div class="wpins"></div>`);
+      el.insertBefore(box,el.querySelector(".wlock"));
+      S.mapPan=null;S.mapPop=null;S.mapSlide=0;
+      if(ghost){const W=dx0?ghost.offsetWidth:el.getBoundingClientRect().width;box.style.transition="none";box.style.transform=`translate3d(${dir*W+dx0}px,0,0)`;
+        const go=()=>requestAnimationFrame(()=>requestAnimationFrame(()=>{const ease="transform .5s cubic-bezier(.22,.8,.25,1)";
+          box.style.transition=ease;box.style.transform="translate3d(0,0,0)";ghost.style.transition=ease;ghost.style.transform=`translate3d(${-dir*W*.6}px,0,0)`;ghost.style.opacity="0";ghost.style.transitionProperty="transform,opacity";
+          setTimeout(()=>{ghost.remove();box.style.transition="";box.style.transform="";},520);}));
+        mapImg(A.src).ready.then(go);}
+      else{el.classList.remove("in");void el.offsetWidth;el.classList.add("in");}}
+    el.querySelector(".wmap:not(.wghost) .wpins").innerHTML=M.steps.flat().map(pin).join("");
     // the map's own plate along the bottom: its name and place, the stops climbed, and arrows to the maps either side
     const stops=M.steps.map(st=>`<i class="${st.some(k=>climbed(t,k))?"on":""} ${st.length>1?"fork":""}"></i>`).join("");
     el.querySelector(".wnav").innerHTML=`<button class="wnarrow" id="mapPrev" ${mi>0?"":"disabled"} aria-label="Previous map">◀</button>
@@ -843,12 +860,12 @@ function renderWorld(t){const el=$("#world");if(!el)return;const r=t&&t.round,on
     el.querySelector("#mapPrev").onclick=()=>lookMap(-1);el.querySelector("#mapNext").onclick=()=>lookMap(1);
     // a map not reached yet: seen through, darker, under a lock
     const lk=el.querySelector(".wlock");lk.hidden=open;if(!open)lk.innerHTML=`<div class="wlplate">${ICON.flag}<b>${esc(M.name)}</b><span>Complete ${esc(MAPS[mi-1].name)} to unlock</span></div>`;
-    el.querySelector(".wmap").classList.toggle("locked",!open);
+    el.querySelector(".wmap:not(.wghost)").classList.toggle("locked",!open);
     // (on the big screen the phones choose; it only shows the map)
     if(TV()&&open){lk.hidden=false;lk.innerHTML=`<div class="wlplate tvnote"><b>Choose on your phones</b><span>${next.length>1?"The trail forks: pick one of two mountains.":"Next stop: "+esc(MOUNTAINS[next[0]]?.name||"")}</span></div>`;lk.classList.add("tv");}else lk.classList.remove("tv");
     el.querySelectorAll(".wpin").forEach(b=>b.onclick=e=>{e.stopPropagation();openPop(b.dataset.mtn);});
     renderPop(t,mi,shape);
-    MAPFX.set(t,mi,shape,el.querySelector(".wfx"),el.querySelector(".wmap>img"));}
+    MAPFX.set(t,mi,shape,el.querySelector(".wmap:not(.wghost) .wfx"),el.querySelector(".wmap:not(.wghost)>img"));}
   fitWorld();}
 // the confirm card on a banner: the mountain, its numbers and what it is, and the way to set off (or to choose it, if
 // the partner leads this choice); a tap anywhere else on the map closes it
@@ -878,7 +895,7 @@ function placePop(){const el=$("#world .wpop"),b=S.mapPop&&$(`#world .wpin[data-
    team has walked, cream and moving toward the next stop(s), faint further on. The team (two small climbers) stands
    where they last climbed; after a climb, back on the map, they walk the trail to it. Over it all, clouds drift by
    with their shadows on the ground, birds cross now and then, water sparkles (lava glows), and the camp's fire smokes. */
-const MAPFX=(()=>{let cv=null,g=null,raf=0,st=null,last=0,T=0,DT=0,TEAM=null;
+const MAPFX=(()=>{let cv=null,g=null,raf=0,st=null,last=0,T=0,DT=0,TEAM=null;const SURV={};
   const R=Math.round,hsh=(a,b)=>{const v=Math.sin(a*127.1+b*311.7)*43758.5453;return v-Math.floor(v);};
   // the two little climbers: red beanie and plaid, and orange; o outline, s skin, l/L legs
   const FIG=[[".oooo.","orrrro","ossbso","oRrrRo","ooRRoo",".oLLo.",".oLLo.",".o.o.."],[".oooo.","oyyyyo","osssso","oyYYyo","ooYYoo",".oLLo.",".oLLo.",".o.o.."]];
@@ -905,18 +922,21 @@ const MAPFX=(()=>{let cv=null,g=null,raf=0,st=null,last=0,T=0,DT=0,TEAM=null;
     return E;}
   // the route the team walked to reach a stop: camp, then each stop, through the junctions
   function routeTo(E,to){const out=[];let cur=to;for(let guard=0;guard<12&&cur!=="camp";guard++){const e=E.find(e=>e.to===cur&&e.state!=="summit"&&(e.state==="walked"||e.to===to));if(!e)break;out.unshift(e);cur=e.from;}return out;}
-  function survey(img){const c=document.createElement("canvas");c.width=img.naturalWidth;c.height=img.naturalHeight;const x=c.getContext("2d");x.drawImage(img,0,0);
-    const d=x.getImageData(0,0,c.width,c.height).data,water=[],lava=[];
-    for(let i=0;i<d.length;i+=4){const r=d[i],gg=d[i+1],b=d[i+2],p=i/4;
-      if(gg>150&&b>150&&r<140&&b-r>60)water.push(p);else if(r>200&&gg>60&&gg<200&&b<90&&r-b>140)lava.push(p);}
-    // the lava's glow, as its own picture
-    let glow=null;if(lava.length>200){glow=document.createElement("canvas");glow.width=c.width;glow.height=c.height;const gx=glow.getContext("2d"),id=gx.createImageData(c.width,c.height);
-      for(const p of lava){id.data[p*4]=255;id.data[p*4+1]=210;id.data[p*4+2]=90;id.data[p*4+3]=255;}gx.putImageData(id,0,0);}
-    return {water,glow,w:c.width};}
+  // (the painting is read once, in slices of rows over several frames, so it never holds up an animation)
+  function survey(img,done){const c=document.createElement("canvas");c.width=img.naturalWidth;c.height=img.naturalHeight;const x=c.getContext("2d",{willReadFrequently:true});x.drawImage(img,0,0);
+    const W=c.width,H=c.height,water=[],lava=[];let y=0;
+    const slice=()=>{const n=Math.min(24,H-y),d=x.getImageData(0,y,W,n).data;
+      for(let i=0;i<d.length;i+=4){const r=d[i],gg=d[i+1],b=d[i+2],p=y*W+i/4;
+        if(gg>150&&b>150&&r<140&&b-r>60)water.push(p);else if(r>200&&gg>60&&gg<200&&b<90&&r-b>140)lava.push(p);}
+      y+=n;if(y<H){requestAnimationFrame(slice);return;}
+      let glow=null;if(lava.length>200){glow=document.createElement("canvas");glow.width=W;glow.height=H;const gx=glow.getContext("2d"),id=gx.createImageData(W,H);
+        for(const p of lava){id.data[p*4]=255;id.data[p*4+1]=210;id.data[p*4+2]=90;id.data[p*4+3]=255;}gx.putImageData(id,0,0);}
+      done({water,glow,w:W});};
+    slice();}
   function set(t,mi,shape,canvas,img){const M=MAPS[mi],A=M.art[shape];
     const k=mi+"|"+shape,same=st&&st.k===k&&cv===canvas;cv=canvas;g=cv.getContext("2d");g.imageSmoothingEnabled=false;
     if(!same){st={k,mi,shape,A,M,sv:null,clouds:[0,1,2,3].map(i=>({x:hsh(i,1)*A.w,y:A.h*(.04+hsh(i,2)*.3),s:.7+hsh(i,4)*.7,v:3+hsh(i,5)*4})),birds:[],nextBird:2,smoke:[],spark:[],walk:null};
-      const go=()=>{st.sv=survey(img);};if(img.complete&&img.naturalWidth)go();else img.addEventListener("load",go,{once:true});}
+      const go=()=>{const put=sv=>{SURV[img.src]=sv;if(st&&st.k===k)st.sv=sv;};if(SURV[img.src])put(SURV[img.src]);else survey(img,put);};if(SURV[img.src])go();else if(img.complete&&img.naturalWidth)setTimeout(go,560);else img.addEventListener("load",()=>setTimeout(go,560),{once:true});}
     st.t=t;st.E=graph(t,M,A);
     // where the team stands, and (if they've moved since this device last saw the map) the walk there
     const pos=posOn(t,mi),seenKey="mapseen."+S.code+"."+mi,seen=LS.get(seenKey,null),at=pos||"camp";
@@ -979,7 +999,7 @@ function mapShape(){const R=mapRect();return (R.cw||R.w)/R.h<1?"tall":"wide";}
 // the painting covers its space, at a whole number of device pixels per painted pixel where that still keeps all
 // three mountains in view; it is slid so the mountains sit clear of the top bar and, if it can, the camp stays
 // above the question box
-function fitWorld(){const el=$("#world"),map=el&&el.querySelector(".wmap");if(!map||el.hidden)return;
+function fitWorld(){const el=$("#world"),map=el&&el.querySelector(".wmap:not(.wghost)");if(!map||el.hidden)return;
   if(map.dataset.shape!==mapShape()){S.worldKey=null;if(S.team)renderWorld(S.team);return;}
   const R=mapRect(),mi=+map.dataset.map,M=MAPS[mi].art[map.dataset.shape],dpr=Math.max(1,window.devicePixelRatio||1),bar=$("#bar").getBoundingClientRect().bottom;
   // the painting covers its space at a whole number of device pixels per painted pixel (or just enough to cover)
@@ -1012,10 +1032,29 @@ function fitWorld(){const el=$("#world"),map=el&&el.querySelector(".wmap");if(!m
 {let drag=null;const W=()=>$("#world");
   addEventListener("pointerdown",e=>{const el=W();if(!el||el.hidden||!el.contains(e.target)||e.target.closest(".wpop,.wnav"))return;drag={x:e.clientX,y:e.clientY,x0:e.clientX,y0:e.clientY,t0:performance.now(),moved:false,id:e.pointerId};});
   addEventListener("pointermove",e=>{if(!drag||e.pointerId!==drag.id||!S.mapPan)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
-    if(!drag.moved&&Math.hypot(dx,dy)<6)return;drag.moved=true;S.mapPan.x+=dx;S.mapPan.y+=dy;drag.x=e.clientX;drag.y=e.clientY;fitWorld();});
+    if(!drag.moved&&Math.hypot(dx,dy)<6)return;drag.moved=true;
+    // (sideways, whatever the map can't pan any further carries the whole painting with the finger, toward the next map)
+    const before=S.mapPan.x;S.mapPan.x+=dx;S.mapPan.y+=dy;drag.x=e.clientX;drag.y=e.clientY;fitWorld();
+    const took=S.mapPan.x-before,rest=dx-took,mi=+($("#world .wmap:not(.wghost)")?.dataset.map||0);
+    if(Math.abs(rest)>0||S.mapDragX){let d=(S.mapDragX||0)+rest;if((d<0&&mi>=MAPS.length-1)||(d>0&&mi<=0))d*=.35;S.mapDragX=d;dragShow();}});
+  // (and the map on that side peeks in beside it, darkened if it's still locked)
+  const dragShow=()=>{const m=$("#world .wmap:not(.wghost)"),w=W();if(!m||!w)return;const d=S.mapDragX||0;m.style.transition="none";m.style.transform=d?`translate3d(${d}px,0,0)`:"";
+    const mi=+m.dataset.map,nb=d<0?mi+1:mi-1;let pk=w.querySelector(".wpeek");
+    if(!d||nb<0||nb>=MAPS.length||!S.team){pk?.remove();return;}
+    const A=MAPS[nb].art[m.dataset.shape],src=mapImg(A.src).src;
+    if(!pk||pk.dataset.map!==String(nb)){pk?.remove();pk=document.createElement("img");pk.className="wpeek";pk.alt="";pk.dataset.map=nb;pk.src=src;w.insertBefore(pk,w.firstChild);}
+    pk.classList.toggle("locked",!mapOpen(S.team,nb));
+    const mw=m.offsetWidth,mh=mw*A.h/A.w,x0=parseFloat(m.style.left)||0,y0=parseFloat(m.style.top)||0;
+    Object.assign(pk.style,{width:mw+"px",height:mh+"px",top:y0+"px",left:x0+(d<0?mw:-mw)+"px",transform:`translate3d(${d}px,0,0)`});};
+  S.dragShow=dragShow;
   addEventListener("pointerup",e=>{
     // (a quick sideways flick looks at the next or previous map)
-    if(drag&&drag.moved){const dx=e.clientX-drag.x0,dy=e.clientY-drag.y0;if(Math.abs(dx)>90&&Math.abs(dx)>2*Math.abs(dy)&&performance.now()-drag.t0<450)setTimeout(()=>lookMap(dx<0?1:-1),0);}
+    if(drag&&drag.moved){const dx=e.clientX-drag.x0,dy=e.clientY-drag.y0,dd=S.mapDragX||0,W=innerWidth,mi=+($("#world .wmap:not(.wghost)")?.dataset.map||0);
+      const fl=Math.abs(dx)>90&&Math.abs(dx)>2*Math.abs(dy)&&performance.now()-drag.t0<450,dir=dd<-W*.18||(fl&&dx<0)?1:dd>W*.18||(fl&&dx>0)?-1:0;
+      if(dir&&mi+dir>=0&&mi+dir<MAPS.length)setTimeout(()=>lookMap(dir),0);
+      else if(dd){const m=$("#world .wmap:not(.wghost)"),pk=$("#world .wpeek");S.mapDragX=0;
+        if(pk){pk.style.transition="transform .35s cubic-bezier(.22,.8,.25,1)";pk.style.transform="translate3d(0,0,0)";setTimeout(()=>pk.remove(),360);}
+        if(m){m.style.transition="transform .35s cubic-bezier(.22,.8,.25,1)";m.style.transform="translate3d(0,0,0)";setTimeout(()=>{m.style.transition="";m.style.transform="";},360);}}}
     else if(drag&&S.mapPop&&!e.target.closest(".wpin")){S.mapPop=null;S.worldKey=null;if(S.team)renderWorld(S.team);}
     if(drag&&drag.moved){const el=W();if(el){const stop=ev=>{ev.stopPropagation();ev.preventDefault();};el.addEventListener("click",stop,{capture:true,once:true});setTimeout(()=>el.removeEventListener("click",stop,{capture:true}),50);}}drag=null;});
   addEventListener("pointercancel",()=>{drag=null;});
