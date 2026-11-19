@@ -28,4 +28,11 @@ Play it at **https://timurhersen.github.io/Pinnacle/**
 - `test.html` plays both climbers side by side on an in-memory database, with controls to jump around the climb.
 - `node test/rules.test.js` checks the climb's rules (answers, falls, hooks, the rope, camps, the summit score) and the question pool. It needs only Node, nothing to install; run it before every change to `js/game.js`, `js/content.js` or `js/quiz.js`.
 - Rope teams, answers and who's online are stored in a Firebase Realtime Database, read and written over its REST API (no SDK).
+- Accounts (`js/account.js`, optional): Firebase Authentication, email and password or Google. Every visitor is
+  signed in as an anonymous guest from the start, and creating an account keeps that guest's progress. An account
+  remembers its player id and rope teams at `users/<account id>`, so they follow it to any device. Switched on by
+  pasting the web app's `apiKey` into `FIREBASE_WEB`; until then the game runs without sign-in.
+  To switch on, in this order: Firebase console → Authentication → Sign-in method: enable Email/Password, Google
+  and Anonymous; Authentication → Settings → Authorized domains: add `timurhersen.github.io`; paste the `apiKey`
+  and push; only then paste `database.rules.json` (its writes need a signed-in player, guest or account).
 - `database.rules.json` holds the database access rules. Paste them into Firebase console → Realtime Database → Rules whenever they change. They keep a team from being deleted, check the shape of what's written, cap the length of names and messages, and let each climber clear their own entry from the list of who's online.

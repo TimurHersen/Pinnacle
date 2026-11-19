@@ -31,20 +31,22 @@ const LS={get(k,d){try{const v=localStorage.getItem(LS_PRE+k);return v==null?d:J
   set(k,v){try{localStorage.setItem(LS_PRE+k,JSON.stringify(v));}catch(e){}}};
 
 /* Firebase REST + streaming (EventSource) — no SDK needed */
+// (database calls wait for the first sign-in, if accounts are on, so they carry a token; js/account.js)
+const acctWait=()=>typeof acctReady==="function"?acctReady():Promise.resolve();
 const fb={
-  url:p=>`${FB}/${p}.json`,
-  async get(p){const r=await fetch(fb.url(p));if(!r.ok)throw new Error("get "+r.status);return r.json();},
+  url:p=>`${FB}/${p}.json`+(typeof ACCT!=="undefined"&&ACCT.token?`?auth=${encodeURIComponent(ACCT.token)}`:""),
+  async get(p){await acctWait();const r=await fetch(fb.url(p));if(!r.ok)throw new Error("get "+r.status);return r.json();},
   async getTagged(p){
-    try{const r=await fetch(fb.url(p),{headers:{"X-Firebase-ETag":"true"}});if(!r.ok)throw 0;return {val:await r.json(),etag:r.headers.get("ETag")};}
+    await acctWait();try{const r=await fetch(fb.url(p),{headers:{"X-Firebase-ETag":"true"}});if(!r.ok)throw 0;return {val:await r.json(),etag:r.headers.get("ETag")};}
     catch(e){return {val:await fb.get(p),etag:null};}},
-  async put(p,v,etag){const h={"Content-Type":"application/json"};if(etag)h["if-match"]=etag;
+  async put(p,v,etag){await acctWait();const h={"Content-Type":"application/json"};if(etag)h["if-match"]=etag;
     const r=await fetch(fb.url(p),{method:"PUT",headers:h,body:JSON.stringify(v)});
     if(r.status===412)return false;if(!r.ok)throw new Error("put "+r.status);return true;},
-  async patch(p,v){const r=await fetch(fb.url(p),{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(v)});if(!r.ok)throw new Error("patch "+r.status);},
+  async patch(p,v){await acctWait();const r=await fetch(fb.url(p),{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(v)});if(!r.ok)throw new Error("patch "+r.status);},
   // (keepalive lets a delete sent as the page closes still go through)
   del(p,keepalive){return fetch(fb.url(p),{method:"DELETE",keepalive:!!keepalive}).catch(()=>{});},
   listen(p,cb){
-    let tree=null;const es=new EventSource(fb.url(p));
+    let tree=null,es=null,closed=false;
     const isObj=x=>x&&typeof x==="object";
     const apply=(ev,isPatch)=>{let d;try{d=JSON.parse(ev.data);}catch(e){return;}if(!d||typeof d.path!=="string")return;
       const parts=d.path.split("/").filter(Boolean);
@@ -57,10 +59,14 @@ const fb={
         else{const k=parts[parts.length-1];if(d.data===null)delete o[k];else o[k]=d.data;}
       }
       cb(tree==null?null:clone(tree));};
-    es.addEventListener("put",e=>apply(e,false));
-    es.addEventListener("patch",e=>apply(e,true));
-    es.onopen=()=>conn(es,true);es.onerror=()=>conn(es,false);
-    return ()=>{es.close();conn(es,true);};}
+    const open=()=>{if(closed)return;es=new EventSource(fb.url(p));
+      es.addEventListener("put",e=>apply(e,false));
+      es.addEventListener("patch",e=>apply(e,true));
+      es.addEventListener("auth_revoked",()=>{es.close();setTimeout(open,300);});
+      es.addEventListener("cancel",()=>{es.close();setTimeout(open,2000);});
+      es.onopen=()=>conn(es,true);es.onerror=()=>conn(es,false);};
+    acctWait().then(open);
+    return ()=>{closed=true;if(es){es.close();conn(es,true);}};}
 };
 // the connection: when a live link to the database drops (the browser keeps retrying by itself), a note says so
 // until it is back; a blip shorter than a second and a half never shows
@@ -334,7 +340,7 @@ document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest
   if(k==="snd")$("#sndBtn").click();else if(k==="mus")MUSIC.toggle();else $("#fsBtn").click();syncSettings();});
 document.addEventListener("fullscreenchange",syncSettings);
 function rememberTeam(code,name){
-  S.myTeams=[{code,name},...S.myTeams.filter(x=>x.code!==code)].slice(0,12);LS.set("teams",S.myTeams);
+  S.myTeams=[{code,name},...S.myTeams.filter(x=>x.code!==code)].slice(0,12);LS.set("teams",S.myTeams);if(typeof acctSaveTeams==="function")acctSaveTeams();
 }
 function readName(){const el=$("#myname");const v=((el?el.value:S.myName)||"").trim().slice(0,24);if(v){S.myName=v;LS.set("name",v);}return v;}
 function randCode(){const a="ABCDEFGHJKMNPQRSTUVWXYZ23456789";let s="";for(let i=0;i<6;i++)s+=a[Math.floor(Math.random()*a.length)];return s;}
@@ -388,6 +394,7 @@ function renderLobby(invite){
         <li><b>Maps.</b> ${MAPS.map(M=>esc(M.name)).join(", ")}: six mountains each, along a trail. Climb one to open the next step, sometimes one mountain, sometimes a choice of two. Climb a map's summit to collect it and open the next. The further you go, the harder the questions, the less time you get and the fewer hooks you carry.</li>
         <li><b>Camps</b> restock your gear. There you pick the route on, short and hard or long and gentler, and one extra piece of gear.</li>
         <li><b>The rope radio</b> lets you talk when you're apart. Side by side, just talk.</li></ul></div>
+    <div class="card" id="secAcct"><h3>Account</h3><div id="acctBody" class="acct"></div></div>
     <div class="card" id="secSet"><h3>Settings</h3>
       ${settingsHtml()}
     </div>`;
@@ -407,7 +414,8 @@ function renderLobby(invite){
   $("#backBtn").onclick=()=>{sfx("pop");close();};
   main.onkeydown=e=>{if(e.key==="Escape")close();};
   showHome([...(S.myTeams.length?[{id:"secCont",label:"Continue"}]:[]),{id:"secNew",label:"New expedition"},{id:"secTv",label:"Big screen"},{id:"secJoin",label:"Join team"},
-    {id:"secHow",label:"How to play"},{id:"secSet",label:"Settings"}],open);
+    {id:"secHow",label:"How to play"},{id:"secAcct",label:typeof acctNamed==="function"&&acctNamed()?"Account":"Sign in"},{id:"secSet",label:"Settings"}],open);
+  if(typeof acctRender==="function")acctRender();
   if(invite)open("secJoin");
   syncSettings();
 }

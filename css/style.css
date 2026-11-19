@@ -675,3 +675,10 @@ body.tv .wpin{pointer-events:none}
 .wprate{display:flex;align-items:center;gap:8px;font:600 13px/1 var(--body);color:var(--muted);text-transform:uppercase;letter-spacing:.04em}.wprate .srow .px{width:16px;height:16px}
 @media (max-width:899px),(max-height:520px){.wnplate{width:220px}.wnplate b{font-size:16px}.wnplate b.long{font-size:14px}}
 .wnplate b{display:block;height:20px;line-height:20px}
+
+/* the account card */
+.acct{display:grid;gap:10px}.acct input{width:100%}.acct .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn.google{display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;color:#1f1f1f;border-color:#fff}
+.gmark{display:grid;place-items:center;width:22px;height:22px;font:400 16px/1 var(--head);color:#fff;background:conic-gradient(#ea4335 0 25%,#fbbc05 0 50%,#34a853 0 75%,#4285f4 0)}
+.or{display:flex;align-items:center;gap:10px;color:var(--muted);font:600 12px/1 var(--body);text-transform:uppercase;letter-spacing:.06em}.or::before,.or::after{content:"";flex:1;height:2px;background:var(--line)}
+.acct .linkbtn{justify-self:start;font-size:13px;padding:4px 8px}
