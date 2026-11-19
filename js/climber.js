@@ -118,7 +118,7 @@ function profileHtml(){const p=profile(),n=profSummits(p),st=profStars(p),best=O
 // (the two new ones are drawn over the first two's frames, in the same poses: js/scene.js gives them those two's measurements)
 const CHARS=[{id:"lumberjack",name:"Birch",desc:"Red beanie, plaid shirt and a beard you could get lost in."},
   {id:"woman",name:"Juniper",desc:"Bobble hat, orange jacket and a scarf against the wind."},
-  {id:"modcut",name:"Onyx",base:"lumberjack",soon:true,preview:"art/reference/onyx-approved.png",desc:"A pitch-black mod cut and his navy track jacket."},
+  {id:"modcut",name:"Onyx",base:"lumberjack",desc:"A pitch-black mod cut and his navy track jacket."},
   {id:"redcat",name:"Ember",base:"woman",desc:"Fiery red hair and bangs, with Ash, her grey cat, on her shoulder."}];
 const CHAR_DEFAULT=["lumberjack","woman"];
 function charOf(t,id){const ids=memberIds(t),i=Math.max(0,ids.indexOf(id)),m=t.members[id]||{},o=ids.find(x=>x!==id),om=o&&t.members[o]?.char;
