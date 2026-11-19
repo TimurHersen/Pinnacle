@@ -11,10 +11,13 @@
    Until FIREBASE_WEB is filled in (Firebase console, Project settings, Your apps, Web app config), or if the sign-in
    service can't be reached, the game simply runs as before, with no sign-in and no token on its requests. */
 const FIREBASE_WEB={
-  apiKey:"",                                   // ← paste the web app's apiKey here
+  apiKey:"AIzaSyAdM4N-9OB4OqKz63NbtPnmro7kwP7VzDI",   // (a web app's key is public by design; access is governed by the rules)
   authDomain:"pinnacle-5f36a.firebaseapp.com",
   databaseURL:"https://pinnacle-5f36a-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId:"pinnacle-5f36a"
+  projectId:"pinnacle-5f36a",
+  storageBucket:"pinnacle-5f36a.firebasestorage.app",
+  messagingSenderId:"454707911322",
+  appId:"1:454707911322:web:55ca94eabc516fbed49d23"
 };
 const ACCT={on:false,auth:null,user:null,token:null,ready:false,waiters:[]};
 const SDK="https://www.gstatic.com/firebasejs/10.12.2/";
