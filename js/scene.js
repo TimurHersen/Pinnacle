@@ -1195,11 +1195,11 @@ function paintView(t,c,ox0,w,h){
   drawParts(g,ox,oy,t); // (after the night, so the sleepers' z's stay bright)
 }
 // a storm on the wall (a wall event): the light goes grey and rain drives across in slanting streaks
-function drawStorm(g,w,h,t){const k=FX.storm;g.fillStyle=`rgba(30,38,52,${(.32*k).toFixed(3)})`;g.fillRect(0,0,w,h);
-  g.fillStyle=`rgba(200,214,232,${(.55*k).toFixed(3)})`;const n=Math.round(160*k);
-  for(let i=0;i<n;i++){const sp=260+hash(i,31)*140,x0=hash(i,32)*(w+120),y=((hash(i,33)*h+t*sp)%(h+20))-10,x=R0((x0-t*sp*.35)%(w+120)+(x0-t*sp*.35<0?w+120:0))-60;
-    for(let j=0;j<9;j++)g.fillRect(x-R0(j*.4),R0(y)+j,1,1);}
-  if(!RM.matches&&hash(Math.floor(t*.5),7)<.08&&(t*.5%1)<.06){g.fillStyle=`rgba(255,255,255,${(.25*k).toFixed(3)})`;g.fillRect(0,0,w,h);}}
+function drawStorm(g,w,h,t){const k=FX.storm;g.fillStyle=`rgba(30,38,52,${(.30*k).toFixed(3)})`;g.fillRect(0,0,w,h);
+  // each drop falls its whole way down along one slanting line, then starts again somewhere new: never a jump mid-fall
+  g.fillStyle=`rgba(200,214,232,${(.5*k).toFixed(3)})`;const n=Math.round(70*k),H=h+40;
+  for(let i=0;i<n;i++){const sp=150+hash(i,31)*60,ph=t*sp+hash(i,33)*H,cyc=Math.floor(ph/H),y=ph-cyc*H-20,x0=hash(i,cyc*7+1)*(w+80);
+    for(let j=0;j<7;j++){const yy=y-j,xx=x0-yy*.32;if(xx>=0&&xx<w&&yy>=0&&yy<h)g.fillRect(R0(xx),R0(yy),1,1);}}}
 // night at camp: the whole scene sinks into deep blue, stars come out over the valley, and the tent and its
 // lantern glow through it
 function drawNight(g,w,h,t,ox,oy){const n=FX.night,cp=FX.camp;
@@ -1402,7 +1402,7 @@ function drawTopo(t){
   if(!t){FX.focus="me";FX.label=null;FX.lit={c1:1,c2:1};FX.litAt={};FX.A.me.gear=3;
     if(FX.mode!=="lobby"){FX.mode="lobby";FX.exp=DEMO;setChars("lumberjack","woman");FX.cam=null;runDemo();}return;}
   const exp=t.exp,r=t.round;FX.exp=exp;setLead(t);
-  if(typeof charOf==="function"){const ids=memberIds(t);setChars(charOf(t,ids[0]),charOf(t,ids[1]));}
+  if(typeof charOf==="function"){const ids=memberIds(t),a=charOf(t,ids[0]);setChars(a,ids[1]?charOf(t,ids[1]):(a==="woman"?"lumberjack":"woman"));}
   // (the team's kit: its rope colour and summit flag)
   if(typeof ropeOf==="function"){Object.assign(ROPE,ropeOf(t).c);FX.flagC=flagOf(t).c;}FX.stormOn=r.phase==="answer"&&r.ev==="storm";
   // the hooks in the wall, each where it was clipped; a new one drops in with a word from whoever clipped it
