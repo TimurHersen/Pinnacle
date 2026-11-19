@@ -603,12 +603,6 @@ body.pad #main.game2 .routes.mts{grid-template-columns:1fr}
 .coach.inline{position:static;width:auto;margin:0 0 10px;animation:none}.coach.inline .carrow{left:24px}
 
 /* ---------- the progression maps ---------- */
-/* the trail between the mountains: walked in gold, open in cream, locked faint; drawn over the painting, under the pins */
-.wtrail{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
-.wtrail line{stroke-linecap:round;vector-effect:non-scaling-stroke}
-.wtrail .walked{stroke:#f2b233;stroke-width:4px;stroke-dasharray:2 7}
-.wtrail .open{stroke:#efe3c4;stroke-width:3px;stroke-dasharray:2 8;opacity:.9}
-.wtrail .shut{stroke:#0b1a26;stroke-width:3px;stroke-dasharray:2 9;opacity:.45}
 /* pins: locked ones dimmed and not pressable; climbed ones with a gold plate; the next step pulsing */
 .wpin.lk{cursor:default;filter:grayscale(1) brightness(.75)}.wpin.lk .wplate{opacity:.85}.wpin.lk .wflag{animation:none;--fc:#5a6070}
 .wpin.dn .wplate{border-color:var(--gold)}
@@ -632,3 +626,10 @@ body.pad #main.game2 .routes.mts{grid-template-columns:1fr}
 @media (min-width:900px) and (min-height:521px){#main.game2 .routes.mts{grid-template-columns:1fr 1fr}#main.game2 .mcard{padding:8px 10px}}
 /* (a tip never blocks what's under it: only its own two buttons take a tap) */
 .coach:not(.inline){pointer-events:none}.coach .cact button{pointer-events:auto}
+
+/* the living map: its canvas over the painting (crisp pixels), the pins over that; the trail's progress pips */
+.wfx{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;pointer-events:none}
+.wpins{position:absolute;inset:0;pointer-events:none}.wpins .wpin{pointer-events:auto}.wpin.lk{pointer-events:none}
+.tpips{display:flex;gap:5px;align-items:center}.tpips i{width:10px;height:10px;border:2px solid var(--line);background:var(--navy)}
+.tpips i.fork{transform:rotate(45deg);width:9px;height:9px}.tpips i.on{background:var(--gold);border-color:var(--goldL,#ffd27a)}
+.routes.mts.fork .mcard.next{border-color:var(--gold)}

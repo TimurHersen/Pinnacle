@@ -102,13 +102,18 @@ function total(exp){const L=lens(exp);return L[0]+(L[1]||0)+(L[2]||0);}
 function campStops(exp){const L=lens(exp);const s=[L[0]];if(L[1])s.push(L[0]+L[1]);if(L[1]&&L[2])s.push(L[0]+L[1]+L[2]);return s;}
 // the mountain an expedition is on (Kebne Wall until one is picked)
 const MT=e=>MOUNTAINS[e&&e.m]||MOUNTAINS.moss;
-/* the maps' progress, from the team's record of climbs: a mountain is open if it starts the first map, if any
-   mountain on the step before it has been climbed, or (the first step of a later map) if the map before is done */
+/* the maps' progress. The team travels each map's trail: it stands at the last mountain it climbed there (trail, or
+   for teams from before it was kept, the furthest one climbed), and the next step's mountains are where it can go:
+   one, or a fork of two. A map is done once its summit is climbed; then the next map opens, and every mountain on a
+   done map can be climbed again. */
 const climbed=(t,id)=>!!(t.stats?.peaks||{})[id];
 const mapDone=(t,mi)=>MAPS[mi].steps[MAPS[mi].steps.length-1].some(id=>climbed(t,id));
 const mapOpen=(t,mi)=>mi===0||mapDone(t,mi-1);
-function isOpen(t,id){const m=MOUNTAINS[id];if(!m||!mapOpen(t,m.map))return false;if(m.step===0)return true;
-  return MAPS[m.map].steps[m.step-1].some(k=>climbed(t,k));}
+function posOn(t,mi){const tr=(t.stats?.trail||{})["m"+mi];if(MOUNTAINS[tr]&&MOUNTAINS[tr].map===mi&&climbed(t,tr))return tr;
+  let best=null;for(const step of MAPS[mi].steps)for(const k of step)if(climbed(t,k))best=k;return best;}
+function nextOn(t,mi){const p=posOn(t,mi);return p?MAPS[mi].steps[MOUNTAINS[p].step+1]||[]:MAPS[mi].steps[0];}
+function isOpen(t,id){const m=MOUNTAINS[id];if(!m||!mapOpen(t,m.map))return false;if(mapDone(t,m.map))return true;
+  return nextOn(t,m.map).includes(id);}
 // the map the team is on now: the furthest one open
 const currentMap=t=>{let mi=0;while(mi<MAPS.length-1&&mapOpen(t,mi+1))mi++;return mi;};
 // a height on the drawn wall, as that mountain's own height in metres (the wall is drawn the same for all three)
@@ -195,7 +200,9 @@ function applyOutcome(t,o){
     // (and on the mountain's own record, which the map shows)
     const pk=stats.peaks=clone(stats.peaks||{}),mine=pk[exp.m]||{n:0,pts:0};pk[exp.m]={n:mine.n+1,pts:Math.max(mine.pts,run.pts)};
     // (the first time a map's own summit is climbed, the map is collected and the next one opens)
-    const M=MT(exp);if(M.final&&!mine.n)run.mapDone=M.map;}
+    const M=MT(exp);if(M.final&&!mine.n)run.mapDone=M.map;
+    // (and the team moves along the map's trail to it, unless it was a mountain behind them, climbed again)
+    const tr=stats.trail=clone(stats.trail||{}),at=MOUNTAINS[tr["m"+M.map]];if(!at||M.step>=at.step)tr["m"+M.map]=exp.m;}
   const word=x=>x.held?"held by the rope":x.ok?(x.to>x.from?"climbed":"waited at the ledge"):x.caught?"slipped onto the hook":x.hooked?"fell to the hook":x.roped?"fell onto the rope":x.to<x.from?"fell":"came off";
   const headline=ids.map(id=>`${t.members[id]?.name||"Climber"} ${word(pl[id])}`).join(", ")+".";
   const log=(t.log||[]).slice(-39);
@@ -792,45 +799,139 @@ function mapView(t){
   const r=t.round,votes=r.votes||{},ids=memberIds(t),solo=ids.length<2,lead=solo||leaderOf(t)===S.uid||leaderOf(t)===SIM,mine=votes[S.uid]?.mtn,pk=t.stats?.peaks||{};
   const pick=mapPick(t),agreed=ids.every(i=>votes[i]?.mtn===pick),can=pick&&(lead||agreed)&&isOpen(t,pick);
   const who=k=>ids.filter(i=>votes[i]?.mtn===k).map(i=>esc(nameOf(i))).join(", ")||"&nbsp;";
-  const mi=viewMap(t),M=MAPS[mi],open=M.steps.flat().filter(k=>isOpen(t,k)),locked=M.steps.flat().length-open.length;
-  const card=k=>{const m=MOUNTAINS[k],rec=pk[k],next=!rec&&isOpen(t,k);return `<button class="route mcard d${m.diff} ${mine===k?"sel":""} ${next?"next":""} ${rec?"done":""}" data-mtn="${k}">
-    <h4>${esc(m.name)}</h4><span class="rmeta">${m.final?`${ICON.flag} Summit of the map`:`Step ${m.step+1} of ${M.steps.length}`}</span>
+  const mi=viewMap(t),M=MAPS[mi],done=mapDone(t,mi),next=done?M.steps.flat():nextOn(t,mi),at=posOn(t,mi);
+  const card=k=>{const m=MOUNTAINS[k],rec=pk[k];return `<button class="route mcard d${m.diff} ${mine===k?"sel":""} ${!done?"next":""} ${rec?"done":""}" data-mtn="${k}">
+    <h4>${esc(m.name)}</h4><span class="rmeta">${m.final?`${ICON.flag} Summit of ${esc(M.name)}`:`Stop ${m.step+1} of ${M.steps.length}`}</span>
     <span class="mfacts">${fmt(m.alt.top)} m · ${m.secs} s · ${m.hooks} hooks</span>
-    ${rec?`<span class="mrec">${ICON.flag} Climbed ${rec.n}×</span>`:next?`<span class="mrec">New</span>`:""}<span class="votes">${who(k)}</span></button>`;};
+    ${rec?`<span class="mrec">${ICON.flag} Climbed ${rec.n}×</span>`:""}<span class="votes">${who(k)}</span></button>`;};
   const strip=`<div class="mapstrip" role="tablist" aria-label="Your maps">${MAPS.map((X,k)=>{const op=mapOpen(t,k),dn=mapDone(t,k);
     return `<button class="mthumb ${k===mi?"on":""} ${dn?"dn":""} ${op?"":"lk"}" data-map="${k}" role="tab" aria-selected="${k===mi}" ${op?"":"disabled"} aria-label="${esc(X.name)}${dn?", collected":op?", open":", locked"}">
       <i style="background-image:url('${asset(X.art.wide.src)}')"></i><span>${op?esc(X.name):"Locked"}</span>${dn?`<em>${ICON.flag}</em>`:""}</button>`;}).join("")}</div>`;
+  // the progress along this map's trail: a pip for each stop, filled where the team has been
+  const pips=`<div class="tpips" aria-label="${M.steps.filter(st=>st.some(k=>climbed(t,k))).length} of ${M.steps.length} stops">${M.steps.map(st=>`<i class="${st.some(k=>climbed(t,k))?"on":""} ${st.length>1?"fork":""}"></i>`).join("")}</div>`;
+  const lead1=done?`<b>${esc(M.name)} is in your collection.</b> Climb any of its mountains again.`:next.length>1?`<b>The trail forks.</b> Choose your path${solo?"":" together"}.`:at?`<b>Next stop on the trail.</b>`:`<b>The trail starts here.</b> ${esc(M.blurb)}`;
   const m=pick&&MOUNTAINS[pick];
-  return frameQ(t,`<div class="qhead"><span>${esc(M.name)} · Map ${mi+1} of ${MAPS.length} · ${M.label}</span>${mapDone(t,mi)?`<span class="role lead">Collected</span>`:""}</div>
-   <div class="routes mts">${open.map(card).join("")}</div>
-   ${locked?`<p class="note">${locked} more ${locked===1?"mountain opens":"mountains open"} further along the trail.</p>`:""}
-   ${m?`<p class="qsub"><b>${esc(m.name)}.</b> ${esc(m.desc)}</p>`:`<p class="qsub">${esc(M.blurb)} Tap a mountain${solo?"":", and talk it over with your partner"}.</p>`}
-   ${TV()?`<p class="note">Pick a mountain on your phones.</p>`:can?`<button class="btn rope" id="setOffBtn">Set off for ${esc(m.name)}</button>`:pick&&isOpen(t,pick)?`<p class="note">Waiting for ${esc(nameOf(ids.find(i=>i!==S.uid)))} to pick ${esc(m.name)} too, or to set off.</p>`:""}
+  return frameQ(t,`<div class="qhead"><span>${esc(M.name)} · Map ${mi+1} of ${MAPS.length} · ${M.label}</span>${pips}</div>
+   <p class="qsub">${lead1}</p>
+   <div class="routes mts ${next.length>1?"fork":""}">${next.map(card).join("")}</div>
+   ${m?`<p class="qsub"><b>${esc(m.name)}.</b> ${esc(m.desc)}</p>`:""}
+   ${TV()?`<p class="note">Choose on your phones.</p>`:can?`<button class="btn rope" id="setOffBtn">Set off for ${esc(m.name)}</button>`:pick&&isOpen(t,pick)?`<p class="note">Waiting for ${esc(nameOf(ids.find(i=>i!==S.uid)))} to pick ${esc(m.name)} too, or to set off.</p>`:next.length===1&&!done&&!TV()?`<p class="note">Tap ${esc(MOUNTAINS[next[0]].name)} to set off.</p>`:""}
    ${strip}`);
 }
 /* the map itself, while the team chooses: one painting filling the whole screen (the part of it the question box
    leaves, when that is a column down the side), a pin on each mountain (its name, its difficulty, who picked it, a
    flag once climbed) and the team's camp at the foot of the trails */
 function renderWorld(t){const el=$("#world");if(!el)return;const r=t&&t.round,on=!!(r&&r.phase==="map");
-  if(!on){if(!el.hidden){el.hidden=true;el.innerHTML="";S.worldKey=null;}return;}
-  const votes=r.votes||{},ids=memberIds(t),pk=t.stats?.peaks||{},shape=mapShape(),mi=viewMap(t),key=JSON.stringify([votes,pk,ids,shape,mi]);
+  if(!on){if(!el.hidden){el.hidden=true;el.innerHTML="";S.worldKey=null;MAPFX.stop();}return;}
+  const votes=r.votes||{},ids=memberIds(t),pk=t.stats?.peaks||{},shape=mapShape(),mi=viewMap(t),key=JSON.stringify([votes,pk,ids,shape,mi,t.stats?.trail||{}]);
   if(el.hidden){el.hidden=false;el.classList.remove("in");void el.offsetWidth;el.classList.add("in");}
-  if(S.worldKey!==key){const fresh=S.worldMap!==mi;S.worldKey=key;S.worldMap=mi;const M=MAPS[mi],A=M.art[shape],P=A.pins;
-    // the trail: from the camp to the first mountain, then from every mountain on a step to every one on the next;
-    // gold where it has been walked (both ends climbed, or the camp), cream where it's open, faint where it's locked
-    const seg=(a,b,cls)=>`<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" class="${cls}"/>`;let lines="";
-    const st=k=>climbed(t,k)?"walked":isOpen(t,k)?"open":"shut";
-    for(const k of M.steps[0])lines+=seg(A.camp,P[k],climbed(t,k)?"walked":"open");
-    for(let si=1;si<M.steps.length;si++)for(const a of M.steps[si-1])for(const b of M.steps[si])lines+=seg(P[a],P[b],climbed(t,a)&&climbed(t,b)?"walked":climbed(t,a)?"open":"shut");
-    const pin=k=>{const m=MOUNTAINS[k],[x,y]=P[k],op=isOpen(t,k),tags=ids.filter(i=>votes[i]?.mtn===k).map(i=>`<em class="${i===S.uid?"me":""}">${ptag(t,i)}</em>`).join("");
-      return `<button class="wpin d${m.diff} ${votes[S.uid]?.mtn===k?"sel":""} ${op?"":"lk"} ${pk[k]?"dn":op?"nx":""}" data-mtn="${k}" style="left:${100*x/A.w}%;top:${100*y/A.h}%" ${op?"":"disabled"} aria-label="${esc(m.name)}${pk[k]?", climbed":op?", open":", locked"}">
-        <span class="wflag" aria-hidden="true"></span><span class="wplate"><b>${op?esc(m.name):"???"}</b><small>${op?(m.final?`${ICON.flag} Summit`:`Step ${m.step+1}`):"Locked"}${pk[k]?ICON.flag:""}</small>${tags?`<span class="wtags">${tags}</span>`:""}</span></button>`;};
-    el.innerHTML=`<div class="wmap" data-shape="${shape}" data-map="${mi}"><img src="${asset(A.src)}" alt="A painted map of ${esc(M.name)}: six mountains along a winding trail">
-      <svg class="wtrail" viewBox="0 0 ${A.w} ${A.h}" preserveAspectRatio="none" aria-hidden="true">${lines}</svg>
-      <span class="wcamp" style="left:${100*A.camp[0]/A.w}%;top:${100*A.camp[1]/A.h}%">Camp</span>${M.steps.flat().map(pin).join("")}</div>`;
+  if(S.worldKey!==key){const fresh=S.worldMap!==mi||S.worldShape!==shape;S.worldKey=key;S.worldMap=mi;S.worldShape=shape;const M=MAPS[mi],A=M.art[shape],P=A.pins,done=mapDone(t,mi),next=done?[]:nextOn(t,mi);
+    // a pin on each mountain: named where the team has been or can go, "???" further along the trail
+    const pin=k=>{const m=MOUNTAINS[k],[x,y]=P[k],op=isOpen(t,k),known=op||climbed(t,k),tags=ids.filter(i=>votes[i]?.mtn===k).map(i=>`<em class="${i===S.uid?"me":""}">${ptag(t,i)}</em>`).join("");
+      return `<button class="wpin d${m.diff} ${votes[S.uid]?.mtn===k?"sel":""} ${op?"":"lk"} ${pk[k]?"dn":""} ${next.includes(k)?"nx":""}" data-mtn="${k}" style="left:${100*x/A.w}%;top:${100*y/A.h}%" ${op?"":"disabled"} aria-label="${esc(m.name)}${pk[k]?", climbed":op?", next stop":", further along the trail"}">
+        <span class="wflag" aria-hidden="true"></span><span class="wplate"><b>${known?esc(m.name):"???"}</b><small>${m.final?`${ICON.flag} Summit`:known?`Stop ${m.step+1}`:"Ahead"}${pk[k]?ICON.flag:""}</small>${tags?`<span class="wtags">${tags}</span>`:""}</span></button>`;};
+    if(fresh||!el.querySelector(".wmap")){
+      el.innerHTML=`<div class="wmap" data-shape="${shape}" data-map="${mi}"><img src="${asset(A.src)}" alt="A painted map of ${esc(M.name)}: six mountains along a winding trail">
+        <canvas class="wfx" width="${A.w}" height="${A.h}" aria-hidden="true"></canvas><span class="wcamp" style="left:${100*A.camp[0]/A.w}%;top:${100*A.camp[1]/A.h}%">Camp</span><div class="wpins"></div></div>`;
+      S.mapPan=null;el.classList.remove("in");void el.offsetWidth;el.classList.add("in");}
+    el.querySelector(".wpins").innerHTML=M.steps.flat().map(pin).join("");
     el.querySelectorAll(".wpin").forEach(b=>b.onclick=()=>pickMountain(b.dataset.mtn));
-    if(fresh){S.mapPan=null;el.classList.remove("in");void el.offsetWidth;el.classList.add("in");}}
+    MAPFX.set(t,mi,shape,el.querySelector(".wfx"),el.querySelector(".wmap>img"));}
   fitWorld();}
+
+/* ---------- the living map: the trail, the team walking it, and the weather over the painting ----------
+   One canvas over the painting, at the painting's own pixels. The trail runs from the camp from stop to stop; where it
+   forks it parts at a junction and meets again at the next one. It's drawn as dots of packed earth: gold where the
+   team has walked, cream and moving toward the next stop(s), faint further on. The team (two small climbers) stands
+   where they last climbed; after a climb, back on the map, they walk the trail to it. Over it all, clouds drift by
+   with their shadows on the ground, birds cross now and then, water sparkles (lava glows), and the camp's fire smokes. */
+const MAPFX=(()=>{let cv=null,g=null,raf=0,st=null,last=0,T=0,DT=0,TEAM=null;
+  const R=Math.round,hsh=(a,b)=>{const v=Math.sin(a*127.1+b*311.7)*43758.5453;return v-Math.floor(v);};
+  // the two little climbers: red beanie and plaid, and orange; o outline, s skin, l/L legs
+  const FIG=[[".oooo.","orrrro","ossbso","oRrrRo","ooRRoo",".oLLo.",".oLLo.",".o.o.."],[".oooo.","oyyyyo","osssso","oyYYyo","ooYYoo",".oLLo.",".oLLo.",".o.o.."]];
+  const FCOL={o:"#151018",r:"#d33a2c",R:"#8e1c18",s:"#f0c49a",b:"#6a3a1c",y:"#f08a2c",Y:"#b65a14",L:"#2c3f66"};
+  function fig(k,step){const rows=FIG[k].slice();if(step)rows[7]=".o..o.";return rows;}
+  // (drawn at twice the painting's pixel size, so the team reads at a glance)
+  function drawFig(x,y,k,step,flip){const rows=fig(k,step);rows.forEach((row,j)=>[...row].forEach((ch,i)=>{if(ch==="."||!FCOL[ch])return;g.fillStyle=FCOL[ch];g.fillRect(R(x)+((flip?5-i:i)-3)*2,R(y)+(j-8)*2,2,2);}));}
+  // the trail as a graph: each edge a curve of points one pixel apart
+  function curve(a,b,seed){const mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy)||1,k=(hsh(seed,3)-.5)*.35*L;
+    const cx=mx-dy/L*k,cy=my+dx/L*k,pts=[];const n=Math.max(2,Math.ceil(L));for(let i=0;i<=n;i++){const u=i/n,v=1-u;pts.push([v*v*a[0]+2*u*v*cx+u*u*b[0],v*v*a[1]+2*u*v*cy+u*u*b[1]]);}return pts;}
+  // each mountain's stop on the trail: on the ground at its foot, below its peak (the pin)
+  function feet(A){const F={},tall=A.h>A.w;for(const [k,[x,y]] of Object.entries(A.pins))F[k]=[x,Math.min(A.camp[1]-26,y+A.h*(tall?.2:.3))];return F;}
+  function graph(t,M,A){const P=feet(A),S2=M.steps,E=[],cen=ks=>[ks.reduce((a,k)=>a+P[k][0],0)/ks.length,ks.reduce((a,k)=>a+P[k][1],0)/ks.length];
+    const pos=posOn(t,M===MAPS[st.mi]?st.mi:0),done=mapDone(t,st.mi),next=done?[]:nextOn(t,st.mi);
+    const add=(a,b,state,from,to)=>E.push({pts:curve(a,b,E.length+7),state,from,to});
+    add(A.camp,P[S2[0][0]],climbed(t,S2[0][0])?"walked":"open","camp",S2[0][0]);
+    for(let k=0;k+1<S2.length;k++){const a=S2[k],b=S2[k+1];
+      if(a.length===1&&b.length===1){add(P[a[0]],P[b[0]],climbed(t,b[0])?"walked":next.includes(b[0])?"open":"ahead",a[0],b[0]);continue;}
+      const J=cen([...a,...b]),Jc=[(cen(a)[0]+cen(b)[0])/2,(cen(a)[1]+cen(b)[1])/2];J[0]=Jc[0];J[1]=Jc[1];const jid="J"+k,past=b.some(x=>climbed(t,x));
+      for(const x of a)add(P[x],J,climbed(t,x)&&(past||x===pos)?(past?"walked":"open"):"ahead",x,jid);
+      for(const y of b)add(J,P[y],climbed(t,y)?"walked":next.includes(y)?"open":"ahead",jid,y);}
+    // (and for each mountain climbed, its way up from the foot to the summit)
+    for(const k of S2.flat())if(climbed(t,k))E.push({pts:curve(P[k],A.pins[k],k.length*13),state:"summit",from:k,to:k});
+    return E;}
+  // the route the team walked to reach a stop: camp, then each stop, through the junctions
+  function routeTo(E,to){const out=[];let cur=to;for(let guard=0;guard<12&&cur!=="camp";guard++){const e=E.find(e=>e.to===cur&&e.state!=="summit"&&(e.state==="walked"||e.to===to));if(!e)break;out.unshift(e);cur=e.from;}return out;}
+  function survey(img){const c=document.createElement("canvas");c.width=img.naturalWidth;c.height=img.naturalHeight;const x=c.getContext("2d");x.drawImage(img,0,0);
+    const d=x.getImageData(0,0,c.width,c.height).data,water=[],lava=[];
+    for(let i=0;i<d.length;i+=4){const r=d[i],gg=d[i+1],b=d[i+2],p=i/4;
+      if(gg>150&&b>150&&r<140&&b-r>60)water.push(p);else if(r>200&&gg>60&&gg<200&&b<90&&r-b>140)lava.push(p);}
+    // the lava's glow, as its own picture
+    let glow=null;if(lava.length>200){glow=document.createElement("canvas");glow.width=c.width;glow.height=c.height;const gx=glow.getContext("2d"),id=gx.createImageData(c.width,c.height);
+      for(const p of lava){id.data[p*4]=255;id.data[p*4+1]=210;id.data[p*4+2]=90;id.data[p*4+3]=255;}gx.putImageData(id,0,0);}
+    return {water,glow,w:c.width};}
+  function set(t,mi,shape,canvas,img){const M=MAPS[mi],A=M.art[shape];
+    const k=mi+"|"+shape,same=st&&st.k===k&&cv===canvas;cv=canvas;g=cv.getContext("2d");g.imageSmoothingEnabled=false;
+    if(!same){st={k,mi,shape,A,M,sv:null,clouds:[0,1,2,3].map(i=>({x:hsh(i,1)*A.w,y:A.h*(.04+hsh(i,2)*.3),s:.7+hsh(i,4)*.7,v:3+hsh(i,5)*4})),birds:[],nextBird:2,smoke:[],spark:[],walk:null};
+      const go=()=>{st.sv=survey(img);};if(img.complete&&img.naturalWidth)go();else img.addEventListener("load",go,{once:true});}
+    st.t=t;st.E=graph(t,M,A);
+    // where the team stands, and (if they've moved since this device last saw the map) the walk there
+    const pos=posOn(t,mi),seenKey="mapseen."+S.code+"."+mi,seen=LS.get(seenKey,null),at=pos||"camp";
+    if(!st.walk&&seen!==at&&pos&&!RM.matches){const route=routeTo(st.E,pos),from=route.findIndex(e=>e.from===seen),use=from>=0?route.slice(from):route.slice(-1);
+      const pts=use.flatMap(e=>e.pts);if(pts.length>1){st.walk={pts,t0:T+.8,dur:Math.min(4.5,.8+pts.length/50)};TEAM={x:pts[0][0],y:pts[0][1],walking:true};}}
+    LS.set(seenKey,at);
+    st.at=pos?feet(A)[pos]:A.camp;
+    if(!raf){last=0;raf=requestAnimationFrame(loop);}}
+  function stop(){cancelAnimationFrame(raf);raf=0;st=null;cv=null;TEAM=null;}
+  function loop(now){raf=requestAnimationFrame(loop);if(!cv||!cv.isConnected){stop();return;}
+    const dt=Math.min(.05,last?(now-last)/1000:.016);if(last&&dt<1/31)return;last=now;T+=dt;DT=dt;draw(dt);fitWorld();}
+  function dot(x,y,c,o){g.fillStyle=o;g.fillRect(R(x)-1,R(y)-1,4,4);g.fillStyle=c;g.fillRect(R(x),R(y),2,2);}
+  function draw(dt){const {A}=st,W=A.w,H=A.h,calm=RM.matches;g.clearRect(0,0,W,H);
+    // cloud shadows on the ground
+    for(const c of st.clouds){if(!calm)c.x+=c.v*dt;if(c.x>W+60)c.x=-60;g.fillStyle="rgba(10,20,30,.10)";
+      for(let i=0;i<5;i++){const r=R((7+hsh(i,c.s)*6)*c.s);g.beginPath();g.arc(R(c.x+i*9*c.s-18),R(c.y+60+hsh(i,7)*5),r,0,7);g.fill();}}
+    // water sparkles, and the lava's glow
+    const sv=st.sv;if(sv&&!calm){if(sv.water.length)for(let i=0;i<3;i++){const p=sv.water[(Math.random()*sv.water.length)|0];st.spark.push({x:p%sv.w,y:(p/sv.w)|0,l:.6});}
+      st.spark=st.spark.filter(s=>(s.l-=dt)>0);for(const s of st.spark){g.fillStyle=s.l>.3?"#ffffff":"#d8fbff";g.fillRect(s.x,s.y,1,1);if(s.l>.45){g.fillRect(s.x-1,s.y,1,1);g.fillRect(s.x+1,s.y,1,1);}}
+      if(sv.glow){g.globalAlpha=.18+.14*Math.sin(T*2.2)+.06*Math.sin(T*5.3);g.globalCompositeOperation="lighter";g.drawImage(sv.glow,0,0);g.globalCompositeOperation="source-over";g.globalAlpha=1;}}
+    // the trail
+    const sp=6;for(const e of st.E){const pts=e.pts,n=pts.length,off=e.state==="open"&&!calm?R(T*8)%sp:0;
+      for(let i=sp-off;i<n-4;i+=sp){if(i<4)continue;const [x,y]=pts[i];
+        if(e.state==="walked")dot(x,y,"#f2b233","#3a2410");else if(e.state==="open")dot(x,y,"#fff3d6","#2a1a10");
+        else if(e.state==="summit"){if(i%12===0){g.fillStyle="#f2b233";g.fillRect(R(x),R(y),1,1);}}
+        else{g.fillStyle="rgba(20,14,10,.55)";g.fillRect(R(x),R(y),2,2);}}}
+    // the camp's smoke
+    if(!calm){if(Math.random()<dt*3)st.smoke.push({x:A.camp[0]+2,y:A.camp[1]-6,l:3});st.smoke=st.smoke.filter(p=>(p.l-=dt)>0);
+      for(const p of st.smoke){p.y-=6*dt;p.x+=2.5*dt;g.fillStyle=`rgba(225,225,232,${(.5*p.l/3).toFixed(2)})`;const z=p.l>2?2:3;g.fillRect(R(p.x),R(p.y),z,z);}}
+    // the team: walking the trail to their stop, or standing at it
+    let tx=st.at[0],ty=st.at[1],walking=false,flip=false;
+    if(st.walk){const w=st.walk,k=(T-w.t0)/w.dur;if(k>=1)st.walk=null;else{const u=Math.max(0,k),i=Math.min(w.pts.length-1,R(u*(w.pts.length-1))),q=w.pts[i],q0=w.pts[Math.max(0,i-3)];
+      tx=q[0];ty=q[1];walking=u>0;flip=q[0]<q0[0];}}
+    const step=walking&&Math.floor(T*8)%2,bob=walking?0:(Math.floor(T*2)%2);
+    g.fillStyle="rgba(10,10,20,.4)";g.fillRect(R(tx)-14,R(ty),28,3);
+    TEAM={x:tx,y:ty,walking:!!st.walk};
+    drawFig(tx-7,ty-bob,0,step,flip);drawFig(tx+7,ty-(1-bob)*(walking?0:1),1,!step&&walking,flip);
+    // (a gold marker bobbing over them while they wait)
+    if(!walking){const my=R(ty)-26-(Math.floor(T*2.5)%2)*2;g.fillStyle="#141018";g.fillRect(R(tx)-5,my-1,11,7);g.fillStyle="#f2b233";
+      for(let j=0;j<5;j++)g.fillRect(R(tx)-4+j,my+j,9-2*j,1);}
+    // clouds
+    for(const c of st.clouds){for(let i=0;i<5;i++){const r=R((7+hsh(i,c.s)*6)*c.s),x=R(c.x+i*9*c.s-18),y=R(c.y+hsh(i,7)*5);
+      g.fillStyle="rgba(255,255,255,.78)";g.beginPath();g.arc(x,y,r,0,7);g.fill();g.fillStyle="rgba(200,212,230,.6)";g.fillRect(x-r,y+R(r*.5),r*2,R(r*.4));}}
+    // birds
+    if(!calm){if((st.nextBird-=dt)<=0){st.nextBird=7+Math.random()*8;const y=H*(.1+Math.random()*.3);for(let i=0;i<3;i++)st.birds.push({x:-10-i*9,y:y+(i%2)*5,v:22});}
+      st.birds=st.birds.filter(b=>(b.x+=b.v*dt)<W+12);g.fillStyle="#1a1a26";
+      for(const b of st.birds){const up=Math.floor(T*6+b.y)%2,x=R(b.x),y=R(b.y);for(const [dx,dy] of up?[[0,1],[1,0],[2,1],[3,0],[4,1]]:[[0,0],[1,1],[2,1],[3,1],[4,0]])g.fillRect(x+dx,y+dy,1,1);}}}
+  return {set,stop,team:()=>st?TEAM:null,dt:()=>DT};})();
 // where the map goes: the whole window, or (a phone on its side, where the question box is a column down the left)
 // the part beside the box; `vis` is how much of its height the question box leaves uncovered
 function mapRect(){const W=innerWidth,H=innerHeight,m=$("#main").getBoundingClientRect(),side=m.width>0&&m.width<W*.7&&m.height>H*.7;
@@ -851,10 +952,19 @@ function fitWorld(){const el=$("#world"),map=el&&el.querySelector(".wmap");if(!m
   const cover=Math.max((R.cw||R.w)/M.w,R.h/M.h,R.cw?0:(R.vis-R.y)*1.5/M.h),whole=Math.ceil(cover*dpr-1e-6)/dpr,s=whole<=cover*1.35?whole:cover,w=M.w*s,h=M.h*s,snap=v=>Math.round(v*dpr)/dpr;
   // it's centred on what matters now: the next step to climb (else the picked mountain, else the camp), in the part
   // of the screen between the bar and the question box; dragging it moves it from there, within the painting
-  const t=S.team,P=M.pins,ids=MAPS[mi].steps.flat(),next=t?ids.filter(k=>isOpen(t,k)&&!climbed(t,k)):[],pick=t&&t.round.votes?.[S.uid]?.mtn;
-  const pts=next.length?next.map(k=>P[k]):pick&&P[pick]?[P[pick]]:[M.camp];
-  const fx=pts.reduce((a,q)=>a+q[0],0)/pts.length,fy=pts.reduce((a,q)=>a+q[1],0)/pts.length;
+  // (what it looks at: the team while they walk the trail; then the team and their next stop(s) together if they
+  // fit, else the next stop(s); it glides from one to the other)
+  const t=S.team,P=M.pins,next=t&&!mapDone(t,mi)?nextOn(t,mi):[],pick=t&&t.round.votes?.[S.uid]?.mtn,tm=MAPFX.team();
   const top=Math.max(0,bar-R.y),vis=R.vis-R.y;
+  let pts=next.length?next.map(k=>P[k]):pick&&P[pick]?[P[pick]]:[M.camp];
+  if(tm&&tm.walking)pts=[[tm.x,tm.y-20]];
+  else if(tm){const all=[...pts,[tm.x,tm.y-10]],ys=all.map(q=>q[1]),xs=all.map(q=>q[0]);
+    if((Math.max(...ys)-Math.min(...ys))*s+90<=vis-top&&(Math.max(...xs)-Math.min(...xs))*s+60<=(R.cw||R.w))pts=all;}
+  const tx=pts.reduce((a,q)=>a+q[0],0)/pts.length,ty=pts.reduce((a,q)=>a+q[1],0)/pts.length,F=S.mapFocus;
+  // (eased toward its target, unless the map or its shape just changed)
+  if(!F||F.k!==mi+"|"+map.dataset.shape){S.mapFocus={k:mi+"|"+map.dataset.shape,x:tx,y:ty};}
+  else{const k=1-Math.exp(-(MAPFX.dt()||.05)*3.2);F.x+=(tx-F.x)*k;F.y+=(ty-F.y)*k;}
+  const fx=S.mapFocus.x,fy=S.mapFocus.y;
   const pan=S.mapPan&&S.mapPan.k===mi+"|"+map.dataset.shape?S.mapPan:(S.mapPan={k:mi+"|"+map.dataset.shape,x:0,y:0});
   // (it may slide up until its foot meets the question box, which hides what's below)
   const cw=R.cw||R.w;let x=cw/2-fx*s+pan.x,y=(top+vis)/2+20-fy*s+pan.y;

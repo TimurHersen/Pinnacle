@@ -129,3 +129,12 @@ test("every mountain on a map is harder than the one before it on the trail, and
   for(const M of MAPS)for(const step of M.steps){const ms=step.map(k=>MOUNTAINS[k]);
     if(prev)for(const m of ms){assert.ok(m.secs<=prev.secs,m.id+" time");assert.ok(m.hooks<=prev.hooks,m.id+" hooks");assert.ok(m.tier>=prev.tier,m.id+" tier");}
     prev=ms[0];}});
+
+test("the trail: the team stands at its last climb and can only go on to the next step, until the map is done",()=>{
+  const t=team(),done=k=>{t.stats.peaks={...(t.stats.peaks||{}),[k]:{n:1,pts:50}};t.stats.trail={...(t.stats.trail||{}),["m"+g.MOUNTAINS[k].map]:k};};
+  assert.deepEqual([...g.nextOn(t,0)],["moss"]);
+  done("moss");assert.ok(!g.isOpen(t,"moss"));assert.deepEqual([...g.nextOn(t,0)],["fernhill","pineknoll"]);
+  done("fernhill");assert.ok(!g.isOpen(t,"pineknoll"),"the other branch of the fork is behind them");assert.ok(g.isOpen(t,"stonehorn")&&g.isOpen(t,"bramble"));
+  done("stonehorn");done("greycrown");assert.ok(g.isOpen(t,"pineknoll")&&g.isOpen(t,"moss"),"a done map can be climbed again");
+  // (and a summit there moves the team along the trail)
+  const u=team({m:"moss",choice:["A","A"]});u.exp.pitch=g.total(u.exp)-1;const n=play(u,RIGHT,RIGHT);assert.equal(n.stats.trail.m0,"moss");});

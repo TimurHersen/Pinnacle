@@ -8,8 +8,9 @@ Play it at **https://timurhersen.github.io/Pinnacle/**
 
 - Plain HTML, CSS and JavaScript with no build step: `index.html` loads `css/style.css` and the scripts in `js/` in order.
   - `js/content.js`: the route (stages, camps, how hard each pitch is) and the maps (`MAPS`): three painted regions
-    (`assets/maps/`) of six mountains each, along a trail of four steps (one mountain, two, two, then the map's summit).
-    Climbing a mountain opens the next step; climbing the summit collects the map and opens the next. Each mountain's
+    (`assets/maps/`) of six mountains each, along a trail of four stops (one mountain, a fork of two, another fork, then the map's summit).
+    The team travels the trail: after each climb it walks on to that stop, and can go on only to the next one(s);
+    climbing the summit collects the map and opens the next. The map is alive (`MAPFX` in `js/game.js`). Each mountain's
     difficulty, time per question, hooks and heights follow from how far along the maps it is (`MOUNTAINS`).
   - `js/quiz.js`: the questions, each with a hint and a line shown with the answer
   - `js/game.js`: team state, Firebase, judging, the lobby, the play panels and the menu
