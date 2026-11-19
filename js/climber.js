@@ -116,10 +116,10 @@ function profileHtml(){const p=profile(),n=profSummits(p),st=profStars(p),best=O
    choose, player one is the lumberjack and player two the explorer. The choice shows on the map (a button at the top)
    and opens by itself the first time a climber reaches the map without having chosen. */
 // (the two new ones are drawn over the first two's frames, in the same poses: js/scene.js gives them those two's measurements)
-const CHARS=[{id:"lumberjack",name:"Lumberjack",desc:"Red beanie, plaid shirt and a big beard."},
-  {id:"woman",name:"Explorer",desc:"Bobble hat, orange jacket and a scarf."},
-  {id:"modcut",name:"Mod",base:"lumberjack",soon:true,preview:"art/reference/mod-approved.png",desc:"Pitch-black mod cut, hoop earrings and a navy track jacket."},
-  {id:"redcat",name:"Copper",base:"woman",desc:"Copper hair and bangs, with her grey cat on her shoulder."}];
+const CHARS=[{id:"lumberjack",name:"Birch",desc:"Red beanie, plaid shirt and a beard you could get lost in."},
+  {id:"woman",name:"Juniper",desc:"Bobble hat, orange jacket and a scarf against the wind."},
+  {id:"modcut",name:"Onyx",base:"lumberjack",soon:true,preview:"art/reference/onyx-approved.png",desc:"A pitch-black mod cut and his navy track jacket."},
+  {id:"redcat",name:"Ember",base:"woman",desc:"Fiery red hair and bangs, with Ash, her grey cat, on her shoulder."}];
 const CHAR_DEFAULT=["lumberjack","woman"];
 function charOf(t,id){const ids=memberIds(t),i=Math.max(0,ids.indexOf(id)),m=t.members[id]||{},o=ids.find(x=>x!==id),om=o&&t.members[o]?.char;
   let c=CHARS.some(x=>x.id===m.char&&!x.soon)?m.char:CHAR_DEFAULT[i]||CHAR_DEFAULT[0];
