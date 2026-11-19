@@ -83,7 +83,7 @@ function fixTeam(t){
   t.members=t.members||{};t.log=Object.values(t.log||{});t.stats=t.stats||{};
   // a team saved under the old pitch types starts this quiz climb fresh at base camp
   if(!t.exp||t.exp.v!==2){t.exp=newExp((t.exp?.n||0)+1);t.round={id:(t.round?.id||0)+1,phase:"ready"};}
-  const e=t.exp;const c=e.choice||{};e.choice=[c[0]||null,c[1]||null];
+  const e=t.exp;const c=e.choice||{};e.choice=[0,1].map(i=>FORKS[i]?.[c[i]]?.tiers?c[i]:null);   // (only real routes)
   e.used=Object.values(e.used||{});e.up=e.up&&typeof e.up==="object"?e.up:{};
   for(const k of ["pitch","anchor","rope","chalk","scout","anchors"])e[k]=e[k]||0;
   e.hooks=Object.values(e.hooks||{}).filter(n=>typeof n==="number").sort((a,b)=>a-b);
@@ -332,7 +332,7 @@ const BONUS={hook:{name:"Extra hook",desc:"One more hook for the next stage."},c
 function campPick(route,k){
   const rid=S.team.round.id;
   guarded(t=>{const s=t.round.stage??needsChoice(t.exp);
-    if(t.round.id!==rid||t.round.phase!=="camp"||!BONUS[k]||!FORKS[s]?.[route])return null;
+    if(t.round.id!==rid||t.round.phase!=="camp"||!BONUS[k]||!FORKS[s]?.[route]?.tiers)return null;   // (a route, not the camp's name)
     Object.assign(t.exp,{rope:MT(t.exp).hooks,chalk:1,scout:1,anchors:1});
     if(k==="hook")t.exp.rope++;else t.exp[k]++;
     t.exp.choice[s]=route;
@@ -1350,10 +1350,15 @@ function resetTips(){S.tipsSeen=new Set();S.tipsOff=false;LS.set("tips",[]);LS.s
 /* ============================== TICK ============================== */
 // after an ordinary pitch the next question comes by itself, a few seconds after the result (the button counts down
 // and still works; a camp or the summit waits for a press, and so does an open menu)
-const AUTO_NEXT_MS=13500; // (long enough for the slower climb to finish and the result to be read)
+const AUTO_NEXT_MS=15000;
+// (the wait before the next question: long enough for the climb to play out at its steady pace, then a few seconds
+// to read how it went; a long pitch on a short climb has more holds to it)
+function nextAfterMs(t){const o=t.round.result||{},e=t.exp;let n=0;
+  if(typeof idxOf==="function")for(const x of Object.values(o.pl||{}))n=Math.max(n,Math.abs(idxOf(e,x.to)-idxOf(e,x.from)));
+  const hold=typeof HOLD_MS==="number"?HOLD_MS:650;return Math.max(9000,SUSPENSE_MS+900+n*hold+5000);} // (long enough for the slower climb to finish and the result to be read)
 function autoNext(t){const r=t.round,el=$("#nextIn");
   if(r.phase!=="reveal"||!r.resolvedAt||r.result?.arrived||S.sus===r.id){if(el)el.textContent="";return;}
-  const left=Math.ceil((r.resolvedAt+AUTO_NEXT_MS-now())/1000);if(el)el.textContent=left>0?` · ${left}`:"";
+  const left=Math.ceil((r.resolvedAt+nextAfterMs(t)-now())/1000);if(el)el.textContent=left>0?` · ${left}`:"";
   const menu=$("#menu");if(left<=0&&S._auto!==r.id&&!(menu&&!menu.hidden)&&(t.members[S.uid]||TV())){S._auto=r.id;advance(false);}}
 let tickN=0;
 setInterval(()=>{
