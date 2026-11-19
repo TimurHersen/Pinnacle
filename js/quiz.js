@@ -507,3 +507,52 @@ const QUIZ = [
  {id:"derecho",tier:4,cat:"Weather",q:"What is a long, straight-line windstorm that sweeps across hundreds of kilometres called?",o:["A derecho","A tornado","A haboob","A williwaw"],hint:"It's Spanish for 'straight'.",x:"Derechos can flatten forests and crops along their path."},
  {id:"haboob",tier:4,cat:"Weather",q:"What is a huge wall of dust pushed ahead of a thunderstorm in deserts called?",o:["A haboob","A simoom","A khamsin","A derecho"],hint:"The word comes from Arabic.",x:"Haboobs can be over a kilometre high and swallow whole cities."},
 ];
+
+/* ============================== MADE-UP-ON-THE-SPOT QUESTIONS ==============================
+   Three kinds of question built from real mountains' heights, so they never run out:
+     higher  two peaks, which is higher? (two answers, so no chalk)
+     order   three peaks, which order runs highest to lowest?
+     near    how high is a peak? four ranges; pick the one it's in (close enough counts)
+   A question's id says how it was made ("gen:order:3.11.27"), so either phone can rebuild it from the id alone. The
+   tier sets how close the heights are: the harder the pitch, the nearer they come. Heights are in metres. */
+const PEAKS=[
+ ["Mount Everest",8849,"Nepal and China"],["K2",8611,"Pakistan and China"],["Kangchenjunga",8586,"Nepal and India"],["Lhotse",8516,"Nepal and China"],
+ ["Makalu",8485,"Nepal and China"],["Cho Oyu",8188,"Nepal and China"],["Annapurna",8091,"Nepal"],["Nanga Parbat",8126,"Pakistan"],
+ ["Mount Kailash",6638,"Tibet"],["Ama Dablam",6812,"Nepal"],["Aconcagua",6961,"Argentina"],["Ojos del Salado",6893,"Chile and Argentina"],
+ ["Huascarán",6768,"Peru"],["Chimborazo",6263,"Ecuador"],["Denali",6190,"Alaska"],["Mount Logan",5959,"Canada"],
+ ["Kilimanjaro",5895,"Tanzania"],["Elbrus",5642,"Russia"],["Pico de Orizaba",5636,"Mexico"],["Damavand",5610,"Iran"],
+ ["Mount Kenya",5199,"Kenya"],["Mount Ararat",5137,"Turkey"],["Mount Vinson",4892,"Antarctica"],["Puncak Jaya",4884,"New Guinea"],
+ ["Mont Blanc",4806,"France and Italy"],["Matterhorn",4478,"Switzerland and Italy"],["Mount Whitney",4421,"California"],["Mount Elbert",4401,"Colorado"],
+ ["Mount Rainier",4392,"Washington state"],["Toubkal",4167,"Morocco"],["Mount Kinabalu",4095,"Borneo"],["Eiger",3967,"Switzerland"],
+ ["Grossglockner",3798,"Austria"],["Mount Fuji",3776,"Japan"],["Aoraki / Mount Cook",3724,"New Zealand"],["Teide",3715,"Tenerife"],
+ ["Zugspitze",2962,"Germany"],["Mount Olympus",2918,"Greece"],["Mount St. Helens",2549,"Washington state"],["Galdhøpiggen",2469,"Norway"],
+ ["Mount Sinai",2285,"Egypt"],["Mount Kosciuszko",2228,"Australia"],["Ben Nevis",1345,"Scotland"],["Vesuvius",1281,"Italy"],["Table Mountain",1085,"South Africa"]];
+const fmtM=m=>m.toLocaleString("en-US")+" m";
+// how far apart (as a share of the higher one) two peaks may be at each tier
+const GEN_GAP={1:[.4,9],2:[.18,.4],3:[.07,.18],4:[0,.07]};
+const gapOf=(a,b)=>Math.abs(PEAKS[a][1]-PEAKS[b][1])/Math.max(PEAKS[a][1],PEAKS[b][1]);
+const GEN_KINDS=t=>t<=1?["higher","higher","order"]:t===2?["higher","order","near"]:["higher","order","near","near"];
+function genQuiz(tier){const kind=GEN_KINDS(tier)[Math.floor(Math.random()*GEN_KINDS(tier).length)],n=PEAKS.length,[lo,hi]=GEN_GAP[tier]||GEN_GAP[2];
+  const r=()=>Math.floor(Math.random()*n);
+  for(let k=0;k<400;k++){
+    if(kind==="higher"){const a=r(),b=r(),g=gapOf(a,b);if(a!==b&&g>=lo&&g<hi&&g>0)return genById(`gen:higher:${a}.${b}`,tier);}
+    else if(kind==="order"){const a=r(),b=r(),c=r();if(a===b||b===c||a===c)continue;
+      const g=Math.min(gapOf(a,b),gapOf(b,c),gapOf(a,c));if(g>=lo*.6&&g<hi&&g>.01)return genById(`gen:order:${a}.${b}.${c}`,tier);}
+    else{const a=r();if(PEAKS[a][1]<2000&&tier>2)continue;return genById(`gen:near:${a}.${Math.floor(Math.random()*4)}`,tier);}}
+  return genById("gen:higher:0.33",tier);}
+function genById(id,tier){const [,kind,arg]=id.split(":"),ix=arg.split(".").map(Number),P=ix.map(i=>PEAKS[i]);if(P.some(p=>!p))return null;
+  const t=tier||+(id.split(":")[3]||2);
+  if(kind==="higher"){const [a,b]=P[0][1]>P[1][1]?[P[0],P[1]]:[P[1],P[0]];
+    return {id,gen:kind,tier:t,cat:"Mountains",q:`Which is higher: ${P[0][0]} or ${P[1][0]}?`,o:[a[0],b[0]],
+      hint:`One of them is in ${a[2]}.`,x:`${a[0]} is ${fmtM(a[1])}; ${b[0]} is ${fmtM(b[1])}.`};}
+  if(kind==="order"){const s=[...P].sort((x,y)=>y[1]-x[1]),nm=a=>a.map(p=>p[0]).join(", ");
+    const wrong=[[s[1],s[0],s[2]],[s[0],s[2],s[1]],[s[2],s[1],s[0]],[s[1],s[2],s[0]],[s[2],s[0],s[1]]];
+    const pick=[0,1,2,3,4].sort((x,y)=>((ix[0]*7+x*13)%5)-((ix[0]*7+y*13)%5)).slice(0,3).map(i=>wrong[i]);
+    return {id,gen:kind,tier:t,cat:"Mountains",q:"Put these from highest to lowest.",o:[nm(s),...pick.map(nm)],
+      hint:`${s[2][0]} is the lowest of the three.`,x:s.map(p=>`${p[0]} ${fmtM(p[1])}`).join(", ")+"."};}
+  if(kind==="near"){const p=P[0],w=p[1]>=5000?500:p[1]>=2500?400:300,slot=ix[1]%4,lo0=Math.floor(p[1]/w)*w-slot*w;
+    const band=i=>{const a=lo0+i*w;return `${fmtM(a).replace(" m","")}–${fmtM(a+w)}`;},right=band(slot);
+    const o=[right,...[0,1,2,3].filter(i=>i!==slot).map(band)];
+    return {id,gen:kind,tier:t,cat:"Mountains",q:`About how high is ${p[0]} (${p[2]})? Close enough counts.`,o,
+      hint:p[1]>=8000?"Over 8,000 m: one of the giants.":p[1]>=4000?`Higher than ${p[1]>=4807?"Mont Blanc":"3,776 m Mount Fuji"}.`:`Lower than Mont Blanc, 4,806 m.`,x:`${p[0]} is ${fmtM(p[1])} high.`};}
+  return null;}

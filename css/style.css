@@ -682,3 +682,12 @@ body.tv .wpin{pointer-events:none}
 .gmark{display:grid;place-items:center;width:22px;height:22px;font:400 16px/1 var(--head);color:#fff;background:conic-gradient(#ea4335 0 25%,#fbbc05 0 50%,#34a853 0 75%,#4285f4 0)}
 .or{display:flex;align-items:center;gap:10px;color:var(--muted);font:600 12px/1 var(--body);text-transform:uppercase;letter-spacing:.06em}.or::before,.or::after{content:"";flex:1;height:2px;background:var(--line)}
 .acct .linkbtn{justify-self:start;font-size:13px;padding:4px 8px}
+
+/* the three goals of an ascent, a star each */
+.goals{display:grid;gap:4px}.goals span{display:flex;align-items:center;gap:8px;font:600 14px/1.2 var(--body);color:var(--dim)}
+.goals span.on{color:var(--cream)}.goals .px{width:16px;height:16px}
+
+/* a wall event on this pitch: storm, loose rock or a calm spell */
+.wev{display:flex;gap:8px;align-items:baseline;padding:6px 10px;border-radius:8px;margin:6px 0;font:600 14px/1.25 var(--body);background:rgba(120,140,170,.18);border:1px solid rgba(160,180,210,.35)}
+.wev b{font-family:var(--head);letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+.wev.loose{background:rgba(190,120,60,.18);border-color:rgba(220,150,80,.4)}.wev.calm{background:rgba(90,170,120,.18);border-color:rgba(110,200,140,.4)}

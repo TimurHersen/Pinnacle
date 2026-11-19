@@ -14,5 +14,5 @@ module.exports=function load(){
   vm.createContext(ctx);
   for(const f of ["content","quiz","game"])vm.runInContext(fs.readFileSync(path.join(__dirname,"..","js",f+".js"),"utf8"),ctx,{filename:f+".js"});
   return vm.runInContext(`({QUIZ,MOUNTAINS,SEG0_TIERS,FORKS,MAX_GAP,S,fixTeam,newExp,lens,total,posOf,capOf,needsChoice,tierAt,
-    pickQuiz,applyOutcome,judge,ascentScore,ascentStars,startPitch,memberIds,MAPS,isOpen,mapDone,currentMap,posOn,nextOn})`,ctx);
+    pickQuiz,genQuiz,genById,quizById,PEAKS,applyOutcome,judge,ascentScore,ascentStars,startPitch,memberIds,MAPS,isOpen,mapDone,currentMap,posOn,nextOn})`,ctx);
 };

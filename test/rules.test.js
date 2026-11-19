@@ -7,7 +7,7 @@ let failed=0;
 function test(name,fn){try{fn();console.log("ok   "+name);}catch(e){failed++;console.log("FAIL "+name+"\n     "+(e.message||e).split("\n").join("\n     "));}}
 
 // a two-climber team mid-question: a joined first, so a is player 1. The right answer is in slot 0.
-function team({pitch=0,anchor=0,up={},m="stonehorn",choice=[null,null],hooks=[]}={}){
+function team({pitch=0,anchor=0,up={},m="snowcap",choice=[null,null],hooks=[]}={}){
   const exp=g.newExp(1);Object.assign(exp,{m,pitch,anchor,up,choice,hooks});
   return g.fixTeam({name:"T",code:"ABC123",members:{a:{name:"Ann",joined:1},b:{name:"Bo",joined:2}},exp,
     round:{id:5,phase:"answer",qid:QUIZ[0].id,leader:"a",order:[0,1,2,3],startedAt:0,dur:45},log:[],stats:{}});}
@@ -63,9 +63,30 @@ test("the summit: scored, counted and kept as the team's best and the mountain's
   const choice=["A","A"],t=team({choice,m:"frostfang"});t.exp.pitch=g.total(t.exp)-1;
   const n=play(t,RIGHT,RIGHT);
   assert.equal(n.round.result.arrived,"summit");assert.equal(n.stats.summits,1);
-  assert.equal(n.exp.run.pts,100);assert.equal(n.stats.best.pts,100);assert.deepEqual({...n.stats.peaks.frostfang},{n:1,pts:100});
+  assert.equal(n.exp.run.pts,100);assert.equal(n.stats.best.pts,100);assert.deepEqual({...n.stats.peaks.frostfang},{n:1,pts:100,g:7});
   assert.equal(g.startPitch(n).round.phase,"summit");});
 
+test("the first maps' climbs are shorter, growing to full length by Frostreach",()=>{
+  const n=m=>{const e=Object.assign(g.newExp(1),{m,choice:["B","B"]});return g.total(e);};
+  assert.ok(n("moss")<n("mistgate")&&n("mistgate")<n("redbutte")&&n("redbutte")<n("snowcap"));
+  assert.ok(n("moss")>=8&&n("moss")<=11,"Greenvale: "+n("moss"));
+  const e=Object.assign(g.newExp(1),{m:"moss",choice:["A","A"]});
+  for(let p=0;p<g.total(e);p++)assert.ok(g.tierAt(e,p)>=1);});
+test("star goals: top, no falls, no hooks; each one won stays won",()=>{
+  const t=team({choice:["A","A"],m:"frostfang"});t.exp.pitch=g.total(t.exp)-1;t.exp.run={falls:1,hu:0};
+  let n=play(t,RIGHT,RIGHT);assert.equal(n.stats.peaks.frostfang.g,1|4);assert.equal(g.ascentStars(n.exp.run),2);
+  const u=team({choice:["A","A"],m:"frostfang"});u.stats=n.stats;u.exp.pitch=g.total(u.exp)-1;u.exp.run={falls:0,hu:2};
+  n=play(u,RIGHT,RIGHT);assert.equal(n.stats.peaks.frostfang.g,7);assert.equal(n.exp.run.newStars,1);});
+
+test("loose rock: hooks within two pitches below don't hold; a calm spell gives the hint; a storm cuts the clock",()=>{
+  const t=team({pitch:4,anchor:0,hooks:[1,3,4]});t.round.ev="loose";
+  let n=play(t,WRONG,WRONG);assert.equal(n.exp.pitch,1);assert.ok(n.round.result.pl.a.loose);
+  n=play(team({pitch:4,anchor:0,hooks:[1,3,4]}),WRONG,WRONG);assert.equal(n.exp.pitch,4);
+  const R=Math.random;try{
+    Math.random=()=>0.01;const u=team({pitch:3});u.round={id:1,phase:"reveal"};const p=g.startPitch(u).round;
+    assert.ok(p.ev);if(p.ev==="storm")assert.ok(p.dur<g.MOUNTAINS.snowcap.secs);if(p.ev==="calm")assert.ok(p.scout);
+    const v=team({pitch:0});v.round={id:1,phase:"reveal"};Math.random=()=>0.01;assert.equal(g.startPitch(v).round.ev,undefined);
+  }finally{Math.random=R;}});
 test("the ascent score: right answers, less 5 a fall and 2 a rope jerk, never below 0",()=>{
   assert.equal(g.ascentScore({q:10,right:10,falls:1,jerks:1}),93);
   assert.equal(g.ascentScore({q:10,right:1,falls:5}),0);
@@ -81,6 +102,22 @@ test("each mountain shifts the difficulty a tier, within 1 to 4",()=>{
   assert.equal(g.tierAt(e("moss"),0),1);assert.equal(g.tierAt(e("sunspire"),0),1);assert.equal(g.tierAt(e("sunspire"),4),3);
   assert.equal(g.tierAt(e("frostfang"),4),4);});
 
+test("a map's theme: about half its questions come from its category",()=>{
+  let n=0;for(let i=0;i<400;i++)if(g.pickQuiz(2,[],"Animals").cat==="Animals")n++;
+  const base=QUIZ.filter(q=>q.tier===2&&q.cat==="Animals").length/QUIZ.filter(q=>q.tier===2).length;
+  assert.ok(n/400>0.5&&n/400<0.5+base+0.12,String(n/400));
+  assert.equal(g.pickQuiz(4,[],"Animals").tier,4);});
+test("made-up questions: right answer first, rebuilt the same from the id, closer heights on harder pitches",()=>{
+  for(let tier=1;tier<=4;tier++)for(let i=0;i<300;i++){const q=g.genQuiz(tier);
+    assert.ok(q&&q.o.length>=2&&new Set(q.o).size===q.o.length,q&&q.id);
+    assert.deepEqual(g.quizById(q.id+":"+tier).o,q.o);
+    const ix=q.id.split(":")[2].split(".").map(Number),P=ix.map(k=>g.PEAKS[k]);
+    if(q.gen==="higher"){assert.equal(q.o.length,2);assert.equal(q.o[0],(P[0][1]>P[1][1]?P[0]:P[1])[0]);}
+    if(q.gen==="order"){const s=[...P].sort((x,y)=>y[1]-x[1]).map(p=>p[0]).join(", ");assert.equal(q.o[0],s);}
+    if(q.gen==="near"){const [a,b]=q.o[0].replace(/,/g,"").replace(" m","").split("–").map(Number);assert.ok(P[0][1]>=a&&P[0][1]<b,q.o[0]);}}
+  const hi=t=>{let s=0,n=0;for(let i=0;i<300;i++){const q=g.genQuiz(t);if(q.gen!=="higher")continue;const ix=q.id.split(":")[2].split(".").map(Number);
+    s+=Math.abs(g.PEAKS[ix[0]][1]-g.PEAKS[ix[1]][1]);n++;}return s/n;};
+  assert.ok(hi(1)>hi(4));});
 test("a question the team had lately isn't drawn again while others are left",()=>{
   const pool=QUIZ.filter(q=>q.tier===1),used=pool.slice(1).map(q=>q.id);
   for(let i=0;i<20;i++)assert.equal(g.pickQuiz(1,used).id,pool[0].id);});

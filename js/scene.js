@@ -1133,7 +1133,8 @@ function frame(now){
     FX.pins=path;FX.clips=clips;FX.rope.update(path,dt,{ground:!up(A.me)&&!up(A.mate)?Math.max(A.me.gy,A.mate.gy):null,first:A.mate.mode==="climb"?6:20,
       loose:A.me.mode==="fall"&&!(A.me.fall&&A.me.fall.caught)});}
   stepParts(dt);stepAmbient(dt);updateCam(dt);
-  if(typeof windAt==="function")windAt(FX.mode==="game"&&FX.cam?uOf(FX.cam.y):0,!!FX.camp);
+  FX.storm=(FX.storm||0)+((FX.stormOn?1:0)-(FX.storm||0))*Math.min(1,dt*1.5);
+  if(typeof windAt==="function")windAt(FX.mode==="game"&&FX.cam?Math.max(uOf(FX.cam.y),FX.storm):0,!!FX.camp);
   if(FX.visible&&!document.hidden)paint(t);
   FX.raf=requestAnimationFrame(frame);
 }
@@ -1183,8 +1184,15 @@ function paintView(t,c,ox0,w,h){
   FX.A.mate.draw(g,t,ox,oy);FX.A.me.draw(g,t,ox,oy);
   drawPoofs(g,ox,oy);
   if(FX.night>0)drawNight(g,w,h,t,ox,oy);
+  if(FX.storm>.01)drawStorm(g,w,h,t);
   drawParts(g,ox,oy,t); // (after the night, so the sleepers' z's stay bright)
 }
+// a storm on the wall (a wall event): the light goes grey and rain drives across in slanting streaks
+function drawStorm(g,w,h,t){const k=FX.storm;g.fillStyle=`rgba(30,38,52,${(.32*k).toFixed(3)})`;g.fillRect(0,0,w,h);
+  g.fillStyle=`rgba(200,214,232,${(.55*k).toFixed(3)})`;const n=Math.round(160*k);
+  for(let i=0;i<n;i++){const sp=260+hash(i,31)*140,x0=hash(i,32)*(w+120),y=((hash(i,33)*h+t*sp)%(h+20))-10,x=R0((x0-t*sp*.35)%(w+120)+(x0-t*sp*.35<0?w+120:0))-60;
+    for(let j=0;j<9;j++)g.fillRect(x-R0(j*.4),R0(y)+j,1,1);}
+  if(!RM.matches&&hash(Math.floor(t*.5),7)<.08&&(t*.5%1)<.06){g.fillStyle=`rgba(255,255,255,${(.25*k).toFixed(3)})`;g.fillRect(0,0,w,h);}}
 // night at camp: the whole scene sinks into deep blue, stars come out over the valley, and the tent and its
 // lantern glow through it
 function drawNight(g,w,h,t,ox,oy){const n=FX.night,cp=FX.camp;
@@ -1386,7 +1394,7 @@ function drawTopo(t){
   if(!ensureScene())return;
   if(!t){FX.focus="me";FX.label=null;FX.lit={c1:1,c2:1};FX.litAt={};FX.A.me.gear=3;
     if(FX.mode!=="lobby"){FX.mode="lobby";FX.exp=DEMO;FX.cam=null;runDemo();}return;}
-  const exp=t.exp,r=t.round;FX.exp=exp;setLead(t);
+  const exp=t.exp,r=t.round;FX.exp=exp;setLead(t);FX.stormOn=r.phase==="answer"&&r.ev==="storm";
   // the hooks in the wall, each where it was clipped; a new one drops in with a word from whoever clipped it
   {const hs=(exp.hooks||[]).map(p=>hookIdxAt(exp,p)).filter(i=>i!=null),old=FX.hooks||[],fresh=hs.filter(i=>!old.includes(i));
     if(fresh.length&&FX.mode==="game"&&r.phase==="answer"&&FX.hooksOf===exp.n){FX.hookNew=fresh[fresh.length-1];FX.hookAt=FX.time;if(r.hookBy!==(typeof S!=="undefined"&&S.uid))sfx("clip");const who=rigOfId(t,r.hookBy);if(who)pop(who,"CLIPPED!");}

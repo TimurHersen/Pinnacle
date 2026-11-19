@@ -103,7 +103,12 @@ function fixTeam(t){
 }
 
 /* ============================== ROUTE MATH ============================== */
-function lens(exp){return [SEG0_TIERS.length, exp.choice[0]?FORKS[0][exp.choice[0]].tiers.length:null, exp.choice[1]?FORKS[1][exp.choice[1]].tiers.length:null];}
+/* each stage's pitches (their question tiers) on this mountain: the route's own, shortened on the first maps, so a
+   new team reaches a summit quickly (len: the share kept; the pitches kept are spread out and include the last) */
+function trimTiers(T,len){if(!len||len>=1)return T;const n=Math.max(2,Math.round(T.length*len));return Array.from({length:n},(_,i)=>T[Math.round(i*(T.length-1)/(n-1))]);}
+function stageTiers(exp,s,choice){const len=MT(exp).len,c=choice??(s?exp.choice[s-1]:null);
+  if(s===0)return trimTiers(SEG0_TIERS,len);return c?trimTiers(FORKS[s-1][c].tiers,len):null;}
+function lens(exp){return [stageTiers(exp,0).length, exp.choice[0]?stageTiers(exp,1).length:null, exp.choice[1]?stageTiers(exp,2).length:null];}
 function total(exp){const L=lens(exp);return L[0]+(L[1]||0)+(L[2]||0);}
 function campStops(exp){const L=lens(exp);const s=[L[0]];if(L[1])s.push(L[0]+L[1]);if(L[1]&&L[2])s.push(L[0]+L[1]+L[2]);return s;}
 // the mountain an expedition is on (Kebne Wall until one is picked)
@@ -114,7 +119,9 @@ const MT=e=>MOUNTAINS[e&&e.m]||MOUNTAINS.moss;
    done map can be climbed again. */
 const climbed=(t,id)=>!!(t.stats?.peaks||{})[id];
 // a mountain's star rating: the best ascent of it (0 if never climbed), and a row of three stars to show it
-const starsOf=(t,id)=>{const r=(t.stats?.peaks||{})[id];return r?ascentStars({pts:r.pts||0}):0;};
+// (the goals a mountain's ascents have met between them: each one, once won, stays won)
+const starsOf=(t,id)=>{const r=(t.stats?.peaks||{})[id];return !r?0:r.g!=null?popc(r.g):ascentStars({pts:r.pts||0});};
+const goalsWon=(t,id)=>{const r=(t.stats?.peaks||{})[id];return !r?0:r.g!=null?r.g:[0,1,3,7][ascentStars({pts:r.pts||0})];};
 const starRow=n=>`<span class="srow" role="img" aria-label="${n} of 3 stars">${[0,1,2].map(i=>i<n?ICON.star:ICON.starOff).join("")}</span>`;
 const mapDone=(t,mi)=>MAPS[mi].steps[MAPS[mi].steps.length-1].some(id=>climbed(t,id));
 // (a map opens once the one before is done; one a team was already on before the maps changed stays open)
@@ -158,18 +165,41 @@ const fallTo=(exp,from)=>Math.max(exp.anchor||0,...(exp.hooks||[]).filter(h=>h<=
 function newExp(n,prev){return {v:2,n,m:null,choice:[null,null],pitch:0,anchor:0,hooks:[],rope:3,chalk:1,scout:1,anchors:1,used:prev?prev.used.slice(-80):[]};}
 // an ascent's score out of 100: the share of questions answered right, less a little for every fall and rope jerk
 const ascentScore=run=>Math.max(0,Math.round(100*(run.right||0)/Math.max(1,run.q||0))-5*(run.falls||0)-2*(run.jerks||0));
-const ascentStars=run=>{const p=run.pts??ascentScore(run);return p>=85?3:p>=60?2:1;};
+/* an ascent's three goals, a star each: reach the top (1), no falls (2), no hooks used (4); an ascent from before the
+   goals is rated by its score */
+const GOALS=[{b:1,name:"Reach the top"},{b:2,name:"No falls"},{b:4,name:"No hooks used"}];
+const goalsOf=run=>1|(run.falls>0?0:2)|(run.hu>0?0:4);
+const popc=g=>(g&1)+(g>>1&1)+(g>>2&1);
+const ascentStars=run=>{if(run.g!=null)return popc(run.g);if(run.hu!=null)return popc(goalsOf(run));const p=run.pts??ascentScore(run);return p>=85?3:p>=60?2:1;};
 const fmtDur=ms=>{const s=Math.round(ms/1000);return s>=3600?`${Math.floor(s/3600)} h ${Math.round(s%3600/60)} min`:s>=60?`${Math.floor(s/60)} min ${s%60} s`:`${s} s`;};
 
 /* ============================== QUESTION PICK ============================== */
 // the pitch's question: from this mountain's pool at the pitch's difficulty (set by the route: easy at the foot of
 // the wall, hardest on the summit push), one the team hasn't had lately
-function tierAt(exp,p){const T=[...SEG0_TIERS,...(exp.choice[0]?FORKS[0][exp.choice[0]].tiers:[]),...(exp.choice[1]?FORKS[1][exp.choice[1]].tiers:[])];return clamp((T[p]||3)+MT(exp).tier,1,4);}
-function pickQuiz(tier,used){const pool=QUIZ.filter(q=>q.tier===tier);let fresh=pool.filter(q=>!used.includes(q.id));
-  if(!fresh.length)fresh=pool;return fresh[Math.floor(Math.random()*fresh.length)];}
-const quizById=id=>QUIZ.find(q=>q.id===id);
+function tierAt(exp,p){const T=[...stageTiers(exp,0),...(stageTiers(exp,1)||[]),...(stageTiers(exp,2)||[])];return clamp((T[p]||3)+MT(exp).tier,1,4);}
+/* a question of the pitch's tier, one the team hasn't had lately. Each map leans on its own theme (Greenvale on nature,
+   Jade Peaks on animals…): about half the questions come from it, while there are fresh ones */
+const THEME_SHARE=.5;
+function pickQuiz(tier,used,theme){const pool=QUIZ.filter(q=>q.tier===tier);let fresh=pool.filter(q=>!used.includes(q.id));
+  if(!fresh.length)fresh=pool;
+  if(theme&&Math.random()<THEME_SHARE){const th=fresh.filter(q=>q.cat===theme);if(th.length)fresh=th;}
+  return fresh[Math.floor(Math.random()*fresh.length)];}
+const themeOf=exp=>exp.daily?"":(MAPS[MT(exp).map]||{}).theme||"";
+const quizById=id=>typeof id==="string"&&id.startsWith("gen:")?genById(id):QUIZ.find(q=>q.id===id);
+/* wall events: now and then a pitch comes with something on the wall, the same for both climbers
+     storm  less time on the clock
+     loose  loose rock: hooks clipped within two pitches below won't hold, so a fall goes further
+     calm   a calm spell: the hint is shown for free
+   Never on a climb's very first pitch, nor on a daily climb */
+const EVENTS={storm:{name:"Storm",text:"A storm rolls in: less time on the clock.",cut:.6},
+  loose:{name:"Loose rock",text:"Loose rock: hooks in the last two pitches won't hold a fall."},
+  calm:{name:"Calm spell",text:"A calm spell: the hint is free."}};
+const EVENT_SHARE=.15;
+function rollEvent(exp){if(!exp.pitch||exp.daily||Math.random()>=EVENT_SHARE)return null;const k=Object.keys(EVENTS);return k[Math.floor(Math.random()*k.length)];}
+// about one pitch in five gets a question made from real peaks' heights (see genQuiz)
+const GEN_SHARE=.2;
 // the four options in a fresh order for a round: order[i] is the option shown in slot i (option 0 is the right one)
-function shuffled4(){const a=[0,1,2,3];for(let i=3;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function shuffled4(n=4){const a=[...Array(n).keys()];for(let i=n-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 const LETTERS="ABCD";
 
 /* ============================== JUDGING ==============================
@@ -181,13 +211,13 @@ const LETTERS="ABCD";
    ahead than that is held back by the rope (a rope jerk: they stay where they are until their partner catches up),
    and one who falls is caught by it MAX_GAP pitches below their partner. */
 function judge(t,ans){const r=t.round,right=r.order.indexOf(0),picks={};
-  for(const id of memberIds(t)){const c=ans[id]?.choice;if(typeof c==="number"&&c>=0&&c<4)picks[id]=c;}
+  for(const id of memberIds(t)){const c=ans[id]?.choice;if(typeof c==="number"&&c>=0&&c<r.order.length)picks[id]=c;}
   return {right,picks};}
 function applyOutcome(t,o){
   const exp=clone(t.exp),r=t.round,ids=memberIds(t),q=quizById(r.qid),cap=capOf(exp),before=exp.pitch,pl={};
   for(const id of ids){const from=posOf(exp,id),ok=o.picks[id]===o.right,x=pl[id]={from,to:from,ok,none:o.picks[id]==null};
     if(ok)x.to=Math.min(from+1,cap);
-    else{x.fall=true;const f=Math.min(from,fallTo(exp,from)),onHook=(exp.hooks||[]).includes(f);
+    else{x.fall=true;const f=Math.min(from,fallTo(exp,r.ev==="loose"?from-2:from)),onHook=(exp.hooks||[]).includes(f);if(f<Math.min(from,fallTo(exp,from)))x.loose=true;
       if(f===from&&onHook)x.caught=true;else{x.to=f;if(onHook&&f<from)x.hooked=true;}}}
   // the rope: the one who would get too far ahead is held where they were; one who falls too far is caught by it
   if(ids.length>1)for(const [hi,lo] of [[ids[0],ids[1]],[ids[1],ids[0]]]){const H=pl[hi],L=pl[lo];
@@ -205,15 +235,16 @@ function applyOutcome(t,o){
   const run=exp.run={...(exp.run||{})};run.q=(run.q||0)+ids.length;run.right=(run.right||0)+n(x=>x.ok);run.jerks=(run.jerks||0)+n(x=>x.held);
   if(ids.length>1&&all.every(x=>x.ok))run.synced=(run.synced||0)+1;run.slips=(run.slips||0)+n(x=>x.caught);run.falls=(run.falls||0)+n(x=>x.fall&&!x.caught);
   // the summit: the ascent is timed and scored, and goes down as the team's best if it is
-  if(arrived==="summit"){if(exp.t0)run.ms=Math.max(0,now()-exp.t0);run.pts=ascentScore(run);stats.summits=(stats.summits||0)+1;
+  if(arrived==="summit"){if(exp.t0)run.ms=Math.max(0,now()-exp.t0);run.pts=ascentScore(run);run.hu=run.hu||0;run.g=goalsOf(run);stats.summits=(stats.summits||0)+1;
     if(!stats.best||run.pts>stats.best.pts){run.best=!!stats.best;stats.best={pts:run.pts,right:run.right||0,q:run.q||0,falls:run.falls||0,jerks:run.jerks||0,ms:run.ms||0,n:exp.n,m:exp.m};}
     // (and on the mountain's own record, which the map shows)
-    const pk=stats.peaks=clone(stats.peaks||{}),mine=pk[exp.m]||{n:0,pts:0};pk[exp.m]={n:mine.n+1,pts:Math.max(mine.pts,run.pts)};
+    const pk=stats.peaks=clone(stats.peaks||{}),mine=pk[exp.m]||{n:0,pts:0},was=mine.g!=null?mine.g:mine.n?[0,1,3,7][ascentStars({pts:mine.pts||0})]:0;
+    pk[exp.m]={n:mine.n+1,pts:Math.max(mine.pts,run.pts),g:was|run.g};const ms=Math.min(mine.ms||Infinity,run.ms||Infinity);if(ms<Infinity)pk[exp.m].ms=ms;run.newStars=popc(was|run.g)-popc(was);
     // (the first time a map's own summit is climbed, the map is collected and the next one opens)
     const M=MT(exp);if(M.final&&!mine.n)run.mapDone=M.map;
     // (and the team moves along the map's trail to it, unless it was a mountain behind them, climbed again)
     const tr=stats.trail=clone(stats.trail||{}),at=MOUNTAINS[tr["m"+M.map]];if(!at||M.step>=at.step)tr["m"+M.map]=exp.m;}
-  const word=x=>x.held?"held by the rope":x.ok?(x.to>x.from?"climbed":"waited at the ledge"):x.caught?"slipped onto the hook":x.hooked?"fell to the hook":x.roped?"fell onto the rope":x.to<x.from?"fell":"came off";
+  const word=x=>x.held?"held by the rope":x.loose&&!x.roped?"fell when the loose rock gave way":x.ok?(x.to>x.from?"climbed":"waited at the ledge"):x.caught?"slipped onto the hook":x.hooked?"fell to the hook":x.roped?"fell onto the rope":x.to<x.from?"fell":"came off";
   const headline=ids.map(id=>`${t.members[id]?.name||"Climber"} ${word(pl[id])}`).join(", ")+".";
   const log=(t.log||[]).slice(-39);
   log.push({at:Date.now(),text:`${q.cat}: ${headline}`});
@@ -239,8 +270,11 @@ function startPitch(t){
   const ids=memberIds(t),id=(t.round?.id||0)+1,exp=t.exp,nc=needsChoice(exp);
   if(nc>=0)return {...t,round:{id,phase:"camp",stage:nc,votes:{}}};
   if(exp.pitch>=total(exp))return {...t,round:{id,phase:"summit"}};
-  const q=pickQuiz(tierAt(exp,exp.pitch),exp.used);exp.used=[...exp.used,q.id].slice(-100);if(!exp.t0)exp.t0=now();
-  return {...t,exp,round:{id,phase:"answer",qid:q.id,leader:ids[id%ids.length],order:shuffled4(),startedAt:now()+LEAD_MS,dur:window.TEST?.secs()||MT(exp).secs}};}
+  const tier=tierAt(exp,exp.pitch),gq=Math.random()<GEN_SHARE?genQuiz(tier):null;
+  const q=gq?{...gq,id:gq.id+":"+tier}:pickQuiz(tier,exp.used,themeOf(exp));exp.used=[...exp.used,q.id].slice(-100);if(!exp.t0)exp.t0=now();
+  const ev=rollEvent(exp),dur=window.TEST?.secs()||MT(exp).secs;
+  return {...t,exp,round:{id,phase:"answer",qid:q.id,leader:ids[id%ids.length],order:shuffled4(q.o.length),startedAt:now()+LEAD_MS,
+    dur:ev==="storm"?Math.max(12,Math.round(dur*EVENTS.storm.cut)):dur,...(ev?{ev}:{}),...(ev==="calm"?{scout:true,free:true}:{})}};}
 function advance(withAnchor){
   const rid=S.team.round.id;
   guarded(t=>{
@@ -253,19 +287,19 @@ const canHook=(exp,id)=>{const p=posOf(exp,id);return exp.rope>0&&p>(exp.anchor|
 function useHook(){
   const rid=S.team.round.id;
   guarded(t=>{const r=t.round;if(r.id!==rid||r.phase!=="answer"||!t.members[S.uid]||!canHook(t.exp,S.uid))return null;
-    const at=posOf(t.exp,S.uid);t.exp.rope--;t.exp.hooks=[...t.exp.hooks,at].sort((a,b)=>a-b);
+    const at=posOf(t.exp,S.uid);t.exp.rope--;t.exp.hooks=[...t.exp.hooks,at].sort((a,b)=>a-b);t.exp.run={...(t.exp.run||{}),hu:((t.exp.run||{}).hu||0)+1};
     return {...t,round:{...r,hook:true,hookBy:S.uid,hookAt:at}};});
 }
 // (a team saved while the game still asked about the hook before each question goes straight on to the question)
 function climbOn(){
   const rid=S.team.round.id;
   guarded(t=>{if(t.round.id!==rid||t.round.phase!=="pre")return null;
-    return {...t,round:{...t.round,phase:"answer",order:shuffled4(),startedAt:now()+LEAD_MS,dur:window.TEST?.secs()||MT(t.exp).secs}};});
+    return {...t,round:{...t.round,phase:"answer",order:shuffled4((quizById(t.round.qid)?.o||[0,0,0,0]).length),startedAt:now()+LEAD_MS,dur:window.TEST?.secs()||MT(t.exp).secs}};});
 }
 // chalk: two wrong options crumble away, for both climbers
 function useChalk(){
   const rid=S.team.round.id;
-  guarded(t=>{const r=t.round;if(r.id!==rid||r.phase!=="answer"||r.cut||t.exp.chalk<=0)return null;
+  guarded(t=>{const r=t.round;if(r.id!==rid||r.phase!=="answer"||r.cut||t.exp.chalk<=0||r.order.length<4)return null;
     const wrong=[0,1,2,3].filter(i=>r.order[i]!==0).sort(()=>Math.random()-.5).slice(0,2);
     t.exp.chalk--;return {...t,round:{...r,cut:wrong}};});
 }
@@ -577,10 +611,10 @@ function mapHtml(t){
   const pit=(gi,n,live)=>`<span class="pit ${live?(gi<at?"done":gi===at?"now":""):""}">${n}${live&&(e.hooks||[]).includes(gi+1)?ICON.hook:""}</span>`;
   const stop=(icon,name,alt,i)=>`<div class="mrow">${icon}<div class="mstop ${i===at?"here":""}">${name}<small>${fmt(alt)} m${i===at?" · you are here":""}${e.anchor===i&&i>0?" · falls stop here":""}</small></div></div>`;
   const stage=(s,start)=>{let h="";
-    if(s===0)h=`<div class="mopt"><b>Approach</b>${SEG0_TIERS.map((k,i)=>pit(start+i,i+1,1)).join("")}</div>`;
+    if(s===0)h=`<div class="mopt"><b>Approach</b>${stageTiers(e,0).map((k,i)=>pit(start+i,i+1,1)).join("")}</div>`;
     else{const F=FORKS[s-1],ch=e.choice[s-1];
       for(const key of ["A","B"]){const opt=F[key],chosen=ch===key;
-        h+=`<div class="mopt ${ch&&!chosen?"off":""}"><b>${opt.name}</b>${opt.tiers.map((k,i)=>pit(start+i,i+1,chosen)).join("")}</div>`;}}
+        h+=`<div class="mopt ${ch&&!chosen?"off":""}"><b>${opt.name}</b>${stageTiers(e,s,key).map((k,i)=>pit(start+i,i+1,chosen)).join("")}</div>`;}}
     return `<div class="mstage ${dim[s]}">${h}</div>`;};
   const c1=L[0],c2=L[0]+(L[1]||0);
   return `<h3>Route map</h3><div class="map">
@@ -631,7 +665,7 @@ function simTick(t){const sm=simOf(t);if(!sm||!t.members[S.uid])return;const r=t
   if(r.phase==="answer"){if(S.answers[SIM]||S._simSent===r.id)return;
     if(S._simFor!==r.id){S._simFor=r.id;S._simAt=r.startedAt+Math.min(2000+Math.random()*6000,Math.max(500,r.dur*1000-1500));}
     if(now()<S._simAt)return;S._simSent=r.id;
-    const right=r.order.indexOf(0),cut=Array.isArray(r.cut)?r.cut:[],wrong=[0,1,2,3].filter(i=>i!==right&&!cut.includes(i)),ok=Math.random()*100<sm.sim;
+    const right=r.order.indexOf(0),cut=Array.isArray(r.cut)?r.cut:[],wrong=r.order.map((k,i)=>i).filter(i=>i!==right&&!cut.includes(i)),ok=Math.random()*100<sm.sim;
     fb.put(`answers/${S.code}/${r.id}/${SIM}`,{roundId:r.id,uid:SIM,at:Date.now(),choice:ok||!wrong.length?right:wrong[Math.floor(Math.random()*wrong.length)]}).catch(()=>{S._simSent=null;});}
   else if(r.phase==="map"||r.phase==="camp"){const mine=(r.votes||{})[S.uid],its=(r.votes||{})[SIM],k=JSON.stringify(mine||null);
     if(mine&&k!==JSON.stringify(its||null)&&S._simVote!==r.id+k&&Date.now()-(S._simVoteAt||0)>800){S._simVote=r.id+k;S._simVoteAt=Date.now();
@@ -757,21 +791,22 @@ function answerView(t,mine){if(TV())return tvAnswerView(t);
     :gap<=-MAX_GAP?`The rope is tight: ${esc(nameOf(pid))} can't climb until you catch up.`:`Answer right to climb. Stay within ${MAX_GAP} pitches of each other.`;
   if(now()<r.startedAt)return frameQ(t,`<div class="qhead"><span>${pitchLabel(e,pos)}</span>${gapTag(t)}</div>
    <div class="getready"><div><div class="qtitle">${esc(q.cat)}</div>${tierMarks(q.tier)}</div><div class="count" id="count" aria-hidden="true"></div></div>
-   <p class="qsub">${brief}</p>`);
+   ${r.ev?`<div class="wev ${r.ev}"><b>${EVENTS[r.ev].name}</b> ${esc(EVENTS[r.ev].text.split(": ")[1]||"")}</div>`:""}<p class="qsub">${brief}</p>`);
   const sel=mine?mine.choice:S.local.choice;
   const opts=r.order.map((k,i)=>`<button class="qopt ${cut.includes(i)?"cut":""} ${sel===i?"sel":""}" data-i="${i}" ${cut.includes(i)||mine?"disabled":""}><b>${LETTERS[i]}</b><span>${esc(q.o[k])}</span></button>`).join("");
   // the gear, one button each, for either climber at any time while the question is open: a hook, chalk, the scout
   const hookHere=(e.hooks||[]).includes(pos)&&pos>(e.anchor||0);
   const gear=`<div class="qgear">
     <button class="gbtn ${hookHere?"on":""}" id="hookBtn" aria-label="${hookHere?"A hook is clipped here":`Clip a hook here, ${e.rope} left`}" title="Clip a hook into the wall where you hang: a fall then stops here, not at the last camp" ${canHook(e,S.uid)?"":"disabled"}>${ICON.hook}<span>${hookHere?"Clipped":"Hook"}</span><b>${e.rope}</b></button>
-    <button class="gbtn" id="chalkBtn" aria-label="Chalk, ${e.chalk} left" title="Chalk: wipes out two wrong answers" ${e.chalk>0&&!r.cut?"":"disabled"}>${ICON.chalk}<span>Chalk</span><b>${e.chalk}</b></button>
+    <button class="gbtn" id="chalkBtn" aria-label="Chalk, ${e.chalk} left" title="Chalk: wipes out two wrong answers" ${e.chalk>0&&!r.cut&&r.order.length>3?"":"disabled"}>${ICON.chalk}<span>Chalk</span><b>${e.chalk}</b></button>
     <button class="gbtn" id="scoutBtn" aria-label="Hint, ${e.scout} left" title="Hint: a clue for this question" ${e.scout>0&&!r.scout?"":"disabled"}>${ICON.scout}<span>Hint</span><b>${e.scout}</b></button></div>`;
-  const hint=r.scout?`<div class="hint"><b>Hint:</b> ${esc(q.hint)}</div>`:"";
+  const hint=r.scout?`<div class="hint"><b>${r.free?"Calm spell, a free hint":"Hint"}:</b> ${esc(q.hint)}</div>`:"";
+  const ev=r.ev&&r.ev!=="calm"?`<div class="wev ${r.ev}"><b>${EVENTS[r.ev].name}</b> ${esc(EVENTS[r.ev].text.split(": ")[1]||"")}</div>`:"";
   const hooked=r.hook?`<div class="hooked">${ICON.hook}<span><b>${r.hookBy===S.uid?"You clipped a hook":`${esc(nameOf(r.hookBy))} clipped a hook`} at ${fmt(altOf(e,r.hookAt??pos))} m.</b> ${(r.hookAt??pos)<=pos?"A fall now stops there.":"It is above you: it catches you once you are past it."}</span></div>`:"";
   const tight=!solo&&(gap>=MAX_GAP||atCap)?`<div class="hooked tight">${ICON.rope}<span><b>${atCap?"You're at the ledge.":"The rope is tight."}</b> You can't climb until ${esc(nameOf(pid))} catches up.</span></div>`:"";
   return frameQ(t,`<div class="qhead"><span>${pitchLabel(e,pos)} · ${esc(q.cat)}</span>${gapTag(t)}<span class="qtime" id="qtime"></span></div>
    <div class="qtext">${esc(q.q)}</div><div class="qopts">${opts}</div>
-   ${hint}${hooked}${tight}
+   ${ev}${hint}${hooked}${tight}
    <div class="qfoot">${gear}${mine?`<div class="wait">Locked in: <strong>${mine.choice==null?"no answer":LETTERS[mine.choice]}</strong></div>`:`<button class="btn rope" id="lockBtn" ${sel==null?"disabled":""}>Lock in</button>`}<span class="note" id="partnerTxt"></span></div>
    <div class="timer"><i id="timerBar"></i></div>`);
 }
@@ -867,7 +902,7 @@ function renderWorld(t){const el=$("#world");if(!el)return;const r=t&&t.round,on
     // the map's own plate along the bottom: its name and place, the stops climbed, and arrows to the maps either side
     const reached=M.steps.filter(st=>st.some(k=>climbed(t,k))).length,got=M.steps.flat().reduce((a,k)=>a+starsOf(t,k),0);
     el.querySelector(".wnav").innerHTML=`<button class="wnarrow" id="mapPrev" ${mi>0?"":"disabled"} aria-label="Previous map">◀</button>
-      <div class="wnplate"><b class="${M.name.length>12?"long":""}">${esc(M.name)}</b><small>Map ${mi+1} of ${MAPS.length} · ${M.label}${done?" · Collected":""}</small>
+      <div class="wnplate"><b class="${M.name.length>12?"long":""}">${esc(M.name)}</b><small>Map ${mi+1} of ${MAPS.length} · ${M.label} · ${M.theme?esc(M.theme)+" questions":"Every kind of question"}${done?" · Collected":""}</small>
         <span class="wprog" role="progressbar" aria-valuemin="0" aria-valuemax="${M.steps.length}" aria-valuenow="${reached}" aria-label="${reached} of ${M.steps.length} stops"><i style="width:${100*reached/M.steps.length}%"></i></span>
         <span class="wpline"><span>${reached}/${M.steps.length} stops</span><span>${ICON.star}${got}/${M.steps.flat().length*3}</span></span>
         <span class="wndots">${MAPS.map((X,k)=>`<i class="${k===mi?"on":""} ${mapDone(t,k)?"dn":mapOpen(t,k)?"op":""}"></i>`).join("")}</span></div>
@@ -892,7 +927,8 @@ function renderPop(t,mi,shape){const el=$("#world .wpop");if(!el)return;const k=
     <small>${m.final?`${ICON.flag} Summit of ${esc(MAPS[mi].name)}`:`Stop ${m.step+1} of 4`} · ${fmt(m.alt.top)} m</small>
     <p>${esc(m.desc)}</p>
     <div class="wpfacts"><span><b>${m.secs} s</b>to answer</span><span><b>${m.hooks}</b>hooks a stage</span><span>${tierMarks(Math.max(1,Math.min(4,2+m.tier)))}<i>questions</i></span></div>
-    <div class="wprate">${starRow(starsOf(t,k))}<span>${climbed(t,k)?`Best ascent · climbed ${t.stats.peaks[k].n}×`:"Not climbed yet"}</span></div>
+    <div class="goals">${GOALS.map(G=>{const w=goalsWon(t,k)&G.b;return `<span class="${w?"on":""}">${w?ICON.star:ICON.starOff}${G.name}</span>`;}).join("")}</div>
+    ${climbed(t,k)?`<p class="note">Climbed ${t.stats.peaks[k].n}×</p>`:""}
     ${go?`<button class="btn rope" id="popGo">Set off for ${esc(m.name)}</button>`:mine?`<p class="note">Waiting for ${esc(nameOf(pid))} to choose it too.</p>`:`<button class="btn rope" id="popPick">Choose ${esc(m.name)}</button>${theirs&&theirs!==k?`<p class="note">${esc(nameOf(pid))} chose ${esc(MOUNTAINS[theirs].name)}.</p>`:""}`}`;
   el.hidden=false;
   el.querySelector(".wpx").onclick=()=>{S.mapPop=null;S.worldKey=null;renderWorld(S.team);};
@@ -1081,7 +1117,7 @@ function campView(t){
   const r=t.round,s=r.stage??needsChoice(t.exp),F=FORKS[s],votes=r.votes||{},ids=memberIds(t),solo=ids.length<2,lead=solo||leaderOf(t)===S.uid||leaderOf(t)===SIM,my=votes[S.uid]||{};
   const who=(part,k)=>ids.filter(i=>votes[i]?.[part]===k).map(i=>esc(nameOf(i))).join(", ")||"&nbsp;";
   const route=k=>`<button class="route ${my.route===k?"sel":""}" data-part="route" data-k="${k}"><h4>${F[k].name}</h4><span>${F[k].desc}</span>
-    <span class="rmeta">${F[k].tiers.length} pitches ${tierMarks(Math.round(F[k].tiers.reduce((a,b)=>a+b,0)/F[k].tiers.length))}</span><span class="votes">${who("route",k)}</span></button>`;
+    <span class="rmeta">${stageTiers(t.exp,s+1,k).length} pitches ${tierMarks(Math.round(F[k].tiers.reduce((a,b)=>a+b,0)/F[k].tiers.length))}</span><span class="votes">${who("route",k)}</span></button>`;
   const bonus=k=>`<button class="route ${my.bonus===k?"sel":""}" data-part="bonus" data-k="${k}"><h4>${BONUS[k].name}</h4><span>${BONUS[k].desc}</span><span class="votes">${who("bonus",k)}</span></button>`;
   const ready=my.route&&my.bonus;
   return frameQ(t,`<div class="qhead"><span>${F.camp} · ${fmt(mAlt(t.exp,s?ALT.c2:ALT.c1))} m</span></div>
@@ -1096,10 +1132,12 @@ function campView(t){
 function summitView(t){const e=t.exp,st=e.run||{},two=memberIds(t).length>1;
   const via=[FORKS[0][e.choice[0]]?.name,FORKS[1][e.choice[1]]?.name].filter(Boolean).join(" and ");
   const cell=(k,v)=>`<div class="scell"><b>${v}</b><span>${k}</span></div>`;
-  const grade=["","Made it to the top","A solid climb","A clean ascent"][ascentStars(st)];
+  const grade=["","Made it to the top","A solid climb","A clean ascent"][ascentStars(st)],g=st.g??goalsOf(st);
   return frameQ(t,`<div class="qhead"><span>Summit · ${fmt(mAlt(e,ALT.top))} m · Expedition ${e.n}</span></div>
    <div class="qtitle">Top of ${esc(MT(e).name)}!</div>
    <div class="grade">${stars(st)}<b>${grade}</b>${st.best?`<span class="chip0 new">New team best</span>`:""}</div>
+   <div class="goals">${GOALS.map(G=>`<span class="${g&G.b?"on":""}">${g&G.b?ICON.star:ICON.starOff}${G.name}</span>`).join("")}</div>
+   ${st.newStars>0?`<p class="note">${st.newStars===1?"A new star":`${st.newStars} new stars`} on ${esc(MT(e).name)}.</p>`:""}
    ${via?`<p class="qsub">By way of ${esc(via)}.</p>`:""}
    ${st.mapDone!=null?`<div class="result good">${ICON.flag}<div><b>${esc(MAPS[st.mapDone].name)} complete!</b><span>${MAPS[st.mapDone+1]?`The map joins your collection, and ${esc(MAPS[st.mapDone+1].name)} is open.`:"Every map is in your collection. You've climbed them all."}</span></div></div>`:""}
    <div class="sgrid">${cell("Right",`${st.right||0}/${st.q||0}`)}${two?cell("In sync",st.synced||0)+cell("Rope jerks",st.jerks||0):""}${cell("Hooks held",st.slips||0)}${cell("Falls",st.falls||0)}${st.ms?cell("Time",fmtDur(st.ms)):""}</div>
