@@ -1227,7 +1227,9 @@ function confetti(n=28){const c=FX.cam;if(!c||RM.matches)return;const cols=[C.re
     l:3.5+Math.random()*2,m:6,c:cols[i%cols.length],ph:Math.random()*6});}
 
 /* ---------- sequences ---------- */
-const stepMsFor=n=>clamp(3600/Math.max(n,1),230,460);
+// the time for each move up (one hold): slower and steadier, so every reach and pull reads; a long run goes a little
+// quicker per move, so even a big climb is over in a few seconds
+const CLIMB_SLOW=1.7,stepMsFor=n=>clamp(3600*CLIMB_SLOW/Math.max(n,1),230*CLIMB_SLOW,460*CLIMB_SLOW);
 function place(r,i){const rs=r.rest(i);if(rs){r.standAt(rs.x,rs.y);r.hi=i;}else r.grab(Math.max(i,2));}
 function placeTeam(exp,li){FX.exp=exp;FX.camp=null;FX.night=0;FX.leaving=null;FX.A.me.hidden=FX.A.mate.hidden=false;
   for(const r of [FX.A.me,FX.A.mate])r.lastDraw=r.blend=null; // (a placement is a cut, not a move)
@@ -1279,7 +1281,7 @@ async function climbRig(r,to,ms,id,ch="main"){
   const last=r.rest(to)?to-1:to;
   while(r.hi<last){
     // on long runs the leader throws the odd dyno: both hands let go and catch two holds higher
-    if(lead&&to-r.hi>=4&&ms<=330&&++r.cnt%5===0){r.dyno(ms*1.4/1000);sfx("hup");if(!(await wait(ms*1.7,ch)))return false;continue;}
+    if(lead&&to-r.hi>=4&&ms<=330*CLIMB_SLOW&&++r.cnt%5===0){r.dyno(ms*1.4/1000);sfx("hup");if(!(await wait(ms*1.7,ch)))return false;continue;}
     r.stepUp(ms/1000);if(!(await wait(ms,ch)))return false;}
   // onto a ledge: the route comes up under its outer tip, so they pull straight up over the tip and walk in: to the
   // spot by the wall, or, if their partner already stands there, to the one short of it (so nobody passes anybody)
@@ -1327,7 +1329,7 @@ async function fallRig(r,anchor,back,id,ch,hook,hookIdx){
   if(!(await wait(hook?1300:2100,ch)))return false;
   r.reachFrom(clamp(Math.round(-(r.N.y+HANG[1])/HS),2,IDX_TOP-1),.3);
   if(!(await wait(hook?360:600,ch)))return false;
-  return climbRig(r,back,260,id,ch);
+  return climbRig(r,back,260*CLIMB_SLOW,id,ch);
   function ok(){return FX.ch[ch]===id;}
 }
 // reaching the summit is a celebration; reaching a camp is quieter: a title, then the team gets to work
@@ -1357,7 +1359,7 @@ async function runEvent(exp,o,t){
     // plays once at a stance; wrong again from the same spot, they just slump. Neither holds the partner up.
     if(r.mode==="stand"){const at=r.hi;
       if(r.stumbledAt===at&&r.L.art&&r.L.art.slump){caption("No way up this time");r.play([["slump",SLUMP_MS],["stand",650],["stand2",650]],1);r.calm();}
-      else{r.stumbledAt=at;caption("Off at the first moves!");side.push(climbRig(r,at+LOW+2,280,id).then(z=>z&&fallRig(r,at,at,id,"main",false)));}}
+      else{r.stumbledAt=at;caption("Off at the first moves!");side.push(climbRig(r,at+LOW+2,280*CLIMB_SLOW,id).then(z=>z&&fallRig(r,at,at,id,"main",false)));}}
     else if(w.x.caught||tg>=r.hi){caption(w.x.caught?"Wrong hold, but the hook holds":"Wrong hold!");if(!(await fallRig(r,r.hi-1,r.hi,id,"main",true,w.x.caught?hookIdxAt(exp,w.x.to):null)))return;}
     else{title("WHOOPS!",w.x.hooked?`Onto the hook at ${fmt(mAlt(exp,tg*HS/WK+ALT.base))} m`:`Down to ${fmt(mAlt(exp,tg*HS/WK+ALT.base))} m`,"bad");
       if(!(await fallRig(r,tg,tg,id,"main",false,w.x.hooked?hookIdxAt(exp,w.x.to):null)))return;}}
@@ -1369,7 +1371,7 @@ async function runEvent(exp,o,t){
   if(who.length>1&&who.every(w=>w.x.ok&&w.x.to>w.x.from)&&!o.arrived)for(const w of who){const r=w.r;
     if(r.mode==="climb"&&r.L.art&&r.L.art.yes&&climbPhase(r.N.y,true).f===5){r.play([["yes",REST_MS],["hang",1e9]]);r.calm();}else if(r.mode==="stand")r.cheer=.9;}
   // (anyone not yet where they belong, such as the partner drawn beside a lone climber, moves there)
-  for(const r of FX.rigs){const tg=T.get(r);if(ok()&&tg!=null&&r.hi!==tg&&r.mode!=="fall"&&!(await climbRig(r,tg,320,id)))return;}
+  for(const r of FX.rigs){const tg=T.get(r);if(ok()&&tg!=null&&r.hi!==tg&&r.mode!=="fall"&&!(await climbRig(r,tg,320*CLIMB_SLOW,id)))return;}
   if(o.arrived&&ok()){const to=idxOf(exp,exp.pitch);arrive(o.arrived,exp,to);
     if(o.arrived==="summit")A.mate.cheer=1.8;else if(campOf(to))await makeCamp(to);}
 }
@@ -1426,7 +1428,7 @@ function drawTopo(t){
   else if(st.gear>prev.gear)setTimeout(()=>{if(FX.mode!=="game"||!FX.state||FX.state.n!==st.n||FX.state.gear!==st.gear)return;const me=FX.A.me;me.gear=st.gear;pop(me,"GEAR RESTOCKED!");sfx("restock");},2600);
   if(st.res&&st.res!==prev.res&&r.result)runEvent(exp,r.result,t);
   else if(st.pos!==prev.pos){const id=++FX.ch.main,T=rigTargets(t);
-    (async()=>{for(const rg of [FX.A.me,FX.A.mate]){const tg=T.get(rg);if(tg!=null&&tg!==rg.hi&&!(await climbRig(rg,tg,300,id)))return;}})();}
+    (async()=>{for(const rg of [FX.A.me,FX.A.mate]){const tg=T.get(rg);if(tg!=null&&tg!==rg.hi&&!(await climbRig(rg,tg,300*CLIMB_SLOW,id)))return;}})();}
   if(st.phase==="summit"&&prev.phase!=="summit")runSummit(t);
   // morning: once the route on is picked, the team packs up camp before the next pitch
   else if(prev.phase==="camp"&&st.phase!=="camp"&&FX.camp)leaveCamp();

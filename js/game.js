@@ -468,7 +468,7 @@ function renderLobby(invite){
   $("#joinBtn").onclick=()=>joinTeam();
   $("#jcode").onkeydown=e=>{if(e.key==="Enter")joinTeam();};
   main.querySelectorAll(".teamrow").forEach(b=>b.onclick=()=>openTeam(b.dataset.code));
-  const open=id=>{if(id==="secProf"&&typeof profileHtml==="function")$("#profBody").innerHTML=profileHtml();main.querySelectorAll(".card").forEach(c=>c.hidden=!(c.id===id||(c.dataset.for||"").split(" ").includes(id)));
+  const open=id=>{if(id==="secProf"&&typeof openProfile==="function"){openProfile();return;}main.querySelectorAll(".card").forEach(c=>c.hidden=!(c.id===id||(c.dataset.for||"").split(" ").includes(id)));
     main.hidden=false;main.scrollTop=0;homeMenu(false);
     const f={secNew:"tname",secJoin:"jcode"}[id];if(f)setTimeout(()=>$("#"+f)?.focus({preventScroll:true}),60);};
   const close=()=>{main.hidden=true;homeMenu(true);};
@@ -1350,7 +1350,7 @@ function resetTips(){S.tipsSeen=new Set();S.tipsOff=false;LS.set("tips",[]);LS.s
 /* ============================== TICK ============================== */
 // after an ordinary pitch the next question comes by itself, a few seconds after the result (the button counts down
 // and still works; a camp or the summit waits for a press, and so does an open menu)
-const AUTO_NEXT_MS=11000;
+const AUTO_NEXT_MS=13500; // (long enough for the slower climb to finish and the result to be read)
 function autoNext(t){const r=t.round,el=$("#nextIn");
   if(r.phase!=="reveal"||!r.resolvedAt||r.result?.arrived||S.sus===r.id){if(el)el.textContent="";return;}
   const left=Math.ceil((r.resolvedAt+AUTO_NEXT_MS-now())/1000);if(el)el.textContent=left>0?` · ${left}`:"";

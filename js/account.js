@@ -115,8 +115,9 @@ function acctRender(){const el=$("#acctBody");if(el){el.innerHTML=acctHtml();acc
   const b=document.querySelector('.pbtn[data-id="secAcct"]');if(b)b.classList.toggle("signed",acctNamed());
   if(ACCT.on&&!acctNamed())gisLoad(); // (ready before the tap, so the sheet comes up at once)
   const w=$("#acctWrap");if(w){w.classList.toggle("signed",acctNamed());w.classList.toggle("off",!ACCT.on);
-    const ab=$("#acctBtn");ab.setAttribute("aria-label",acctNamed()?"Your account":"Sign in to save your progress");
-    ab.onclick=()=>{sfx("pop");if(S.code&&typeof goLobby==="function")goLobby();setTimeout(()=>document.querySelector('.pbtn[data-id="secAcct"]')?.click(),S.code?300:0);};}}
+    const ab=$("#acctBtn");ab.setAttribute("aria-label",acctNamed()?"Your profile (signed in)":"Your profile. Sign in to save your progress");
+    const face=$("#acctFace");if(face)face.style.backgroundImage=acctNamed()&&typeof charFace==="function"?`url('${charFace(myChar())}')`:"";
+    ab.onclick=()=>{if(typeof openProfile==="function")openProfile();};}}
 function acctWire(){$("#acctG")&&($("#acctG").onclick=acctGoogle);$("#acctIn")&&($("#acctIn").onclick=()=>acctEmail("in"));
   $("#acctUp")&&($("#acctUp").onclick=()=>acctEmail("up"));$("#acctReset")&&($("#acctReset").onclick=acctReset);$("#acctOut")&&($("#acctOut").onclick=acctSignOut);
   $("#acctPw")&&($("#acctPw").onkeydown=e=>{if(e.key==="Enter")acctEmail("in");});}
