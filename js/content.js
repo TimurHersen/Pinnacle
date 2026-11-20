@@ -3,14 +3,13 @@
    each pitch has a difficulty tier (see js/quiz.js). */
 // the first stage: five pitches from base camp to Camp I
 const SEG0_TIERS = [1,1,2,2,3];
-// at each camp the team picks the route on: short and hard, or long and gentler
+// the way on from each camp: one route per stage, harder the higher it goes (at camp the team only rests and picks
+// an extra piece of gear; there is no choice of route)
 const FORKS = [
  {camp:"Camp I", next:"Camp II",
-  A:{name:"The Icefall",desc:"Direct and steep: fewer pitches, mostly hard questions.",tiers:[2,3,3,3,4]},
-  B:{name:"Shoulder Ridge",desc:"Longer and gentler: more pitches, mostly easier questions.",tiers:[2,2,2,3,2,3,3]}},
+  A:{name:"Shoulder Ridge",tiers:[2,2,3,3,3,4]}},
  {camp:"Camp II",next:"the summit",
-  A:{name:"Summit Couloir",desc:"Straight up, every pitch a summit question.",tiers:[4,4,4,4]},
-  B:{name:"North Ridge",desc:"Along the exposed ridge, longer, hard but fairer.",tiers:[3,3,4,3,4,4]}}
+  A:{name:"Summit Ridge",tiers:[3,4,3,4,4]}}
 ];
 const ALT = {base:1800,c1:2600,c2:3400,top:4100};
 /* ============================== THE MOUNTAINS ==============================

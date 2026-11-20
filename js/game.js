@@ -83,7 +83,7 @@ function fixTeam(t){
   t.members=t.members||{};t.log=Object.values(t.log||{});t.stats=t.stats||{};
   // a team saved under the old pitch types starts this quiz climb fresh at base camp
   if(!t.exp||t.exp.v!==2){t.exp=newExp((t.exp?.n||0)+1);t.round={id:(t.round?.id||0)+1,phase:"ready"};}
-  const e=t.exp;const c=e.choice||{};e.choice=[0,1].map(i=>FORKS[i]?.[c[i]]?.tiers?c[i]:null);   // (only real routes)
+  const e=t.exp;const c=e.choice||{};e.choice=[0,1].map(i=>FORKS[i]?.[c[i]]?.tiers?c[i]:c[i]==="B"?"A":null);   // (only real routes; the old second route is the one route now)
   e.used=Object.values(e.used||{});e.up=e.up&&typeof e.up==="object"?e.up:{};
   for(const k of ["pitch","anchor","rope","chalk","scout","anchors"])e[k]=e[k]||0;
   e.hooks=Object.values(e.hooks||{}).filter(n=>typeof n==="number").sort((a,b)=>a-b);
@@ -189,7 +189,7 @@ const quizById=id=>typeof id==="string"&&id.startsWith("gen:")?genById(id):QUIZ.
 /* the daily climb: one short route a day, the same for every team: the same mountain, the same way up (no route to
    choose at the camps) and the same questions in the same order (the nth question of a tier is the same for all).
    The day is the UTC date, so it changes at the same moment everywhere. */
-const DAILY={len:.4,route:["B","B"]};
+const DAILY={len:.4,route:["A","A"]};
 const dayOf=(ms=Date.now())=>new Date(ms).toISOString().slice(0,10);
 function seedOf(str){let h=2166136261;for(const c of str){h^=c.charCodeAt(0);h=Math.imul(h,16777619);}return h>>>0;}
 function seeded(seed){let a=seed>>>0;return ()=>{a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return ((t^t>>>14)>>>0)/4294967296;};}
@@ -326,20 +326,20 @@ function useScout(){
   guarded(t=>{const r=t.round;if(r.id!==rid||r.phase!=="answer"||r.scout||t.exp.scout<=0)return null;
     t.exp.scout--;return {...t,round:{...r,scout:true}};});
 }
-// at camp: everything is restocked, and the team picks the route on and one extra piece of gear (each votes, the
-// leader confirms); then the next stage starts straight away
+// at camp: everything is restocked and the team picks one extra piece of gear (each votes, the leader confirms);
+// then the next stage, on the one route up from that camp, starts straight away
 const BONUS={hook:{name:"Extra hook",desc:"One more hook for the next stage."},chalk:{name:"Extra chalk",desc:"Wipe out two wrong answers once more."},scout:{name:"Extra hint",desc:"A second hint."}};
-function campPick(route,k){
-  const rid=S.team.round.id;
+function campPick(k){
+  const rid=S.team.round.id,route="A";
   guarded(t=>{const s=t.round.stage??needsChoice(t.exp);
-    if(t.round.id!==rid||t.round.phase!=="camp"||!BONUS[k]||!FORKS[s]?.[route]?.tiers)return null;   // (a route, not the camp's name)
+    if(t.round.id!==rid||t.round.phase!=="camp"||!BONUS[k]||!FORKS[s]?.[route]?.tiers)return null;
     Object.assign(t.exp,{rope:MT(t.exp).hooks,chalk:1,scout:1,anchors:1});
     if(k==="hook")t.exp.rope++;else t.exp[k]++;
     t.exp.choice[s]=route;
-    t.log=t.log.slice(-39);t.log.push({at:Date.now(),text:`Rested at ${FORKS[s].camp}. Gear restocked, plus ${BONUS[k].name.toLowerCase()}. On via ${FORKS[s][route].name}.`});
+    t.log=t.log.slice(-39);t.log.push({at:Date.now(),text:`Rested at ${FORKS[s].camp}. Gear restocked, plus ${BONUS[k].name.toLowerCase()}.`});
     return startPitch(t);});
 }
-// a camp vote is two picks: the route and the bonus
+// a camp vote is the bonus gear
 async function campVote(part,val){if(TV())return;
   try{await fb.patch(`teams/${S.code}/round/votes/${S.uid}`,{[part]:val});}catch(e){toast("Couldn't save your vote.");}
 }
@@ -453,7 +453,7 @@ function renderLobby(invite){
         <li><b>Hooks.</b> During a question, clip a hook into the wall where you hang. It stays there: a fall, yours or your partner's, stops at the highest hook below. With no hook below, you fall back to the last camp (the rope catches you ${MAX_GAP} pitches below your partner).</li>
         <li><b>Gear.</b> Chalk wipes out two wrong answers. A hint gives you a clue.</li>
         <li><b>Maps.</b> ${MAPS.map(M=>esc(M.name)).join(", ")}: six mountains each, along a trail. Climb one to open the next step, sometimes one mountain, sometimes a choice of two. Climb a map's summit to collect it and open the next. The further you go, the harder the questions, the less time you get and the fewer hooks you carry.</li>
-        <li><b>Camps</b> restock your gear. There you pick the route on, short and hard or long and gentler, and one extra piece of gear.</li>
+        <li><b>Camps</b> restock your gear, and you pick one extra piece of gear for the climb on.</li>
         <li><b>The rope radio</b> lets you talk when you're apart. Side by side, just talk.</li></ul></div>
     <div class="card" id="secProf"><h3>Climber profile</h3><div id="profBody">${typeof profileHtml==="function"?profileHtml():""}</div></div>
     <div class="card" id="secAcct"><h3>Account</h3><div id="acctBody" class="acct"></div></div>
@@ -638,16 +638,15 @@ function portrait(L){if(PORT.has(L))return PORT.get(L);
   if(art){const im=L.art.front,b=boxOf(im);g.drawImage(im,((b.x0+b.x1)>>1)-12,b.y0-2,24,24,0,0,24,24);}
   else g.drawImage(pixelSprite(L,"stand",{}),SPR.hx-9,SPR.hy-45,24,24,0,0,24,24);
   const u=c.toDataURL();if(art)PORT.set(L,u);return u;}
-// the expedition as a map: base camp to summit, both route options at each camp, every pitch's state
+// the expedition as a map: base camp to summit through both camps, every pitch's state
 function mapHtml(t){
   const e=t.exp,L=lens(e),tot=total(e),at=e.pitch,dim=["s0","s1","s2"],camps=campStops(e);
   const pit=(gi,n,live)=>`<span class="pit ${live?(gi<at?"done":gi===at?"now":""):""}">${n}${live&&(e.hooks||[]).includes(gi+1)?ICON.hook:""}</span>`;
   const stop=(icon,name,alt,i)=>`<div class="mrow">${icon}<div class="mstop ${i===at?"here":""}">${name}<small>${fmt(alt)} m${i===at?" · you are here":""}${e.anchor===i&&i>0?" · falls stop here":""}</small></div></div>`;
   const stage=(s,start)=>{let h="";
     if(s===0)h=`<div class="mopt"><b>Approach</b>${stageTiers(e,0).map((k,i)=>pit(start+i,i+1,1)).join("")}</div>`;
-    else{const F=FORKS[s-1],ch=e.choice[s-1];
-      for(const key of ["A","B"]){const opt=F[key],chosen=ch===key;
-        h+=`<div class="mopt ${ch&&!chosen?"off":""}"><b>${opt.name}</b>${stageTiers(e,s,key).map((k,i)=>pit(start+i,i+1,chosen)).join("")}</div>`;}}
+    else{const opt=FORKS[s-1].A,live=!!e.choice[s-1];
+      h=`<div class="mopt"><b>${opt.name}</b>${stageTiers(e,s,"A").map((k,i)=>pit(start+i,i+1,live)).join("")}</div>`;}
     return `<div class="mstage ${dim[s]}">${h}</div>`;};
   const c1=L[0],c2=L[0]+(L[1]||0);
   return `<h3>Route map</h3><div class="map">
@@ -1192,20 +1191,17 @@ function fitWorld(){const el=$("#world"),map=el&&S.liveMap&&S.liveMap.isConnecte
   addEventListener("keydown",e=>{const el=W();if(!el||el.hidden||e.target.closest&&e.target.closest("input,textarea"))return;if(e.key==="ArrowRight")lookMap(1);else if(e.key==="ArrowLeft")lookMap(-1);});
 }
 addEventListener("resize",()=>fitWorld());
-// at camp: two rows of cards, the route on and the bonus gear; each climber's picks are shown under the cards
+// at camp: a row of cards, the extra gear; each climber's pick is shown under the cards
 function campView(t){
   const r=t.round,s=r.stage??needsChoice(t.exp),F=FORKS[s],votes=r.votes||{},ids=memberIds(t),solo=ids.length<2,lead=solo||leaderOf(t)===S.uid||leaderOf(t)===SIM,my=votes[S.uid]||{};
   const who=(part,k)=>ids.filter(i=>votes[i]?.[part]===k).map(i=>esc(nameOf(i))).join(", ")||"&nbsp;";
-  const route=k=>`<button class="route ${my.route===k?"sel":""}" data-part="route" data-k="${k}"><h4>${F[k].name}</h4><span>${F[k].desc}</span>
-    <span class="rmeta">${stageTiers(t.exp,s+1,k).length} pitches ${tierMarks(Math.round(F[k].tiers.reduce((a,b)=>a+b,0)/F[k].tiers.length))}</span><span class="votes">${who("route",k)}</span></button>`;
   const bonus=k=>`<button class="route ${my.bonus===k?"sel":""}" data-part="bonus" data-k="${k}"><h4>${BONUS[k].name}</h4><span>${BONUS[k].desc}</span><span class="votes">${who("bonus",k)}</span></button>`;
-  const ready=my.route&&my.bonus;
+  const ready=!!my.bonus,n=stageTiers(t.exp,s+1,"A").length;
   return frameQ(t,`<div class="qhead"><span>${F.camp} · ${fmt(mAlt(t.exp,s?ALT.c2:ALT.c1))} m</span></div>
    <div class="qtitle">Rest at ${F.camp}</div>
-   <p class="qsub">Gear restocked. Pick the way to ${F.next} and one extra piece of gear${solo||TV()?"":`; ${lead?"you make":"your partner makes"} the call`}.</p>
-   <div class="clabel">Route to ${F.next}</div><div class="routes">${route("A")}${route("B")}</div>
+   <p class="qsub">Camp is up and your gear is restocked. Pick one extra piece of gear for the ${n} pitches to ${F.next}${solo||TV()?"":`; ${lead?"you make":"your partner makes"} the call`}.</p>
    <div class="clabel">Extra gear</div><div class="routes bonus">${bonus("hook")}${bonus("chalk")}${bonus("scout")}</div>
-   ${TV()?`<p class="note">Choose on your phones.</p>`:lead?`<button class="btn rope" id="campBtn" ${ready?"":"disabled"}>${ready?`Climb on via ${F[my.route].name}`:"Pick a route and a piece of gear"}</button>`:`<p class="note">Waiting for your partner to decide.</p>`}`);
+   ${TV()?`<p class="note">Choose on your phones.</p>`:lead?`<button class="btn rope" id="campBtn" ${ready?"":"disabled"}>${ready?`Climb on to ${F.next}`:"Pick a piece of gear"}</button>`:`<p class="note">Waiting for your partner to decide.</p>`}`);
 }
 // the end of the expedition: the summit, how the team climbed (a grade in stars, the numbers behind it), and a way
 // to tell someone
@@ -1316,7 +1312,7 @@ function wirePanel(t){
   P.querySelector("#setOffBtn")?.addEventListener("click",()=>{const v=mapPick(t);if(v)chooseMountain(v);});
   P.querySelector("#padDaily")?.addEventListener("click",()=>chooseDaily());
   if(t.round.phase==="summit"&&t.exp.daily&&typeof lbFill==="function")lbFill(P.querySelector("#lbDailyTop"),`lbd/${t.exp.daily}`,"You're the first today.");
-  P.querySelector("#campBtn")?.addEventListener("click",()=>{const v=(t.round.votes||{})[S.uid];if(v?.route&&v?.bonus)campPick(v.route,v.bonus);});
+  P.querySelector("#campBtn")?.addEventListener("click",()=>{const v=(t.round.votes||{})[S.uid];if(v?.bonus)campPick(v.bonus);});
   if(r.phase!=="answer")return;
   P.querySelector("#hookBtn")?.addEventListener("click",()=>{sfx("clip");useHook();});
   P.querySelector("#chalkBtn")?.addEventListener("click",useChalk);
@@ -1353,7 +1349,7 @@ const TIPS=[
   {id:"result",when:t=>t.round.phase==="reveal"&&S.sus!==t.round.id&&S.susDone===t.round.id,at:"#panel .result",text:"Right answers climb, wrong ones fall to the highest hook below you, or the last camp. The next question comes by itself."},
   {id:"rope",when:t=>{const p=partnerId(t);return p&&t.round.phase==="answer"&&Math.abs(posOf(t.exp,S.uid)-posOf(t.exp,p))>=2;},at:"#panel .qhead .role, #panel .qhead",text:`You're roped together: ${MAX_GAP} pitches apart is the limit. Get further ahead and the rope holds you until your partner catches up.`},
   {id:"radio",when:t=>!!partnerId(t)&&t.round.phase==="answer"&&S.tipsSeen.has("answer"),at:"#radio .calls, #radioBtn, #radio",text:"Climbing apart? Talk on the rope radio: quick calls or a message."},
-  {id:"camp",when:t=>t.round.phase==="camp",at:"#panel .routes",text:"At camp your gear is restocked. Pick the route on (short and hard, or long and gentler) and one extra piece of gear."}];
+  {id:"camp",when:t=>t.round.phase==="camp",at:"#panel .routes",text:"At camp your gear is restocked. Pick one extra piece of gear for the climb on."}];
 S.tipsSeen=new Set(LS.get("tips",[]));S.tipsOff=LS.get("tipsOff",false);
 function coach(t){const el=$("#coach");if(TV()||S.tipsOff||!t){if(el)el.hidden=true;return;}
   if(S.tip&&!S.tip.when(t))S.tip=null; // (the moment passed: the tip goes, and comes back next time)

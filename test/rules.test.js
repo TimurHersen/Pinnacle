@@ -67,7 +67,7 @@ test("the summit: scored, counted and kept as the team's best and the mountain's
   assert.equal(g.startPitch(n).round.phase,"summit");});
 
 test("the first maps' climbs are shorter, growing to full length by Frostreach",()=>{
-  const n=m=>{const e=Object.assign(g.newExp(1),{m,choice:["B","B"]});return g.total(e);};
+  const n=m=>{const e=Object.assign(g.newExp(1),{m,choice:["A","A"]});return g.total(e);};
   assert.ok(n("moss")<n("mistgate")&&n("mistgate")<n("redbutte")&&n("redbutte")<n("snowcap"));
   assert.ok(n("moss")>=8&&n("moss")<=11,"Greenvale: "+n("moss"));
   const e=Object.assign(g.newExp(1),{m:"moss",choice:["A","A"]});
@@ -91,10 +91,10 @@ test("the daily climb: the same mountain, route and questions for everyone; shor
   const d="2026-11-19";assert.equal(g.dailyMtn(d),g.dailyMtn(d));assert.ok([1,2,3].includes(MOUNTAINS[g.dailyMtn(d)].map));
   for(let k=0;k<5;k++)assert.equal(g.dailyQuiz(d,2,k).id,g.dailyQuiz(d,2,k).id);
   assert.notEqual([0,1,2,3].map(k=>g.dailyQuiz(d,2,k).id).join(),[0,1,2,3].map(k=>g.dailyQuiz("2026-11-20",2,k).id).join());
-  const t=team({m:g.dailyMtn(d),choice:["B","B"]});t.exp.daily=d;assert.ok(g.total(t.exp)<=8,String(g.total(t.exp)));
+  const t=team({m:g.dailyMtn(d),choice:["A","A"]});t.exp.daily=d;assert.ok(g.total(t.exp)<=8,String(g.total(t.exp)));
   t.round={id:1,phase:"reveal"};t.exp.pitch=1;const a=g.startPitch(JSON.parse(JSON.stringify(t))).round,b=g.startPitch(JSON.parse(JSON.stringify(t))).round;
   assert.equal(a.qid,b.qid);assert.equal(a.ev,undefined);
-  const u=team({m:g.dailyMtn(d),choice:["B","B"]});u.exp.daily=d;u.exp.pitch=g.total(u.exp)-1;const n=play(u,RIGHT,RIGHT);
+  const u=team({m:g.dailyMtn(d),choice:["A","A"]});u.exp.daily=d;u.exp.pitch=g.total(u.exp)-1;const n=play(u,RIGHT,RIGHT);
   assert.equal(n.round.result.arrived,"summit");assert.ok(n.stats.daily[d]);assert.equal(n.stats.peaks,undefined);assert.equal(n.stats.trail,undefined);});
 test("the lucky charm forgives the first fall of a climb, once",()=>{
   const t=team({pitch:3});t.exp.charm=1;let n=play(t,WRONG,RIGHT);
@@ -151,7 +151,7 @@ test("old saves load into today's shape",()=>{
   assert.equal(t.exp.v,2);assert.equal(t.round.phase,"map");assert.equal(t.exp.m,null);assert.deepEqual([...g.memberIds(t)],["y","z"]);
   // (the database drops empty arrays and turns sparse ones into objects)
   const u=g.fixTeam({name:"T",members:{},exp:{v:2,n:1,choice:{0:"B"},used:{0:"q1"},pitch:5},round:{id:1,phase:"camp"}});
-  assert.deepEqual([...u.exp.choice],["B",null]);assert.deepEqual([...u.exp.used],["q1"]);assert.equal(u.exp.m,"fernhill");
+  assert.deepEqual([...u.exp.choice],["A",null]);assert.deepEqual([...u.exp.used],["q1"]);assert.equal(u.exp.m,"fernhill");
   assert.equal(g.fixTeam(null),null);});
 
 test("every question is well formed",()=>{
@@ -164,7 +164,7 @@ test("every question is well formed",()=>{
 test("every tier has enough questions for three climbs of any mountain without a repeat",()=>{
   // the most questions of a tier one climb can ask (with no falls), over every route and mountain
   const most={};
-  for(const m of Object.values(MOUNTAINS))for(const a of ["A","B"])for(const b of ["A","B"]){const n={};
+  for(const m of Object.values(MOUNTAINS))for(const a of ["A"])for(const b of ["A"]){const n={};
     for(const t of [...SEG0_TIERS,...FORKS[0][a].tiers,...FORKS[1][b].tiers]){const k=Math.max(1,Math.min(4,t+m.tier));n[k]=(n[k]||0)+1;}
     for(const k in n)most[k]=Math.max(most[k]||0,n[k]);}
   for(const k in most){const have=QUIZ.filter(q=>q.tier===+k).length;assert.ok(have>=3*most[k],`tier ${k}: ${have} questions, a climb can ask ${most[k]}`);}});
