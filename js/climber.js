@@ -207,7 +207,7 @@ function openProfile(){sfx("pop");let el=$("#profPanel");if(el)el.remove();
     <div class="pf-head"><div class="pf-av"><div class="cs-glow" aria-hidden="true"></div><img src="${charFace(ch.id)}" alt="${esc(ch.name)}">${named?`<i class="pf-dot" title="Signed in"></i>`:""}</div>
       <div class="pf-id"><div class="pf-name">${esc(S.myName||(u&&u.displayName)||"Climber")}</div>
         <div class="pf-meta">${named?`${esc(u.email||"Google account")}${since?` · since ${esc(since)}`:""}`:"Playing as a guest on this device"}</div>
-        <div class="pf-meta">Climbs as <b>${esc(ch.name)}</b></div></div></div>
+        <div class="pf-meta">Climbs as <b>${esc(ch.name)}</b> · <button class="linkbtn pf-chg" id="pfChar" type="button">Change climber</button></div></div></div>
     <div class="pf-grid">
       ${tile("Climbs played",N.played)}${tile("Summits",N.summits,"good")}${tile("Unfinished",N.unfinished)}
       ${tile("Summit rate",N.played?N.rate+"%":"–")}${tile("Best score",N.best!=null?N.best:"–","gold")}${tile("Fastest summit",N.fastest?clockOf(N.fastest):"–")}
@@ -215,11 +215,12 @@ function openProfile(){sfx("pop");let el=$("#profPanel");if(el)el.remove();
       ${tile("Questions",N.q)}${tile("Right",N.acc!=null?N.acc+"%":"–","good")}${tile("Falls",N.falls)}</div>
     <div class="gs-label">Best three-star ascents</div>
     ${best.length?`<ol class="lbl">${best.map(([k,v],i)=>`<li><i>${i+1}</i><b>${esc(MOUNTAINS[k].name)}</b><span>${fmtDur(v.ms)}</span></li>`).join("")}</ol>`:`<p class="note">Climb a mountain with no falls and no hooks to set one.</p>`}
-    <div class="pf-acts">${named?`<button class="btn ghost" id="pfOut">Sign out</button>`:`<button class="btn rope" id="pfIn">Sign in to save progress</button>`}<button class="btn" id="pfClose">Close</button></div>
+    <div class="pf-acts">${named?`<button class="btn ghost" id="pfOut">Sign out</button>`:`<button class="btn rope" id="pfIn">Sign in</button>`}<button class="btn" id="pfClose">Close</button></div>
     <p class="note pf-foot">${named?"Saved to your account, on every device.":"Kept on this device only until you sign in."}</p></div>`;
   document.body.appendChild(el);requestAnimationFrame(()=>el.classList.add("in"));
   const close=()=>{el.classList.remove("in");setTimeout(()=>el.remove(),220);};
   el.querySelector(".pf-x").onclick=close;el.querySelector("#pfClose").onclick=close;el.onclick=e=>{if(e.target===el)close();};
   el.onkeydown=e=>{if(e.key==="Escape")close();};setTimeout(()=>el.querySelector("#pfClose")?.focus({preventScroll:true}),60);
   el.querySelector("#pfOut")?.addEventListener("click",()=>{close();acctSignOut();});
-  el.querySelector("#pfIn")?.addEventListener("click",()=>{close();if(S.code&&typeof goLobby==="function")goLobby();setTimeout(()=>document.querySelector('.pbtn[data-id="secAcct"]')?.click(),S.code?300:0);});}
+  el.querySelector("#pfIn")?.addEventListener("click",()=>{close();if(S.code&&typeof goLobby==="function")goLobby();setTimeout(()=>S.openSec&&S.openSec("secAcct"),S.code?300:0);});
+  el.querySelector("#pfChar")?.addEventListener("click",()=>{close();if(S.team&&S.team.members[S.uid]){S.charOpen=true;CS.view=null;charScreen(S.team,true);}else openCharTitle();});}

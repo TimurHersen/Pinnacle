@@ -704,7 +704,7 @@ body.tv .wpin{pointer-events:none}
 
 /* the account button in the corner of the title screen, with a speech bubble for guests */
 .acctwrap{position:relative;display:none}
-body.home .acctwrap{display:block}.acctwrap.off{display:none!important}
+body.home .acctwrap{display:block}.acctwrap.off .acctbub{display:none}
 #acctBtn{position:relative;overflow:visible}
 .acctbub{position:absolute;top:50%;right:calc(100% + 12px);white-space:nowrap;padding:6px 9px;border-radius:7px;background:var(--cream,#f4ead2);color:#1a1208;
   font:400 10px/1 var(--head);letter-spacing:.04em;text-transform:uppercase;box-shadow:0 2px 0 #000,0 0 0 2px #0b0f14;transform:translateY(-50%);transform-origin:100% 50%;
@@ -881,3 +881,7 @@ body.pad .qgrab{display:none!important}
 /* (narrow screens: the title starts below the row of buttons in the corner, so the two never meet) */
 @media (max-width:600px){.tlogo{top:calc(env(safe-area-inset-top,0px) + 74px)}}
 @media (max-width:600px){.tslogan{display:none}}
+
+.pf-chg{padding:0!important;font:inherit!important;text-transform:none!important;letter-spacing:0!important;color:#ffd36b!important;text-decoration:underline;text-underline-offset:3px;background:none!important;border:0!important;box-shadow:none!important;cursor:pointer;display:inline}
+/* (phones held upright: the painting sits a little lower, its sky carried on above it, so the peak's flag clears the title) */
+@media (max-width:600px) and (orientation:portrait){body.home .scene{background:#537ed7}body.home #menubg{top:48px;height:calc(100% - 48px)}}

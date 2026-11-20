@@ -468,6 +468,8 @@ function renderLobby(invite){
   $("#joinBtn").onclick=()=>joinTeam();
   $("#jcode").onkeydown=e=>{if(e.key==="Enter")joinTeam();};
   main.querySelectorAll(".teamrow").forEach(b=>b.onclick=()=>openTeam(b.dataset.code));
+  // (the corner account button opens the profile, and from there sign-in and the climber: S.openSec opens a card)
+  S.openSec=id=>open(id);
   const open=id=>{if(id==="secProf"&&typeof openProfile==="function"){openProfile();return;}if(id==="secChar"&&typeof openCharTitle==="function"){openCharTitle();return;}main.querySelectorAll(".card").forEach(c=>c.hidden=!(c.id===id||(c.dataset.for||"").split(" ").includes(id)));
     main.hidden=false;main.scrollTop=0;homeMenu(false);
     const f={secNew:"tname",secJoin:"jcode"}[id];if(f)setTimeout(()=>$("#"+f)?.focus({preventScroll:true}),60);};
@@ -475,7 +477,7 @@ function renderLobby(invite){
   $("#backBtn").onclick=()=>{sfx("pop");close();};
   main.onkeydown=e=>{if(e.key==="Escape")close();};
   showHome([...(S.myTeams.length?[{id:"secCont",label:"Continue"}]:[]),{id:"secNew",label:"New expedition"},{id:"secTv",label:"Big screen"},{id:"secJoin",label:"Join team"},
-    {id:"secHow",label:"How to play"},{id:"secChar",label:"Climber"},{id:"secProf",label:"Profile"},{id:"secAcct",label:typeof acctNamed==="function"&&acctNamed()?"Account":"Sign in"},{id:"secSet",label:"Settings"}],open);
+    {id:"secHow",label:"How to play"},{id:"secSet",label:"Settings"}],open);
   if(typeof acctRender==="function")acctRender();
   if(invite)open("secJoin");
   syncSettings();
