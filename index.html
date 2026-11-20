@@ -25,7 +25,7 @@
 /* GitHub Pages lets browsers keep every file for ten minutes. The game's styles and scripts are fetched at one code
    version, so a browser keeps them between visits and never mixes files from two updates: raise the number with every
    change to css/ or js/, and everyone gets the new files the next time this page loads. */
-window.V="code=102";
+window.V="code=103";
 /* The art (everything under assets/) changes rarely and is most of the download, so it keeps one version, which
    browsers may hold on to: raise the number whenever a picture is changed or added. */
 window.AV="art=24";
@@ -43,6 +43,7 @@ document.write('<link rel="stylesheet" href="css/style.css?'+V+'">');
 </style>
 </head>
 <body>
+<a id="privLink" href="privacy.html">Privacy</a>
 <div id="boot" role="status" aria-label="Loading Pinnacle"><img src="assets/emblem.png?art=24" alt=""><i></i></div>
 <div class="scene" id="scene">
   <canvas id="topo" role="img" aria-label="A rope team climbing a granite cliff from base camp to the summit"></canvas>

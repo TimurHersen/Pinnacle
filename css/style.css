@@ -1172,3 +1172,8 @@ body.ph-answer #main .tier,body.ph-answer #main .getready .tier *{color:#fff!imp
 #main.lobby.arrive>#backBtn,#main.lobby.arrive>.back{animation-delay:150ms}
 #home:not(.away) .pmenu{transition:opacity var(--t-base) var(--ease-out) 150ms}
 #home.ready:not(.away) .tlogo{transition:opacity var(--t-base) var(--ease-out) 150ms,transform var(--t-screen) var(--ease-out)}
+
+/* the privacy policy link: on the title screen only, small in the bottom corner (Google asks for one on the home page) */
+#privLink{display:none;position:fixed;right:10px;bottom:8px;z-index:6;font:400 15px/1 var(--head,"Pinnacle Head");letter-spacing:.08em;
+  color:#f7efdc;text-decoration:none;text-shadow:0 2px 0 rgba(20,22,60,.6);opacity:.8}
+body.home #privLink{display:block}#privLink:hover,#privLink:focus-visible{opacity:1;text-decoration:underline}

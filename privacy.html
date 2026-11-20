@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pinnacle · Privacy</title>
+<link rel="icon" href="assets/icon-192.png">
+<style>
+@font-face{font-family:"Pinnacle Head";src:url("assets/fonts/jersey10-latin.woff2") format("woff2");font-display:swap}
+@font-face{font-family:"Pinnacle Body";src:url("assets/fonts/jersey15-latin.woff2") format("woff2");size-adjust:118%;font-display:swap}
+:root{--pc:#f7efdc;--ink:#2b3474;--red:#e8584a;--sky:#2a2f5e}
+*{box-sizing:border-box}
+body{margin:0;background:var(--sky);color:var(--ink);font:20px/1.45 "Pinnacle Body",system-ui,sans-serif}
+main{max-width:680px;margin:28px auto;padding:28px 22px 34px;background:var(--pc);border:3px solid var(--ink);box-shadow:0 6px 0 rgba(0,0,0,.35)}
+@media (max-width:720px){main{margin:16px;padding:22px 16px 26px}}
+header{display:flex;align-items:center;gap:14px;margin-bottom:8px}
+header img{width:72px;height:72px;image-rendering:pixelated;border:2px solid var(--ink)}
+h1{font:400 40px/1 "Pinnacle Head",system-ui,sans-serif;letter-spacing:.12em;margin:0}
+h2{font:400 26px/1.1 "Pinnacle Head",system-ui,sans-serif;letter-spacing:.06em;margin:26px 0 6px;color:var(--red)}
+p,li{margin:6px 0}ul{padding-left:22px}
+.date{opacity:.75;margin:0 0 14px}
+a{color:var(--ink);text-decoration-thickness:2px}
+.back{display:inline-block;margin-top:24px;padding:8px 14px;border:2px solid var(--ink);text-decoration:none}
+</style>
+</head>
+<body>
+<main>
+<header><img src="assets/logo.png" alt=""><h1>PINNACLE</h1></header>
+<p class="date">Privacy policy · last updated 20 November 2026</p>
+<p>Pinnacle is a free quiz climbing game played in your browser. This page explains what it stores about you, why, and how to have it removed. There are no ads, no tracking and no analytics, and nothing is ever sold or shared for marketing.</p>
+
+<h2>Playing as a guest</h2>
+<ul>
+<li>When you open the game you are signed in anonymously, so the game can tell real players apart. This gives your device a random player id; no name or email is attached.</li>
+<li>The name you type for yourself, your rope teams, your answers during a game, your chosen climber and your progress on each mountain are saved in the game's database (Google Firebase), so you and your partner can play together.</li>
+<li>Your settings, your player id and a copy of your progress are also kept in your browser's local storage on this device.</li>
+</ul>
+
+<h2>With an account</h2>
+<p>An account is optional. It lets your progress follow you to other devices.</p>
+<ul>
+<li><b>Email and password:</b> your email address and an encrypted password are kept by Firebase Authentication. The game itself never sees your password.</li>
+<li><b>Sign in with Google:</b> Google shares your name, email address and profile picture with the game. The game uses your first name as your climber name if you haven't chosen one, and shows your email on your profile. It does not get access to anything else in your Google account.</li>
+<li>Your account record holds your player id, your climber name, your rope teams, your email address, when you joined, and your climbing statistics (climbs, stars and records).</li>
+</ul>
+
+<h2>Leaderboards</h2>
+<p>When a rope team finishes a climb, the team's climbers' names, the mountain, the time taken and the stars earned can appear on the public leaderboards, where other players can see them.</p>
+
+<h2>Services the game uses</h2>
+<ul>
+<li><b>Google Firebase</b> (Authentication and Realtime Database) stores the data above.</li>
+<li><b>Google Sign-In</b> runs when you choose to sign in with Google.</li>
+<li><b>Google Fonts</b> supplies one of the game's fonts, so your browser fetches it from Google.</li>
+<li><b>GitHub Pages</b> hosts the game's files.</li>
+</ul>
+<p>These services receive the usual technical details any website does, such as your IP address and browser type, and handle them under their own privacy policies.</p>
+
+<h2>Keeping and removing your data</h2>
+<ul>
+<li>Signing out leaves your account and its progress in place, and starts a fresh guest on that device.</li>
+<li>Clearing your browser's site data removes everything stored on that device.</li>
+<li>To have your account and everything linked to it deleted, ask through the contact link below and it will be removed.</li>
+</ul>
+
+<h2>Children</h2>
+<p>Pinnacle is a family-friendly game. It does not knowingly collect more than the details above from anyone, and an account is never required to play.</p>
+
+<h2>Contact</h2>
+<p>Questions, or a request to delete your data: <a href="https://github.com/TimurHersen/Pinnacle/issues">open an issue on the game's GitHub page</a>.</p>
+
+<a class="back" href="./">Back to the game</a>
+</main>
+</body>
+</html>

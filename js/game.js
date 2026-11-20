@@ -392,7 +392,8 @@ async function tryResolve(){
 function settingsHtml(){return `<div class="setrow">Tips <button class="btn ghost" data-set="tips">Show again</button></div>
   <div class="setrow">Sound <button class="btn ghost" data-set="snd"></button></div>
   <div class="setrow">Music <button class="btn ghost" data-set="mus"></button></div>
-  ${document.documentElement.requestFullscreen?`<div class="setrow">Fullscreen <button class="btn ghost" data-set="fs"></button></div>`:""}`;}
+  ${document.documentElement.requestFullscreen?`<div class="setrow">Fullscreen <button class="btn ghost" data-set="fs"></button></div>`:""}
+  <div class="setrow">Privacy <a class="btn ghost" href="privacy.html" target="_blank" rel="noopener">Read</a></div>`;}
 function syncSettings(){document.querySelectorAll("[data-set]").forEach(b=>{const k=b.dataset.set;if(k==="tips")return;
   b.textContent=(k==="snd"?SND.on:k==="mus"?MUSIC.on:!!document.fullscreenElement)?"On":"Off";});}
 document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-set]");if(!b)return;const k=b.dataset.set;
