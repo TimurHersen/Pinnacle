@@ -1,5 +1,5 @@
 /* ============================== TITLE SCREEN ==============================
-   The home screen: the dusk camp painting (assets/menu-dusk.png, 384x216) fills the screen, and the logo, the slogan
+   The home screen: a peak over the clouds (assets/title-wide.png 320x180, title-tall.png 180x320) fills the screen; the title, the slogan
    and the menu are pixel art drawn at the painting's own pixel size, so the whole screen reads as one picture. The
    logo is drawn in code (the wordmark with a banded fill, an outline and a 3D edge, the emblem above it, a rope with
    carabiners under it); the slogan and button labels use a small hand-made 5-pixel font. */
@@ -26,6 +26,16 @@ const PF=(()=>{const g={
 // a canvas of the given native size, shown scaled up by whole pixels (see titleScale)
 function pixCanvas(w,h){const c=document.createElement("canvas");c.width=w;c.height=h;c.className="pix";c.dataset.w=w;c.dataset.h=h;return c;}
 
+// the title, as in the concept: PINNACLE in thin pixel capitals spaced wide, a line out to each side
+const TITLE_G={P:["#####.","#....#","#....#","#####.","#.....","#.....","#.....","#....."],I:["###",".#.",".#.",".#.",".#.",".#.",".#.","###"],
+  N:["#....#","##...#","#.#..#","#.#..#","#..#.#","#..#.#","#...##","#....#"],A:["..##..",".#..#.","#....#","#....#","######","#....#","#....#","#....#"],
+  C:[".####.","#....#","#.....","#.....","#.....","#.....","#....#",".####."],L:["#.....","#.....","#.....","#.....","#.....","#.....","#.....","######"],
+  E:["######","#.....","#.....","#####.","#.....","#.....","#.....","######"]};
+function drawTitle(){const word="PINNACLE",gap=5,line=16,sp=7;let w=0;for(const ch of word)w+=TITLE_G[ch][0].length+gap;w-=gap;
+  const W=w+2*(line+sp),H=10,c=pixCanvas(W+1,H+1),g=c.getContext("2d");
+  const put=(col,dx,dy)=>{g.fillStyle=col;let x=line+sp+dx;for(const ch of word){const G=TITLE_G[ch];G.forEach((r,y)=>{for(let i=0;i<r.length;i++)if(r[i]==="#")g.fillRect(x+i,y+1+dy,1,1);});x+=G[0].length+gap;}
+    g.fillRect(dx,5+dy,line,1);g.fillRect(W-line+dx,5+dy,line,1);};
+  put("rgba(36,44,104,.45)",1,1);put("#fbf6ec",0,0);return c;}
 // the logo: emblem, wordmark, rope and slogan, as one pixel-art picture
 const SLOGAN="SAME ROPE. SAME ANSWER.";
 async function drawLogo(){
@@ -67,26 +77,12 @@ function labelCanvas(text){const w=PF.width(text),c=pixCanvas(w+1,6),g=c.getCont
    screen (a phone on its side) they sit side by side instead. Sizes below are in native pixels. */
 const MENU_GAP=5,BTN_H=13,TOP=6,BOTTOM=14,BETWEEN=10,EDGE=16;
 function titleScale(){
-  const home=document.getElementById("home");if(!home)return;
-  const W=innerWidth,H=innerHeight,p=Math.max(W/BG_W,H/BG_H),narrow=W<600&&H>=W; // (narrow: a phone held upright)
-  const logo=home.querySelector(".tlogo canvas"),LW=+(logo?.dataset.w||220),LH=+(logo?.dataset.h||98);
-  const n=home.querySelectorAll(".pbtn").length||4,MH=n*BTN_H+(n-1)*MENU_GAP+3;
-  const MW=Math.max(84,...[...home.querySelectorAll(".pbtn canvas")].map(c=>+c.dataset.w))+16;
-  // stacked: logo, a gap, then the whole menu must fit the height; on wide screens the logo also stays under 60% wide
-  let u=Math.floor(Math.min(H/(TOP+LH+BETWEEN+MH+BOTTOM),narrow?W/(MW+8):W*.6/LW,Math.max(2,Math.round(p))));
-  let side=false,availW=W-24;
-  // side by side, the menu keeps a readable size and the logo shrinks into the space beside it if it must
-  let availH=Infinity;
-  if(u<2&&!narrow){side=true;u=Math.floor(Math.min(H/(MH+8),W/(EDGE+MW+BETWEEN+LW*.5+EDGE)));
-    u=Math.max(2,u);availW=W-(EDGE+MW+BETWEEN+EDGE)*u;availH=H-16;}
-  u=Math.max(2,u);
-  home.classList.toggle("side",side);home.style.setProperty("--u",u+"px");
-  // side by side, the logo is centred in the space to the right of the menu
-  home.style.setProperty("--lx",side?((EDGE+MW+BETWEEN)*u+(W-(EDGE+MW+BETWEEN)*u)/2)+"px":"50%");
-  // (the logo may shrink below whole pixels when even that is too wide, rather than spill off the sides)
-  home.querySelectorAll("canvas.pix").forEach(c=>{const k=c.closest(".tlogo")?Math.min(u,availW/c.dataset.w,availH/c.dataset.h):u;c.style.width=c.dataset.w*k+"px";c.style.height=c.dataset.h*k+"px";});
-  // (a phone held upright: the menu sits right under the logo, so the camp at the foot of the painting shows clear)
-  const lg=home.querySelector(".tlogo canvas");home.style.setProperty("--mtop",lg?(TOP*u+parseFloat(lg.style.height||0)+BETWEEN*u)+"px":"40%");}
+  const home=document.getElementById("home");if(!home)return;const W=innerWidth,H=innerHeight,tall=H>=W;
+  // (the painting for the screen's shape: tall on a phone held upright, wide otherwise)
+  const bg=document.getElementById("menubg"),src=asset(tall?"assets/title-tall.png":"assets/title-wide.png");if(bg&&bg.dataset.src!==src){bg.dataset.src=src;bg.src=src;}
+  const t=home.querySelector(".tlogo canvas");if(t){const k=Math.max(2,Math.floor(Math.min(W*.82/t.width,H*.075/t.height)));t.style.width=t.width*k+"px";t.style.height=t.height*k+"px";}
+  // (the menu sits over the clouds, below the peak: lower on a tall screen, where the peak takes the upper middle)
+  home.style.setProperty("--mtop",tall?"44%":"41%");}
 addEventListener("resize",()=>titleScale());
 
 // the title screen; items are [{id,label}], and onPick(id) opens that part of the menu
@@ -95,16 +91,14 @@ async function showHome(items,onPick){
   const n=++HOME_N;document.body.classList.add("home");
   let home=document.getElementById("home");
   if(!home){home=document.createElement("div");home.id="home";document.body.appendChild(home);
-    const bg=document.createElement("img");bg.id="menubg";bg.alt="";bg.src=asset("assets/menu-dusk.png");document.querySelector(".scene").appendChild(bg);}
-  TFX.start(document.getElementById("menubg"));
-  home.hidden=false;home.innerHTML=`<div class="tlogo" role="img" aria-label="Pinnacle. ${SLOGAN.toLowerCase()}"></div><nav class="pmenu" aria-label="Main menu"></nav>`;
+    const bg=document.createElement("img");bg.id="menubg";bg.alt="";document.querySelector(".scene").appendChild(bg);}
+  home.hidden=false;home.innerHTML=`<div class="tlogo" role="img" aria-label="Pinnacle. ${SLOGAN.toLowerCase()}"><div class="tslogan">${SLOGAN}</div></div><nav class="pmenu" aria-label="Main menu"></nav>`;
+  home.querySelector(".tlogo").prepend(drawTitle());
   const nav=home.querySelector(".pmenu");
   for(const it of items){const b=document.createElement("button");b.className="pbtn";b.dataset.id=it.id;b.setAttribute("aria-label",it.label);
-    b.appendChild(labelCanvas(it.label));nav.appendChild(b);
+    b.textContent=it.label;nav.appendChild(b);
     b.onclick=()=>{sfx("pop");nav.querySelectorAll(".pbtn").forEach(x=>x.setAttribute("aria-current",x===b));onPick(it.id);};}
   titleScale();
-  const logo=await drawLogo();if(n!==HOME_N)return;
-  home.querySelector(".tlogo").appendChild(logo);titleScale();
 }
 // the menu steps aside for a panel (the painting stays), or the title screen goes away for the climb
 function homeMenu(on){const h=document.getElementById("home");if(!h)return;h.classList.toggle("away",!on);

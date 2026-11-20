@@ -441,7 +441,7 @@ body:has(#main.game2) .hud{left:var(--edge)}
 
 /* ---------- the title screen (js/title.js): the dusk painting, a pixel-art logo and a pixel-art menu ----------
    --u is the size of one of the painting's pixels on screen, so every frame and label lines up with it */
-#menubg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:88% 60%;image-rendering:pixelated;display:none}
+#menubg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 70%;image-rendering:pixelated;display:none}
 body.home #menubg{display:block}
 /* the animation layers over the painting (TFX in js/title.js): light is screen-blended so it only ever brightens */
 .tfx{position:absolute;image-rendering:pixelated;image-rendering:crisp-edges;pointer-events:none;display:none}
@@ -451,34 +451,10 @@ body.home #topo{visibility:hidden} /* (the game's own scene; the painting and it
 #home{position:fixed;inset:0;z-index:3;pointer-events:none;--u:3px}
 #home[hidden]{display:none}
 #home canvas.pix{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
-.tlogo{position:absolute;left:var(--lx,50%);top:calc(env(safe-area-inset-top,0px) + 6*var(--u));transform:translateX(-50%);filter:drop-shadow(0 var(--u) 0 rgba(10,8,24,.4))}
-.pmenu{position:absolute;left:calc(16*var(--u));bottom:calc(14*var(--u) + env(safe-area-inset-bottom,0px));display:grid;gap:calc(5*var(--u));pointer-events:auto;transition:opacity .2s}
-#home .tlogo{transition:opacity .2s}#home.away .tlogo{opacity:0}
-.pbtn{--bc:#c9d3e6;--dk:#070b16;position:relative;display:grid;place-items:center;min-width:calc(84*var(--u));padding:calc(4*var(--u)) calc(8*var(--u)) calc(3*var(--u));
-  background:rgba(14,22,40,.9);border:0;margin:0;cursor:pointer;color:inherit;
-  box-shadow:var(--u) 0 0 var(--bc),calc(-1*var(--u)) 0 0 var(--bc),0 var(--u) 0 var(--bc),0 calc(-1*var(--u)) 0 var(--bc),
-    calc(2*var(--u)) 0 0 var(--dk),calc(-2*var(--u)) 0 0 var(--dk),0 calc(2*var(--u)) 0 var(--dk),0 calc(-2*var(--u)) 0 var(--dk),
-    var(--u) var(--u) 0 var(--dk),calc(-1*var(--u)) var(--u) 0 var(--dk),var(--u) calc(-1*var(--u)) 0 var(--dk),calc(-1*var(--u)) calc(-1*var(--u)) 0 var(--dk),
-    0 calc(3*var(--u)) 0 rgba(5,7,13,.45)}
-.pbtn:focus-visible,.pbtn[aria-current="true"]{--bc:#ffd86a;background:rgba(60,36,14,.92);outline:none}
-@media (hover:hover){.pbtn:hover{--bc:#ffd86a;background:rgba(60,36,14,.92);outline:none}}
-/* a stepped pixel arrow points at the chosen item */
-.pbtn:focus-visible::before,.pbtn[aria-current="true"]::before{content:"";position:absolute;left:calc(-8*var(--u));top:50%;width:calc(3*var(--u));height:calc(5*var(--u));transform:translateY(-50%);background:#ffd86a;
-  clip-path:polygon(0 0,33.4% 0,33.4% 20%,66.7% 20%,66.7% 40%,100% 40%,100% 60%,66.7% 60%,66.7% 80%,33.4% 80%,33.4% 100%,0 100%)}
-@media (hover:hover){.pbtn:hover::before{content:"";position:absolute;left:calc(-8*var(--u));top:50%;width:calc(3*var(--u));height:calc(5*var(--u));transform:translateY(-50%);background:#ffd86a;
-  clip-path:polygon(0 0,33.4% 0,33.4% 20%,66.7% 20%,66.7% 40%,100% 40%,100% 60%,66.7% 60%,66.7% 80%,33.4% 80%,33.4% 100%,0 100%)}}
-.pbtn:active{transform:translate(var(--u),var(--u))}
 #main[hidden]{display:none}
 #main.lobby .back{justify-self:start}
 @media (min-width:900px) and (min-height:521px){#main.lobby{left:calc(50% - 120px);width:min(460px,calc(100% - 2*var(--edge)));bottom:auto;max-height:calc(100% - 100px)}}
-@media (max-width:899px),(max-height:520px){#home.away .pmenu{opacity:0;pointer-events:none}}
 /* (upright phones: centred under the logo, and on shorter screens lifted so it ends above the climbers by the fire,
-   who stand from about 72% of the way down; four items are about 67 painting pixels tall) */
-@media (max-width:600px) and (orientation:portrait){.pmenu{left:50%;transform:translateX(-50%);bottom:auto;top:calc(env(safe-area-inset-top,0px) + var(--mtop,40%))}.pbtn::before{display:none}}
-/* short, wide screens: the menu and the logo side by side, both centred top to bottom (titleScale sets .side and --lx) */
-#home.side .tlogo{top:50%;transform:translate(-50%,-50%)}
-#home.side .pmenu{top:50%;bottom:auto;left:calc(16*var(--u));transform:translateY(-50%)}
-@media (prefers-reduced-motion:reduce){.pmenu{transition:none}}
 
 /* ---------- touch screens: every control is big enough for a thumb ---------- */
 @media (pointer:coarse){
@@ -883,33 +859,25 @@ body.home:has(#main:not([hidden])) .acctbub{display:none}
 /* on a phone held upright the map's top edge is full of peaks and signs: its buttons sit above the name board instead */
 @media (max-width:600px) and (orientation:portrait){.wtools{top:auto;bottom:calc(122px + env(safe-area-inset-bottom,0px));left:12px}}
 
-/* ============ the game's frames: carved dark wood with iron corners, like the map's signposts ============
-   (panels and cards keep their dark middle, so the questions stay easy to read; the buttons are planks) */
-.panel,.card,.hud .who,.hud .hearts,.hud-r,.bar .team,.brand,.linkbtn,.ibtn,.toast,.coach,.wpop,.wlplate,.tvqr,.wtool{
-  border:10px solid transparent!important;border-image:url("../assets/ui/frame.png") 8 / 10px stretch!important;box-shadow:0 4px 0 rgba(4,6,10,.55)!important;
-  background-clip:padding-box!important;image-rendering:pixelated}
-.ibtn,.linkbtn,.wtool,.hud .who,.hud .hearts,.hud-r,.bar .team,.brand,.toast{border-width:7px!important;border-image-width:7px!important}
-.wtool{border-radius:0}
-/* buttons: a plank, gold-trimmed for the main one */
-.btn{border:12px solid transparent!important;border-image:url("../assets/maps/plank.png") 7 fill / 12px stretch!important;background:none!important;box-shadow:0 4px 0 rgba(4,6,10,.55)!important;
-  color:#2b170b!important;text-shadow:0 1px 0 rgba(255,222,160,.5);image-rendering:pixelated;padding:2px 10px!important}
-.btn.rope{border-image-source:url("../assets/maps/plank-gold.png")!important}
-.btn.ghost{border-image-source:url("../assets/ui/frame.png")!important;border-image-slice:8!important;background:rgba(14,20,28,.85)!important;background-clip:padding-box!important;color:var(--cream)!important;text-shadow:none}
-.btn:disabled,.btn[disabled]{border-image-source:url("../assets/maps/plank-grey.png")!important;color:#2a2a2c!important;opacity:.8}
-.btn:not(:disabled):active{transform:translateY(2px);box-shadow:0 2px 0 rgba(4,6,10,.55)!important}
-.btn.google{border-image-source:url("../assets/ui/frame.png")!important;border-image-slice:8!important;background:#fff!important;background-clip:padding-box!important;color:#1f1f1f!important;text-shadow:none}
-@media (hover:hover){.btn:not(:disabled):hover{filter:brightness(1.08)}}
-/* the phone's card sheet along the bottom: a wooden beam along its top edge */
-@media (max-width:899px),(max-height:520px){#main{border-top:0!important;box-shadow:0 -6px 0 0 #54361e,0 -8px 0 0 #100a08,0 -9px 0 0 #7a5230!important}
-  /* (inside the sheet, the panels are the sheet itself: no frame of their own) */
-  #main>.panel,#main>.card{border:0!important;border-image:none!important;box-shadow:none!important}}
-/* (inside the frames: gear, route and gear cards and the radio's quick replies get warm wooden edges, not cream ones) */
-.gbtn,.route,.chip{border-color:#6e4a28!important;box-shadow:inset 0 0 0 1px rgba(0,0,0,.35)!important}
-.gbtn:not(:disabled):hover,.route:hover{border-color:#b07a3e!important}
-.route.sel,.gbtn.on{border-color:#f2b233!important}
-/* the title menu: the same carved frames */
-.pbtn{border:9px solid transparent!important;border-image:url("../assets/ui/frame.png") 8 / 9px stretch!important;background:rgba(14,20,30,.88)!important;background-clip:padding-box!important;
-  box-shadow:0 4px 0 rgba(4,6,10,.55)!important;image-rendering:pixelated}
-@media (hover:hover){.pbtn:hover{border-image-source:url("../assets/ui/frame-gold.png")!important}}
-.pbtn:focus-visible{border-image-source:url("../assets/ui/frame-gold.png")!important;outline:none}
 body.pad .qgrab{display:none!important}
+
+/* ============ the title screen: a peak over the clouds, the name spaced out across the sky, the menu as plain
+   lettering over the clouds (after the concept). The chosen item: a little pixel arrow either side, in gold ============ */
+.tlogo{position:absolute;left:50%;top:calc(env(safe-area-inset-top,0px) + 5vh);transform:translateX(-50%);display:grid;justify-items:center;gap:10px;transition:opacity .25s;pointer-events:none}
+.tlogo canvas{image-rendering:pixelated;filter:drop-shadow(0 3px 0 rgba(28,36,84,.35))}
+.tslogan{font:400 clamp(11px,1.8vw,17px)/1 var(--head);letter-spacing:.28em;white-space:nowrap;text-transform:uppercase;color:#f4f1ff;opacity:.8;text-shadow:0 2px 0 rgba(30,40,90,.35)}
+.pmenu{position:absolute;left:50%;top:var(--mtop,44%);transform:translateX(-50%);display:grid;justify-items:center;gap:clamp(2px,.7vh,8px);pointer-events:auto;transition:opacity .25s}
+.pbtn{position:relative;background:none;border:0;padding:4px 30px;margin:0;cursor:pointer;color:#fbf6ec;font:400 clamp(19px,min(3.8vh,8vw),32px)/1.05 var(--body);letter-spacing:.04em;white-space:nowrap;
+  text-shadow:2px 0 0 #2b3474,-2px 0 0 #2b3474,0 2px 0 #2b3474,0 -2px 0 #2b3474,2px 2px 0 #2b3474,-2px 2px 0 #2b3474,2px -2px 0 #2b3474,-2px -2px 0 #2b3474,0 4px 0 rgba(30,36,90,.45);transition:color .12s,transform .12s}
+.pbtn::before,.pbtn::after{content:"";position:absolute;top:50%;width:6px;height:10px;margin-top:-5px;background:#ffd36b;opacity:0;transition:opacity .12s,transform .12s;
+  clip-path:polygon(0 0,34% 0,34% 20%,67% 20%,67% 40%,100% 40%,100% 60%,67% 60%,67% 80%,34% 80%,34% 100%,0 100%);filter:drop-shadow(0 2px 0 rgba(36,44,104,.55))}
+.pbtn::before{left:6px}.pbtn::after{right:6px;transform:scaleX(-1)}
+.pbtn:focus-visible,.pbtn[aria-current="true"]{color:#ffe08a;outline:none}
+.pbtn:focus-visible::before,.pbtn:focus-visible::after,.pbtn[aria-current="true"]::before,.pbtn[aria-current="true"]::after{opacity:1}
+@media (hover:hover){.pbtn:hover{color:#ffe08a}.pbtn:hover::before,.pbtn:hover::after{opacity:1}.pbtn:hover::before{transform:translateX(2px)}.pbtn:hover::after{transform:scaleX(-1) translateX(2px)}}
+.pbtn:active{transform:translateY(2px)}
+#home.away .pmenu,#home.away .tlogo{opacity:0;pointer-events:none}
+@media (prefers-reduced-motion:reduce){.pmenu,.tlogo,.pbtn{transition:none}}
+/* (narrow screens: the title starts below the row of buttons in the corner, so the two never meet) */
+@media (max-width:600px){.tlogo{top:calc(env(safe-area-inset-top,0px) + 74px)}}
+@media (max-width:600px){.tslogan{display:none}}
