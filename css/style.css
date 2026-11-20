@@ -18,14 +18,16 @@
    open part of the scene, the cliff stays clear on the right. On phones the column becomes a bottom sheet. */
 :root{
   /* near-black teal panels, a pale frame line and warm gold labels, picked from the concept sheet */
-  --navy:#020b12;--panel:#04131c;--panel2:#0a2230;--panel3:#10303f;--line:#24414f;
-  --cream:#dfeaee;--ink:#eef3f1;--muted:#9db0b6;--dim:#5d747e;
-  --gold:#f1c677;--goldD:#a8782e;--goldL:#fff1cf;--orange:#e8792b;--red:#d23c2a;--redD:#8c2a1d;
-  --good:#8fd16a;--goodD:#24502a;--warn:#f1c677;--bad:#ff6a5a;--ice:#9fd0f0;
+  /* (the title painting's colours: dusk indigo for panels, periwinkle lines, cream lettering, the flag's gold and red) */
+  --navy:#1a1f4a;--panel:#2a3170;--panel2:#343c84;--panel3:#414a98;--line:#7d8ad6;
+  --cream:#fbf6ec;--ink:#f7f4ff;--muted:#c9cdf2;--dim:#959cd0;
+  --gold:#ffd36b;--goldD:#c48a2c;--goldL:#fff1cf;--orange:#ff9d5c;--red:#e8584a;--redD:#9a2e2a;
+  --good:#8fe39a;--goodD:#2b6a48;--warn:#ffd36b;--bad:#ff7a6a;--ice:#bfe0ff;
+  --glass:rgba(38,45,110,.9);--glassL:#7d8ad6;--glassD:#1a1f4a;
   --head:"Pinnacle Head","Trebuchet MS",sans-serif;--body:"Pinnacle Body","Trebuchet MS",system-ui,sans-serif;
   --edge:max(12px,env(safe-area-inset-left,0px));--edgeR:max(12px,env(safe-area-inset-right,0px));--colW:min(440px,38vw);
   /* the frame: a black keyline outside the pale line, a dark gap and a dim teal line inside it, and a hard shadow */
-  --frame:0 0 0 2px var(--navy),4px 4px 0 2px rgba(1,6,10,.8),inset 0 0 0 2px var(--navy),inset 0 0 0 4px #17323f;
+  --frame:0 0 0 2px var(--navy),0 4px 0 2px rgba(20,22,60,.45),inset 0 0 0 2px rgba(255,255,255,.07);
   color-scheme:dark}
 *,*::before,*::after{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -794,58 +796,6 @@ body.home:has(#main:not([hidden])) .acctbub{display:none}
 .acctwrap.signed .acctface,.acctwrap.signed .acctdot{display:block}.acctwrap.signed #acctBtn svg{visibility:hidden}
 .acctwrap.signed #acctBtn{box-shadow:0 0 0 2px #f2b233}
 
-/* ============ the map's signposts: carved wooden plaques on a post, as if planted on each mountain ============ */
-.wpin .wplate{position:relative;background:none;box-shadow:none;border:14px solid transparent;border-image:url("../assets/maps/plank.png") 7 fill/14px stretch;
-  image-rendering:pixelated;padding:0 2px;margin:-6px 0 0;gap:1px;filter:drop-shadow(0 3px 0 rgba(10,6,4,.45))}
-.wpin .wplate::after{content:"";position:absolute;left:50%;bottom:-24px;width:5px;height:12px;transform:translateX(-50%);
-  background:linear-gradient(90deg,#1c100a 0 1px,#8a5a30 1px 3px,#5c3a1c 3px 4px,#1c100a 4px)}
-.wpin b{color:#2b170b;text-shadow:0 1px 0 rgba(255,222,160,.5);font-size:11px;letter-spacing:.04em}
-.wpin small{color:#4e2f16;text-shadow:0 1px 0 rgba(255,222,160,.35);font-size:10px}
-.wpin small .px{filter:brightness(.55) sepia(1)}
-.wpin .wflag{margin-bottom:10px}
-.wpin.dn .wplate{border-image-source:url("../assets/maps/plank-gold.png")}
-.wpin.lk{filter:none}.wpin.lk .wplate{border-image-source:url("../assets/maps/plank-grey.png");opacity:1}
-.wpin.lk b,.wpin.lk small{color:#2a2a2c;text-shadow:0 1px 0 rgba(230,230,224,.35)}
-.wpin.lk .wplate::after{background:linear-gradient(90deg,#16161a 0 1px,#7a7670 1px 3px,#4e4a46 3px 4px,#16161a 4px)}
-.wpin.sel .wplate,.wpin.dn.sel .wplate{border-image-source:url("../assets/maps/plank-gold.png");background:none;filter:drop-shadow(0 0 6px rgba(255,210,110,.75)) drop-shadow(0 3px 0 rgba(10,6,4,.45))}
-@media (hover:hover){.wpin:hover .wplate{filter:drop-shadow(0 0 5px rgba(255,210,110,.6)) drop-shadow(0 3px 0 rgba(10,6,4,.45))}}
-/* the next stop: the sign sways a little and glows, so the eye finds it */
-.wpin.nx .wplate{animation:signsway 2.4s ease-in-out infinite;transform-origin:50% 120%;filter:drop-shadow(0 0 5px rgba(255,214,120,.7)) drop-shadow(0 3px 0 rgba(10,6,4,.45))}
-@keyframes signsway{0%,100%{transform:rotate(-2deg)}50%{transform:rotate(2deg)}}
-@media (prefers-reduced-motion:reduce){.wpin.nx .wplate{animation:none}}
-.wpin.sel::after{bottom:-4px}
-.wmap.tight .wpin .wplate{border-width:11px;border-image-width:11px;padding:0 1px}
-@media (max-width:420px){.wpin b{font-size:9px}.wpin small{font-size:9px}.wpin .wplate{border-width:11px;border-image-width:11px}}
-/* (climbed and behind the team: still its gold-trimmed plank, only not tappable; grey is for what's not known yet) */
-.wpin.lk.dn .wplate{border-image-source:url("../assets/maps/plank-gold.png")}
-.wpin.lk.dn b{color:#2b170b;text-shadow:0 1px 0 rgba(255,222,160,.5)}.wpin.lk.dn small{color:#3a2210;text-shadow:0 1px 0 rgba(255,222,160,.35)}
-.wpin.lk.dn .wplate::after{background:linear-gradient(90deg,#1c100a 0 1px,#8a5a30 1px 3px,#5c3a1c 3px 4px,#1c100a 4px)}
-/* the difficulty pennant: a little flag on a pin at the plaque's top corner */
-.wpin .wflag{position:absolute;right:6px;top:-15px;margin:0;z-index:1}
-.wpin .wplate{margin:0 0 22px}
-.wpin small{color:#3a2210}
-.wpin small .px{filter:none}
-/* (the plaque stands on its post on the peak; on a peak near the map's top edge it hangs below it instead) */
-.wpin .wplate{position:relative;top:auto;left:auto;transform:none}
-.wpin.nx .wplate{transform:none}
-.wpin.low{transform:translate(-50%,-8px)}
-.wpin.low .wplate{margin:22px 0 0}.wpin.low .wplate::after{bottom:auto;top:-24px}
-.wpin.low .wflag{top:auto;bottom:-6px;right:auto;left:-14px}
-/* the map's name board along the bottom, and its arrows: the same carved wood as the signposts */
-.wnplate,.wnarrow{background:none;box-shadow:none;border:16px solid transparent;border-image:url("../assets/maps/plank-gold.png") 7 fill/16px stretch;image-rendering:pixelated;filter:drop-shadow(0 4px 0 rgba(10,6,4,.5))}
-.wnplate{padding:0 4px}
-.wnplate b{color:#2b170b;text-shadow:0 1px 0 rgba(255,222,160,.55)}
-.wnplate small,.wpline{color:#3a2210;text-shadow:0 1px 0 rgba(255,222,160,.35)}
-.wprog{background:#3a2412;box-shadow:inset 0 1px 0 rgba(0,0,0,.4);border:1px solid #1c100a}.wprog i{background:linear-gradient(#ffd36b,#e0a030)}
-.wndots i{background:#5c3a1c}.wndots i.dn{background:#f2b233}.wndots i.op{background:#a06a36}.wndots i.on{outline-color:#2b170b}
-.wnarrow{width:52px;color:#2b170b;text-shadow:0 1px 0 rgba(255,222,160,.55);padding:0;font-size:18px}
-.wnarrow:disabled{border-image-source:url("../assets/maps/plank-grey.png");color:#3a3a3c;opacity:.85}
-.wnarrow:not(:disabled):active{transform:translateY(2px);filter:drop-shadow(0 2px 0 rgba(10,6,4,.5))}
-@media (max-width:899px),(max-height:520px){.wnplate,.wnarrow{border-width:13px;border-image-width:13px}.wnarrow{width:44px}}
-.wnplate{width:290px;border-width:12px;border-image-width:12px}.wnarrow{border-width:12px;border-image-width:12px}
-@media (max-width:899px),(max-height:520px){.wnplate{width:230px}}
-.wcamp{background:none;box-shadow:none;border:7px solid transparent;border-image:url("../assets/maps/plank.png") 7 fill/7px stretch;image-rendering:pixelated;color:#2b170b;text-shadow:0 1px 0 rgba(255,222,160,.5);padding:0 2px;filter:drop-shadow(0 2px 0 rgba(10,6,4,.45))}
-
 /* the fold for the cards after a question (phones only): how it went and the way on, the rest folded away */
 .qgrab{display:none}
 @media (max-width:600px){
@@ -885,3 +835,33 @@ body.pad .qgrab{display:none!important}
 .pf-chg{padding:0!important;font:inherit!important;text-transform:none!important;letter-spacing:0!important;color:#ffd36b!important;text-decoration:underline;text-underline-offset:3px;background:none!important;border:0!important;box-shadow:none!important;cursor:pointer;display:inline}
 /* (phones held upright: the painting sits a little lower, its sky carried on above it, so the peak's flag clears the title) */
 @media (max-width:600px) and (orientation:portrait){body.home .scene{background:#537ed7}body.home #menubg{top:48px;height:calc(100% - 48px)}}
+
+/* ============ the climber select and the profile, in the title's look: its painting behind (veiled in dusk
+   blue), indigo cards with periwinkle edges, cream lettering outlined in navy, gold for what's chosen ============ */
+.gscreen{background:linear-gradient(rgba(36,44,110,.55),rgba(26,31,74,.82)),url("../assets/title-wide.png") 50% 60%/cover no-repeat,#4a64c4;image-rendering:pixelated}
+@media (orientation:portrait){.gscreen{background:linear-gradient(rgba(36,44,110,.55),rgba(26,31,74,.82)),url("../assets/title-tall.png") 50% 40%/cover no-repeat,#4a64c4}}
+.gscreen::after{display:none}
+.gs-sky i{background:#fff}
+.gs-eyebrow,.gs-label{color:var(--muted);text-shadow:0 2px 0 rgba(20,22,60,.5)}
+.cs-arrow{border:2px solid var(--navy);background:var(--panel2);color:var(--cream);border-radius:10px;box-shadow:0 3px 0 var(--navy)}
+.cs-name,.pf-name{color:var(--gold);text-shadow:2px 0 0 var(--navy),-2px 0 0 var(--navy),0 2px 0 var(--navy),0 -2px 0 var(--navy),0 5px 0 rgba(20,22,60,.5)}
+.cs-ped{background:radial-gradient(ellipse,rgba(255,255,255,.5),rgba(200,210,255,.18) 45%,transparent 72%);box-shadow:0 0 0 2px rgba(255,255,255,.2) inset}
+.cs-glow{background:radial-gradient(circle,rgba(255,240,200,.35) 0%,rgba(190,200,255,.12) 42%,transparent 70%)}
+.cs-tile,.pf-tile{background:var(--panel)!important;border:2px solid var(--line)!important;box-shadow:0 3px 0 rgba(20,22,60,.45)!important;clip-path:none}
+.cs-tile.on{border-color:var(--gold)!important;box-shadow:0 0 0 2px rgba(255,211,107,.35),0 3px 0 rgba(20,22,60,.45)!important}
+.cs-face{background-color:var(--panel3)}
+.cs-tile em{background:var(--panel3);color:var(--cream)}.cs-sub .me,.cs-tile em.me{background:var(--gold);color:var(--navy)}
+.pf-wrap{background:rgba(38,45,110,.92);border:2px solid var(--navy);box-shadow:inset 0 0 0 2px var(--line),0 10px 30px rgba(20,22,60,.5)}
+.pf-av{background:linear-gradient(#6c86e0,#3a4390);border-color:var(--gold)}
+.pf-meta{color:var(--muted)}.pf-tile span,.pf-tile b small{color:var(--dim)}
+.pf-dot,.acctdot{box-shadow:0 0 0 3px var(--navy)}
+.acctwrap.signed #acctBtn{box-shadow:0 0 0 2px var(--gold)}
+/* buttons: periwinkle-edged indigo, gold for the main one, lettered in navy on gold */
+.btn{background:var(--panel2);border-color:var(--line);text-shadow:0 2px 0 rgba(20,22,60,.5)}
+.btn.rope{color:var(--navy);text-shadow:none}
+.btn.ghost{background:transparent;border-color:var(--line)}
+@media (hover:hover){.btn:not(:disabled):hover{border-color:var(--gold)}}
+.qgrab{background:var(--panel2)!important;border-color:var(--line)!important}
+.btn:disabled,.btn[disabled]{background:var(--panel3)!important;color:var(--dim)!important;border-color:var(--line)!important;opacity:.85!important;filter:none!important;text-shadow:none!important;box-shadow:var(--frame)!important}
+.wtool{background:var(--panel2)!important;border:2px solid var(--line)!important;box-shadow:var(--frame)!important;color:var(--cream)}
+.wtool.on{background:var(--panel3)!important;border-color:var(--gold)!important}
