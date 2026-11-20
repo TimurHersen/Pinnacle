@@ -873,7 +873,7 @@ function revealView(t){
   return frameQ(t,head+`<div class="result ${oc[0]}">${oc[1]}<div><b>${oc[2]}</b><span>${oc[3]}</span></div></div>
    ${other?`<p class="note mateline"><strong>${esc(nameOf(pid))}:</strong> ${other[2].replace(/ you\b/," them")}</p>`:""}
    ${q.x?`<p class="fact">${esc(q.x)}</p>`:""}
-   <div class="actions">${atCamp?`<button class="btn rope" id="nextBtn">Make camp</button>`:atTop?`<button class="btn rope" id="nextBtn">Stand on top</button>`:`<button class="btn rope" id="nextBtn">Next question<span id="nextIn"></span></button>${canAnchor?`<button class="btn ghost" id="anchorBtn" title="A fall without a hook will drop you no lower than this">Place anchor (${e.anchors} left)</button>`:""}`}</div>`);
+   <div class="actions">${atCamp?`<button class="btn rope" id="nextBtn">Make camp</button>`:atTop?`<button class="btn rope" id="nextBtn">Stand on top</button>`:`<span class="autonext">Next question<span id="nextIn"></span></span>${canAnchor?`<button class="btn ghost" id="anchorBtn" title="A fall without a hook will drop you no lower than this">Place anchor (${e.anchors} left)</button>`:""}`}</div>`);
 }
 // the map's panel: the mountains open on the map being looked at as cards (the climbed ones marked, the next step
 // glowing), the picked one's details, the way to set off, and along the bottom the maps: collected, current, locked

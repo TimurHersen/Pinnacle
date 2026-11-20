@@ -1002,3 +1002,48 @@ h3,.clabel{font-size:11px!important}
 }
 .wpop .btn{line-height:1.3!important;padding:12px 10px!important}
 @media (min-width:900px) and (min-height:521px){.qopts{grid-template-columns:1fr 1fr!important}.qopt{font-size:16px!important}}
+
+/* ======================= THE ALTIMETER: the climb itself =======================
+   While a question is up and while its result shows, the card goes: white lettering straight over the climb,
+   on a soft dark fade rising from the bottom; answers are hairline pills (the chosen one fills white), the gear a
+   single line, the clock a hairline. The postcard stays for everything chosen off the wall (map, camp, summit). */
+body.ph-answer #main.game2>.panel,body.ph-reveal #main.game2>.panel{background:none!important;box-shadow:none!important;transform:none!important;color:#fff!important;padding:4px 4px 0!important}
+body.ph-answer #main.game2,body.ph-reveal #main.game2{left:0!important;right:0!important;bottom:0!important;padding:70px 14px calc(14px + env(safe-area-inset-bottom,0px))!important;
+  background:linear-gradient(transparent,rgba(12,16,34,.55) 30%,rgba(12,16,34,.88) 70%)!important}
+@media (min-width:900px) and (min-height:521px){body.ph-answer #main.game2,body.ph-reveal #main.game2{left:auto!important;width:min(560px,46vw);background:linear-gradient(90deg,transparent,rgba(12,16,34,.75) 25%)!important;padding:20px 20px 20px 70px!important;top:0!important;display:flex;flex-direction:column;justify-content:flex-end}}
+body.ph-answer #main .qhead,body.ph-reveal #main .qhead{color:rgba(255,255,255,.72)!important;letter-spacing:.26em!important}
+body.ph-answer #main .qtext,body.ph-reveal #main .qtext{color:#fff!important;text-shadow:0 2px 4px rgba(0,0,0,.6)}
+body.ph-answer #main .qopt,body.ph-reveal #main .qopt{background:transparent!important;border:1.5px solid rgba(255,255,255,.6)!important;border-radius:999px!important;color:#fff!important}
+body.ph-answer #main .qopt b,body.ph-reveal #main .qopt b{color:rgba(255,255,255,.7)!important}
+body.ph-answer #main .qopt.sel{background:#fff!important;color:#1a2040!important;border-color:#fff!important}body.ph-answer #main .qopt.sel b{color:#1a2040!important}
+body.ph-reveal #main .qopt.right{background:#3fbf6a!important;border-color:#3fbf6a!important}body.ph-reveal #main .qopt.wrong{background:#e8584a!important;border-color:#e8584a!important}
+body.ph-reveal #main .qopt.right b,body.ph-reveal #main .qopt.wrong b{color:#fff!important}
+body.ph-answer #main .qopt em,body.ph-reveal #main .qopt em{background:rgba(255,255,255,.9)!important;color:#1a2040!important;border:0!important}
+body.ph-answer #main .gbtn{background:transparent!important;border:0!important;color:rgba(255,255,255,.85)!important;padding:4px 6px!important}
+body.ph-answer #main .gbtn .px{filter:brightness(0) invert(1)}
+body.ph-answer #main .btn{background:#fff!important;color:#1a2040!important;border-radius:999px!important;box-shadow:none!important}
+body.ph-answer #main .btn:disabled{background:rgba(255,255,255,.18)!important;color:rgba(255,255,255,.55)!important}
+body.ph-answer #main .qtime{background:none!important;color:#fff!important;border:1.5px solid rgba(255,255,255,.6)!important;border-radius:999px}
+body.ph-answer #main .timer{background:rgba(255,255,255,.2)!important;height:2px!important}body.ph-answer #main .timer i{background:#fff!important}
+body.ph-answer #main .note,body.ph-reveal #main .note,body.ph-answer #main .wait,body.ph-reveal #main .fact{color:rgba(255,255,255,.75)!important}
+body.ph-answer #main .hint,body.ph-answer #main .hooked{background:rgba(255,255,255,.1)!important;border-left-color:#fff!important;color:#fff!important}
+body.ph-reveal #main .result{background:transparent!important;border:0!important;padding:2px 0!important}
+body.ph-reveal #main .result b{color:#fff!important}body.ph-reveal #main .result.good b{color:#8fe39a!important}body.ph-reveal #main .result.bad b{color:#ff8a7a!important}
+body.ph-reveal #main .result span{color:rgba(255,255,255,.8)!important}
+body.ph-reveal #main .fact{border-left-color:rgba(255,255,255,.5)!important}
+.autonext{font:400 11px/1 var(--head);letter-spacing:.24em;text-transform:uppercase;color:rgba(255,255,255,.65)}
+body.ph-reveal #main .actions{margin-top:2px}
+body.ph-answer .qgrab,body.ph-reveal .qgrab{display:none!important}
+/* (the HUD during the climb: plain white figures on the view, no tags) */
+body.ph-answer .hud .hearts,body.ph-reveal .hud .hearts{background:rgba(12,16,34,.45)!important;box-shadow:none!important;color:#fff!important;border-radius:999px!important}
+body.ph-answer .hud .hearts *,body.ph-reveal .hud .hearts *{color:#fff!important}
+/* (the map card above the map's little buttons) */
+.wpop{z-index:8!important}
+body.ph-answer #main .qfoot,body.ph-reveal #main .qfoot,body.ph-reveal #main .actions{background:none!important;box-shadow:none!important}
+body.ph-answer #main .role,body.ph-reveal #main .role{background:none!important;color:#fff!important;border-color:rgba(255,255,255,.6)!important}
+/* (the radio, open during the climb, in the same style) */
+body.ph-answer #main>.radio2,body.ph-reveal #main>.radio2{background:rgba(12,16,34,.6)!important;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.4)!important;color:#fff!important;border-radius:14px!important}
+body.ph-answer #main>.radio2 *,body.ph-reveal #main>.radio2 *{color:#fff}
+body.ph-answer #main>.radio2 .chip,body.ph-reveal #main>.radio2 .chip,body.ph-answer #main>.radio2 .call,body.ph-reveal #main>.radio2 .call{background:transparent!important;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.55)!important;border-radius:999px!important}
+body.ph-answer #main>.radio2 input,body.ph-reveal #main>.radio2 input{color:#fff!important;border-bottom-color:rgba(255,255,255,.7)!important}
+body.ph-answer #main>.radio2 .btn,body.ph-reveal #main>.radio2 .btn,body.ph-answer #main>.radio2 .ibtn,body.ph-reveal #main>.radio2 .ibtn{background:#fff!important;color:#1a2040!important}
