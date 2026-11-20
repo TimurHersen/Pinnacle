@@ -92,7 +92,7 @@ async function showHome(items,onPick){
   let home=document.getElementById("home");
   if(!home){home=document.createElement("div");home.id="home";document.body.appendChild(home);
     const bg=document.createElement("img");bg.id="menubg";bg.alt="";document.querySelector(".scene").appendChild(bg);
-    bg.addEventListener("load",()=>{bg.classList.add("in");const h=document.getElementById("home");if(h)requestAnimationFrame(()=>h.classList.add("ready"));});}
+    bg.addEventListener("load",()=>{bg.classList.add("in");if(document.body.classList.contains("home"))TFX.start(bg);const h=document.getElementById("home");if(h)requestAnimationFrame(()=>h.classList.add("ready"));});}
   home.hidden=false;home.innerHTML=`<div class="tlogo" role="img" aria-label="Pinnacle. ${SLOGAN.toLowerCase()}"><div class="tslogan">${SLOGAN}</div></div><nav class="pmenu" aria-label="Main menu"></nav>`;
   home.querySelector(".tlogo").prepend(drawTitle());
   const nav=home.querySelector(".pmenu");
@@ -102,7 +102,7 @@ async function showHome(items,onPick){
   titleScale();
   // (the menu's items rise in one after another, once the painting is there; seen before, straight away)
   nav.querySelectorAll(".pbtn").forEach((b,i)=>b.style.setProperty("--i",i));
-  const bg=document.getElementById("menubg");if(bg&&bg.complete&&bg.naturalWidth){bg.classList.add("in");home.classList.add("ready");}
+  const bg=document.getElementById("menubg");if(bg&&bg.complete&&bg.naturalWidth){bg.classList.add("in");home.classList.add("ready");TFX.start(bg);}
   setTimeout(()=>{home.classList.add("ready");document.getElementById("menubg")?.classList.add("in");},1500);
 }
 // the menu steps aside for a panel (the painting stays), or the title screen goes away for the climb
@@ -110,65 +110,63 @@ function homeMenu(on){const h=document.getElementById("home");if(!h)return;h.cla
   if(on)h.querySelectorAll(".pbtn").forEach(x=>x.removeAttribute("aria-current"));}
 function hideHome(){HOME_N++;TFX.stop();document.body.classList.remove("home");const h=document.getElementById("home");if(h){h.hidden=true;h.innerHTML="";}}
 
-/* ---------- the painting comes alive: two transparent layers at the painting's own 384x216 pixels, laid exactly
-   over it. The light layer is screen-blended, so it can only brighten: the fire's flickering glow on the ground and
-   the tent and both climbers, sparks and twinkling stars. The other layer is drawn normally: a living flame over the
-   painted fire, a column of smoke drifting off it and, every few seconds, two birds crossing the sky. ---------- */
+/* ---------- the painting comes alive: one transparent canvas at the painting's own pixels, laid exactly over it
+   (as object-fit:cover places it), so everything drawn is in the same big pixels. The summit flag flutters, snow
+   blows off the peak in the wind, the sea of clouds slowly drifts (soft puffs that move only where the painting has
+   cloud, so they pass behind the cliff and the climber) and, now and then, a pair of birds crosses the sky. With
+   reduced motion nothing runs. ---------- */
 const TFX=(()=>{
-  const FIRE={x:304,y:196,top:190},BG_POS=[.88,.6]; // the painted fire's core; BG_POS matches #menubg's object-position
-  let light=null,air=null,lg=null,ag=null,raf=0,last=0,t=0,stars=[],lightMap=null,glow=.8,nextGlow=0,sparks=[],smoke=[],birds=[],nextBird=3,nextSmoke=0;
+  let cv=null,g=null,img=null,raf=0,last=0,t=0,W=0,H=0,flag=null,peak=null,mask=null,src=null,rims=[],wisps=[],snow=[],birds=[],nextBird=2.5;
   const rnd=(a,b)=>a+Math.random()*(b-a);
-  function layer(cls){const c=document.createElement("canvas");c.width=BG_W;c.height=BG_H;c.className="tfx "+cls;document.querySelector(".scene").appendChild(c);return c;}
-  // lay both layers over the painting exactly as object-fit:cover places it
-  // (the painting covers the window at a whole number of device pixels per painted pixel, so its pixels stay even)
-  function place(){if(!light)return;const W=innerWidth,H=innerHeight,dpr=Math.max(1,window.devicePixelRatio||1),s=Math.ceil(Math.max(W/BG_W,H/BG_H)*dpr)/dpr,
-      w=BG_W*s,h=BG_H*s,x=Math.round((W-w)*BG_POS[0]*dpr)/dpr,y=Math.round((H-h)*BG_POS[1]*dpr)/dpr,bg=document.getElementById("menubg");
-    for(const c of [light,air,bg])if(c)Object.assign(c.style,{left:x+"px",top:y+"px",width:w+"px",height:h+"px",right:"auto",bottom:"auto"});}
-  // read the painting once: where the night sky is (for stars) and how the firelight falls on the camp
-  function survey(img){const c=document.createElement("canvas");c.width=BG_W;c.height=BG_H;const g=c.getContext("2d");g.drawImage(img,0,0);
-    const d=g.getImageData(0,0,BG_W,BG_H).data,px=(x,y)=>{const i=(y*BG_W+x)*4;return [d[i],d[i+1],d[i+2]];};
-    stars=[];for(let tries=0;stars.length<22&&tries<600;tries++){const x=(Math.random()*290)|0,y=(Math.random()*26)|0,[r,gg,b]=px(x,y);
-      if(b>=r*.8&&r+gg+b<330)stars.push({x,y,ph:rnd(0,6.3),sp:rnd(.6,1.8),big:Math.random()<.2});}
-    // the firelight, worked out once: light falls off with distance from the fire, and surfaces that are already
-    // bright in the painting (the tent, logs, the climbers) catch more of it than dark grass. It's stepped into four
-    // levels with an ordered dither between them, like hand-shaded pixel art, and only its brightness flickers
-    const BAYER=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5],LEV=["#2a1406","#4a2309","#6e360f","#94501a"];
-    const tentAt=new Set();for(let y=160;y<208;y++)for(let x=300;x<374;x++){const [r,gg,b]=px(x,y);if(r>190&&gg>80&&gg<160&&b<70)tentAt.add(y*BG_W+x);}
-    return; // (the firelight below is no longer used: the fire is gone from the painting)
-    lightMap=document.createElement("canvas");lightMap.width=BG_W;lightMap.height=BG_H;const lm=lightMap.getContext("2d");
-    for(let y=FIRE.y-32;y<Math.min(BG_H,FIRE.y+18);y++)for(let x=FIRE.x-58;x<Math.min(BG_W,FIRE.x+58);x++){
-      const dx=(x-FIRE.x)/58,dy=(y-FIRE.y+3)/29,dd=dx*dx+dy*dy;if(dd>=1)continue;
-      const [r,gg,b]=px(x,y),lum=(r*.3+gg*.59+b*.11)/255,fall=(1-Math.sqrt(dd))**1.6;
-      let w=fall*(.3+.9*lum)+(tentAt.has(y*BG_W+x)?.18*fall+.06:0);
-      w+=(BAYER[(y&3)*4+(x&3)]/16-.5)*.1;const lv=w>.62?3:w>.4?2:w>.22?1:w>.1?0:-1;
-      if(lv>=0){lm.fillStyle=LEV[lv];lm.fillRect(x,y,1,1);}}}
-  // a repeatable 0..1 noise from two numbers (so the flame's shape holds for a frame, then changes)
+  function place(){if(!cv||!img||!img.naturalWidth)return;const r=img.getBoundingClientRect(),s=Math.max(r.width/W,r.height/H),
+      cs=getComputedStyle(img).objectPosition.split(" ").map(v=>parseFloat(v)/100),px=isNaN(cs[0])?.5:cs[0],py=isNaN(cs[1])?.7:cs[1];
+    Object.assign(cv.style,{left:r.left+(r.width-W*s)*px+"px",top:r.top+(r.height-H*s)*py+"px",width:W*s+"px",height:H*s+"px"});}
+  // read the painting once: the flag's cloth, the summit, which pixels are cloud, and the cloud colours
+  function survey(){const c=document.createElement("canvas");c.width=W;c.height=H;const sg=c.getContext("2d");sg.drawImage(img,0,0);
+    const d=sg.getImageData(0,0,W,H).data,at=(x,y)=>{const i=(y*W+x)*4;return [d[i],d[i+1],d[i+2],d[i+3]];};
+    // the flag: the red pixels high up; the pole is the dark column at its left
+    let fx0=W,fx1=-1,fy0=H,fy1=-1;for(let y=0;y<H*.45;y++)for(let x=0;x<W;x++){const [r,gg,b]=at(x,y);if(r>150&&gg<120&&b<120&&r-gg>60){fx0=Math.min(fx0,x);fx1=Math.max(fx1,x);fy0=Math.min(fy0,y);fy1=Math.max(fy1,y);}}
+    flag=null;if(fx1>=0&&fx1-fx0<12&&fy1-fy0<10){const cloth=[];for(let y=fy0;y<=fy1;y++)for(let x=fx0;x<=fx1;x++){const p=at(x,y);if(p[0]>110&&p[0]-p[2]>30)cloth.push([x,y,p]);}
+      const sky=at(Math.min(W-1,fx1+3),fy0);flag={x0:fx0,x1:fx1,y0:fy0,y1:fy1,cloth,sky};}
+    // the summit: the first bright, snowy pixel from the top under the flag
+    peak=null;const cx=flag?flag.x0-1:W>>1;for(let y=flag?flag.y1:0;y<H*.6&&!peak;y++)for(let x=cx-3;x<=cx+3;x++){const [r,gg,b]=at(x,y);if(r>215&&gg>215&&b>215){peak={x,y};break;}}
+    // cloud: light lavender-to-cream pixels below the mountain's foot; the warm, brightest of them are the sunlit rims
+    src=d;mask=new Uint8Array(W*H);rims=[];const top=Math.floor(H*(H>W?.36:.52));
+    for(let y=top;y<H;y++)for(let x=0;x<W;x++){const [r,gg,b]=at(x,y),l=(r+gg+b)/3;
+      if(l>165&&b>=gg-6&&r>=gg-40&&!(b>235&&gg<215))mask[y*W+x]=1;
+      if(r>238&&gg>228&&b<230&&r>=b+12)rims.push(x,y);}
+    wisps=[];const n=H>W?7:8;for(let k=0;k<n;k++)wisps.push(newWisp(rnd(0,W)));}
+  function newWisp(x){return {x,y:Math.floor(rnd(H*(H>W?.42:.58),H*.97)),len:rnd(16,34)*(H>W?.75:1),v:rnd(1.5,3)*(Math.random()<.5?1:-1),th:Math.random()<.5?2:1};}
   const nz=(i,s)=>{const v=Math.sin(i*12.9898+s*78.233)*43758.5453;return v-Math.floor(v);};
-  function draw(dt){
-    t+=dt;lg.clearRect(0,0,BG_W,BG_H);ag.clearRect(0,0,BG_W,BG_H);
-    // with reduced motion only the fire itself moves (the flame, its light and the stars); nothing drifts or flies
-    const calm=RM.matches;
-    // (no campfire any more: the camp has the rope coiled on the grass, as it is in the game)
-    // stars twinkling in the last of the night sky
-    for(const s of stars){const v=Math.sin(t*s.sp+s.ph);if(v<.15)continue;lg.fillStyle=v>.8?"#ffffff":v>.5?"#a9b4d8":"#5a6088";
-      lg.fillRect(s.x,s.y,1,1);if(s.big&&v>.85){lg.fillStyle="#5a6088";lg.fillRect(s.x-1,s.y,1,1);lg.fillRect(s.x+1,s.y,1,1);lg.fillRect(s.x,s.y-1,1,1);lg.fillRect(s.x,s.y+1,1,1);}}
-    if(calm)return;
-    // now and then two birds glide across the sky, wings flapping
-    if((nextBird-=dt)<=0){nextBird=rnd(8,14);const y=rnd(30,60),v=rnd(12,17);birds.push({x:-8,y,v},{x:-16,y:y+rnd(3,6),v});}
-    birds=birds.filter(b=>(b.x+=b.v*dt)<BG_W+8);ag.fillStyle="#2a2036";
-    for(const b of birds){const up=Math.floor(t*5+b.y)%2,x=Math.round(b.x),y=Math.round(b.y+Math.sin(t*1.3+b.y)*1.5);
-      for(const [dx,dy] of up?[[0,1],[1,0],[2,1],[3,0],[4,1]]:[[0,0],[1,1],[2,1],[3,1],[4,0]])ag.fillRect(x+dx,y+dy,1,1);}
-  }
-  function loop(now){raf=requestAnimationFrame(loop);const dt=Math.min(.1,(now-(last||now))/1000);
-    if(dt<1/24&&last)return;last=now;draw(dt||1/24);}
-  async function start(img){
-    if(!light){light=layer("light");air=layer("air");lg=light.getContext("2d");ag=air.getContext("2d");}
-    if(!img.complete)await new Promise(r=>{img.onload=img.onerror=r;});if(!img.naturalWidth)return;
-    if(!stars.length)survey(img);place();cancelAnimationFrame(raf);last=0;
-    // (with reduced motion it still runs, but draw() keeps to the fire and the stars)
-    raf=requestAnimationFrame(loop);}
-  function stop(){cancelAnimationFrame(raf);raf=0;sparks=[];smoke=[];birds=[];}
-  addEventListener("resize",place);
-  document.addEventListener("visibilitychange",()=>{if(document.hidden)cancelAnimationFrame(raf);else if(document.body.classList.contains("home")&&light){last=0;raf=requestAnimationFrame(loop);}});
-  return {start,stop};
+  function draw(dt){t+=dt;g.clearRect(0,0,W,H);
+    // sunlight slowly sweeping along the cloud tops: rim pixels brighten as a broad, slanted band passes over them
+    g.fillStyle="#fffdf1";for(let i=0;i<rims.length;i+=2){const x=rims[i],y=rims[i+1],v=Math.sin(x*.045+y*.03-t*.5);if(v>.82)g.fillRect(x,y,1,1);}
+    // thin streaks of mist drifting through the cloud sea, in the clouds' own colours lifted a little, only over cloud
+    for(const w of wisps){w.x+=w.v*dt;if(w.x<-w.len-4||w.x>W+w.len+4)Object.assign(w,newWisp(w.v>0?-w.len-2:W+w.len+2),{v:w.v});
+      for(let k=0;k<w.len;k++){const x=Math.round(w.x+k),f=k/w.len,rows=(f>.2&&f<.8)?w.th:1;
+        for(let j=0;j<rows;j++){const y=w.y+j;if(x<0||x>=W||!mask[y*W+x])continue;const i=(y*W+x)*4,m=.42;
+          g.fillStyle=`rgb(${src[i]+(255-src[i])*m|0},${src[i+1]+(253-src[i+1])*m|0},${src[i+2]+(246-src[i+2])*m|0})`;g.fillRect(x,y,1,1);}}}
+    // the summit flag, rippling in the wind: the cloth redrawn with each column lifted or dropped a pixel in a wave
+    if(flag){const f=flag;g.fillStyle=`rgb(${f.sky[0]},${f.sky[1]},${f.sky[2]})`;g.fillRect(f.x0+1,f.y0-1,f.x1-f.x0+2,f.y1-f.y0+3);
+      for(const [x,y,c] of f.cloth){if(x===f.x0)continue;const k=x-f.x0,dy=Math.round(Math.sin(t*7-k*1.1)*(k/(f.x1-f.x0+1))*1.2);g.fillStyle=`rgb(${c[0]},${c[1]},${c[2]})`;g.fillRect(x,y+dy,1,1);}
+      for(const [x,y,c] of f.cloth)if(x===f.x0){g.fillStyle=`rgb(${c[0]},${c[1]},${c[2]})`;g.fillRect(x,y,1,1);}}
+    // snow blown off the summit, streaming away downwind and thinning out
+    if(peak){if(Math.random()<dt*14)snow.push({x:peak.x+rnd(-1,2),y:peak.y+rnd(0,4),vx:rnd(8,16),vy:rnd(-1.5,1.5),life:0,max:rnd(1.4,2.8)});
+      snow=snow.filter(s=>(s.life+=dt)<s.max);for(const s of snow){s.x+=s.vx*dt;s.y+=(s.vy+Math.sin(t*3+s.max*9)*1.2)*dt;const a=s.life/s.max;
+        g.fillStyle=a<.45?"#ffffff":a<.8?"#e3ecfb":"#c7d4f0";g.fillRect(Math.round(s.x),Math.round(s.y),1,1);}}
+    // now and then a pair of birds glides across the sky, wings flapping
+    if((nextBird-=dt)<=0){nextBird=rnd(9,15);const dir=Math.random()<.5?1:-1,y=rnd(H*.08,H*(H>W?.22:.3)),v=rnd(9,14)*dir,x=dir>0?-8:W+8;birds.push({x,y,v},{x:x-dir*rnd(7,11),y:y+rnd(2,5),v});}
+    birds=birds.filter(b=>(b.x+=b.v*dt)>-14&&b.x<W+14);g.fillStyle="#4b4f86";
+    for(const b of birds){const up=Math.floor(t*5+b.y*3)%2,x=Math.round(b.x),y=Math.round(b.y+Math.sin(t*1.3+b.y)*1.2);
+      for(const [dx,dy] of up?[[0,1],[1,0],[2,1],[3,0],[4,1]]:[[0,0],[1,1],[2,1],[3,1],[4,0]])g.fillRect(x+dx,y+dy,1,1);}}
+  function loop(now){raf=requestAnimationFrame(loop);const dt=Math.min(.1,(now-(last||now))/1000);if(dt<1/30&&last)return;last=now;draw(dt||1/30);}
+  async function start(el){if(RM.matches)return;img=el;
+    if(!img.complete)await new Promise(r=>{img.addEventListener("load",r,{once:true});img.addEventListener("error",r,{once:true});});if(!img.naturalWidth)return;
+    if(!cv){cv=document.createElement("canvas");cv.className="tfx";document.querySelector(".scene").appendChild(cv);g=cv.getContext("2d");}
+    if(cv.dataset.src!==img.currentSrc){cv.dataset.src=img.currentSrc;W=cv.width=img.naturalWidth;H=cv.height=img.naturalHeight;survey();snow=[];birds=[];}
+    place();cancelAnimationFrame(raf);last=0;raf=requestAnimationFrame(loop);}
+  function stop(){cancelAnimationFrame(raf);raf=0;snow=[];birds=[];if(g)g.clearRect(0,0,W,H);}
+  addEventListener("resize",()=>{place();setTimeout(place,250);});
+  document.addEventListener("visibilitychange",()=>{if(document.hidden)cancelAnimationFrame(raf);else if(document.body.classList.contains("home")&&cv&&img){last=0;raf=requestAnimationFrame(loop);}});
+  return {start,stop,place};
 })();

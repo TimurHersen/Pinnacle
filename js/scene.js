@@ -1462,18 +1462,16 @@ async function runEvent(exp,o,t){
     if(!(await wait(950)))return;}
   const side=[];
   for(const w of who.filter(w=>w.x.fall)){const r=w.r,tg=T.get(r);
-    // still on the meadow or a ledge they never get far: a few moves up, then off, landing back on their feet. That
-    // plays once at a stance; wrong again from the same spot, they just slump. Neither holds the partner up.
-    if(r.mode==="stand"){const at=r.hi;
-      if(r.stumbledAt===at&&r.L.art&&r.L.art.slump){caption("No way up this time");r.play([["slump",SLUMP_MS],["stand",650],["stand2",650]],1);r.calm();}
-      else{r.stumbledAt=at;caption("Off at the first moves!");side.push(climbRig(r,at+LOW+2,HOLD_MS,id).then(z=>z&&fallRig(r,at,at,id,"main",false)));}}
+    // still on the meadow or a ledge: a wrong answer doesn't get them onto the rock at all. They stay where they stand,
+    // shoulders down, and it doesn't hold the partner up.
+    if(r.mode==="stand"){caption("Wrong answer. No way up this time");
+      if(r.L.art&&r.L.art.slump){r.play([["slump",SLUMP_MS],["stand",650],["stand2",650]],1);r.calm();}}
     else if(w.x.caught||tg>=r.hi){caption(w.x.caught?"Wrong hold, but the hook holds":"Wrong hold!");if(!(await fallRig(r,r.hi-1,r.hi,id,"main",true,w.x.caught?hookIdxAt(exp,w.x.to):null)))return;}
     else{title("WHOOPS!",w.x.hooked?`Onto the hook at ${fmt(mAlt(exp,tg*HS/WK+ALT.base))} m`:`Down to ${fmt(mAlt(exp,tg*HS/WK+ALT.base))} m`,"bad");
       if(!(await fallRig(r,tg,tg,id,"main",false,w.x.hooked?hookIdxAt(exp,w.x.to):null)))return;}}
   const ups=who.filter(w=>!w.x.fall&&T.get(w.r)>w.r.hi).sort((a,b)=>T.get(b.r)-T.get(a.r));
   const jobs=ups.map((w,k)=>wait(k*700).then(z=>z&&climbRig(w.r,T.get(w.r),stepMsFor(T.get(w.r)-w.r.hi),id)).then(z=>{if(z&&!o.arrived)pop(w.r,"HUP!");return z;}));
   for(const j of [...jobs,...side])if(!(await j))return;
-  for(const w of who)if(w.r.mode!=="stand")w.r.stumbledAt=null;
   // both right, both up: a fist in the air
   if(who.length>1&&who.every(w=>w.x.ok&&w.x.to>w.x.from)&&!o.arrived)for(const w of who){const r=w.r;
     if(r.mode==="climb"&&r.L.art&&r.L.art.yes&&climbPhase(r.cy(),true).f===5){r.play([["yes",REST_MS],["hang",1e9]]);r.calm();}else if(r.mode==="stand")r.cheer=.9;}

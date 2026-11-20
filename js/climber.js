@@ -140,16 +140,24 @@ function charOf(t,id){const ids=memberIds(t),i=Math.max(0,ids.indexOf(id)),m=t.m
 function soloTeam(){const c=LS.get("char",null);return {members:{[S.uid||"me"]:{name:S.myName||"You",joined:1,...(CHARS.some(x=>x.id===c&&!x.soon)?{char:c}:{})}},exp:{},round:{phase:"map"}};}
 const csTeam=()=>S.team||soloTeam();
 function openCharTitle(){S.charOpen=true;CS.view=null;charScreen(soloTeam(),true);}
-async function pickChar(id){if(TV())return;if(!S.code){sfx("pop");LS.set("char",id);charScreen(soloTeam(),true);if(typeof acctRender==="function")acctRender();return;}sfx("pop");
-  try{await fb.patch(`teams/${S.code}/members/${S.uid}`,{char:id});LS.set("char",id);}catch(e){toast("Couldn't save your climber.");}}
+// (a pick shows at once, before the server answers: CS.want is the climber chosen here, saved one at a time, and the
+// last one wins even when taps come quicker than the saves)
+async function pickChar(id){if(TV())return;LS.set("char",id);if(!S.code){sfx("pop");charScreen(soloTeam(),true);if(typeof acctRender==="function")acctRender();return;}
+  sfx("pop");CS.want=id;CS.wantAt=Date.now();if(CS.saving)return;CS.saving=true;
+  try{let sent=null;while(CS.want&&CS.want!==sent){sent=CS.want;await fb.patch(`teams/${S.code}/members/${S.uid}`,{char:sent});}}
+  catch(e){toast("Couldn't save your climber.");CS.want=null;}
+  CS.saving=false;}
+// (my climber as shown: the pick still on its way to the server, else the team's record)
+function shownChar(t,id){const m=t.members[id];if(CS.want&&id===S.uid){if(m&&m.char===CS.want&&!CS.saving)CS.want=null;else if(Date.now()-CS.wantAt<15000)return CS.want;}return charOf(t,id);}
 /* the climber select: one climber at a time on a lit stage (breathing, in their own idle frames), arrows and a swipe
    to go through them, the roster below (faces), and the partner's pick marked and locked. A pick is saved at once. */
-const CS={view:null,frame:0,timer:0};
+const CS={view:null,frame:0,timer:0,want:null,wantAt:0,saving:false};
 function charFace(id){return asset(`assets/climbers/${id}/south.png`);}
 function charScreen(t,open){let el=$("#charPick");
   if(!open||!t||TV()){if(el)el.remove();clearInterval(CS.timer);CS.timer=0;S.charOpen=false;return;}
-  const me0=t.members[S.uid]?S.uid:Object.keys(t.members)[0],mine=charOf(t,me0),pid=S.team?partnerId(t):null,theirs=pid&&charOf(t,pid),list=CHARS.filter(c=>!c.soon);
-  if(!CS.view||!list.some(c=>c.id===CS.view))CS.view=mine;
+  const me0=t.members[S.uid]?S.uid:Object.keys(t.members)[0],mine=shownChar(t,me0),pid=S.team?partnerId(t):null,theirs=pid&&charOf(t,pid),list=CHARS.filter(c=>!c.soon);
+  // (the climber on show is always my pick: choosing here picks at once, and a pick still on its way counts)
+  CS.view=mine;
   const v=list.find(c=>c.id===CS.view)||list[0],taken=c=>pid&&c.id===theirs,key=[mine,theirs,pid&&nameOf(pid),v.id].join("|");
   if(!el){el=document.createElement("div");el.id="charPick";el.className="gscreen charpick";el.setAttribute("role","dialog");el.setAttribute("aria-label","Choose your climber");
     el.innerHTML=`<div class="gs-sky" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
@@ -162,7 +170,7 @@ function charScreen(t,open){let el=$("#charPick");
         <button class="btn rope cs-go" id="cpDone">Let's climb</button></div>`;
     document.body.appendChild(el);requestAnimationFrame(()=>el.classList.add("in"));
     const step=d=>{const L=CHARS.filter(c=>!c.soon),T=csTeam(),P=S.team?partnerId(T):null;let k=L.findIndex(c=>c.id===CS.view);for(let n=0;n<L.length;n++){k=(k+d+L.length)%L.length;if(!(P&&L[k].id===charOf(T,P)))break;}
-      CS.view=L[k].id;sfx("pop");pickChar(CS.view);el.dataset.dir=d>0?"r":"l";charScreen(csTeam(),true);};
+      CS.view=L[k].id;pickChar(CS.view);el.dataset.dir=d>0?"r":"l";charScreen(csTeam(),true);};
     el.querySelector(".cs-arrow.l").onclick=()=>step(-1);el.querySelector(".cs-arrow.r").onclick=()=>step(1);
     el.querySelector("#cpDone").onclick=()=>{sfx("pop");S.charOpen=false;S.charSeen=true;el.classList.remove("in");setTimeout(()=>charScreen(null,false),220);};
     el.onkeydown=e=>{if(e.key==="ArrowLeft")step(-1);else if(e.key==="ArrowRight")step(1);else if(e.key==="Escape"||e.key==="Enter")el.querySelector("#cpDone").click();};
@@ -171,20 +179,27 @@ function charScreen(t,open){let el=$("#charPick");
     // (the climber on show breathes: their own idle frames, over and over)
     CS.timer=setInterval(()=>{const f=el.querySelector(".cs-fig");if(!f||!CS.view)return;CS.frame=(CS.frame+1)%4;f.src=asset(`assets/climbers/${CS.view}/idle/${CS.frame}.png`);},260);
     setTimeout(()=>el.querySelector("#cpDone")?.focus({preventScroll:true}),60);}
-  if(el.dataset.key===key)return;const was=el.dataset.view;el.dataset.key=key;el.dataset.view=v.id;
+  if(el.dataset.key===key)return;const was=el.dataset.view;el.dataset.key=key;el.dataset.view=v.id;el.dataset.mine=mine;
   const fig=el.querySelector(".cs-fig");fig.src=asset(`assets/climbers/${v.id}/idle/${CS.frame}.png`);fig.alt=v.name;
   if(was&&was!==v.id){const h=el.querySelector(".cs-hero");h.classList.remove("swap","l","r");void h.offsetWidth;h.classList.add("swap",el.dataset.dir||"r");}
   el.querySelector(".cs-name").textContent=v.name;
   el.querySelector(".cs-sub").innerHTML=v.id===mine?`<span class="me">You</span>`:"";
-  el.querySelector(".cs-roster").innerHTML=list.map(c=>`<button class="cs-tile ${c.id===mine?"on":""} ${taken(c)?"taken":""}" role="option" aria-selected="${c.id===mine}" data-id="${c.id}" ${taken(c)?"disabled":""} aria-label="${esc(c.name)}${taken(c)?`, ${esc(nameOf(pid))}'s pick`:""}">
-      <span class="cs-face" style="background-image:url('${charFace(c.id)}')"></span><b>${esc(c.name)}</b>${taken(c)?`<em>${esc(ptag(t,pid))}</em>`:c.id===mine?`<em class="me">${S.team?esc(ptag(t,S.uid)):"You"}</em>`:""}</button>`).join("");
-  el.querySelectorAll(".cs-tile").forEach(b=>b.onclick=()=>{if(b.dataset.id===CS.view)return;el.dataset.dir=list.findIndex(c=>c.id===b.dataset.id)>list.findIndex(c=>c.id===CS.view)?"r":"l";CS.view=b.dataset.id;pickChar(CS.view);charScreen(csTeam(),true);});
+  // (the cards are made once and then only updated, so a pick doesn't replay their entrance or reload the faces)
+  const ro=el.querySelector(".cs-roster");
+  if(ro.dataset.ids!==list.map(c=>c.id).join()){ro.dataset.ids=list.map(c=>c.id).join();
+    ro.innerHTML=list.map(c=>`<button class="cs-tile" role="option" data-id="${c.id}"><span class="cs-face" style="background-image:url('${charFace(c.id)}')"></span><b>${esc(c.name)}</b><em hidden></em></button>`).join("");
+    ro.querySelectorAll(".cs-tile").forEach(b=>b.onclick=()=>{if(b.disabled||b.dataset.id===CS.view&&b.dataset.id===el.dataset.mine)return;
+      const L=CHARS.filter(c=>!c.soon);el.dataset.dir=L.findIndex(c=>c.id===b.dataset.id)>L.findIndex(c=>c.id===CS.view)?"r":"l";CS.view=b.dataset.id;pickChar(CS.view);charScreen(csTeam(),true);});}
+  ro.querySelectorAll(".cs-tile").forEach(b=>{const c=list.find(x=>x.id===b.dataset.id),tk=taken(c),on=c.id===mine,em=b.querySelector("em");
+    b.classList.toggle("on",on);b.classList.toggle("taken",!!tk);b.disabled=!!tk;b.setAttribute("aria-selected",String(on));
+    b.setAttribute("aria-label",c.name+(tk?`, ${nameOf(pid)}'s pick`:""));
+    const tag=tk?ptag(t,pid):on?(S.team?ptag(t,S.uid):"You"):"";em.hidden=!tag;em.textContent=tag;em.className=on&&!tk?"me":"";});
   if(was!==v.id){const bu=el.querySelector(".cs-burst");bu.classList.remove("go");void bu.offsetWidth;bu.classList.add("go");}}
 // (called on every render: open it the first time a climber without a choice reaches the map; keep it up to date)
 function charCheck(t){const me=t.members[S.uid];if(!me||TV()){charScreen(null,false);return;}
-  if(t.round.phase==="map"&&!me.char&&!S.charSeen&&!S.charOpen){S.charOpen=true;CS.view=null;
-    // (a choice made on this device before joins a new team with it)
-    const was=LS.get("char",null),pid=partnerId(t);if(was&&CHARS.some(c=>c.id===was&&!c.soon)&&!(pid&&charOf(t,pid)===was))pickChar(was);}
+  // (a choice made on this device before joins a new team with it)
+  if(!me.char&&!CS.want){const was=LS.get("char",null),pid=partnerId(t);if(was&&CHARS.some(c=>c.id===was&&!c.soon)&&!(pid&&charOf(t,pid)===was))pickChar(was);}
+  if(t.round.phase==="map"&&!me.char&&!CS.want&&!S.charSeen&&!S.charOpen){S.charOpen=true;CS.view=null;}
   if(S.charOpen&&t.round.phase!=="map")S.charOpen=false;
   charScreen(t,S.charOpen);}
 
@@ -194,7 +209,7 @@ function charCheck(t){const me=t.members[S.uid];if(!me||TV()){charScreen(null,fa
    first question came up; a summit is a win; one not (yet) finished counts as unfinished. */
 // (a time as a clock: 5:12, or 1:02:09 past an hour)
 const clockOf=ms=>{const t=Math.round(ms/1000),h=Math.floor(t/3600),m=Math.floor(t/60)%60,x=String(t%60).padStart(2,"0");return h?`${h}:${String(m).padStart(2,"0")}:${x}`:`${m}:${x}`;};
-function myChar(){const t=S.team;if(t&&t.members[S.uid])return charOf(t,S.uid);const c=LS.get("char",null);return CHARS.some(x=>x.id===c&&!x.soon)?c:"lumberjack";}
+function myChar(){const t=S.team;if(t&&t.members[S.uid])return shownChar(t,S.uid);const c=LS.get("char",null);return CHARS.some(x=>x.id===c&&!x.soon)?c:"lumberjack";}
 function openProfile(){sfx("pop");let el=$("#profPanel");if(el)el.remove();
   const p=profile(),N=profNumbers(p),named=typeof acctNamed==="function"&&acctNamed(),u=named?ACCT.user:null,ch=CHARS.find(c=>c.id===myChar());
   const since=u&&u.metadata&&u.metadata.creationTime?new Date(u.metadata.creationTime).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):"";
