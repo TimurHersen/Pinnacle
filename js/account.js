@@ -67,7 +67,7 @@ async function acctEmail(mode){const em=($("#acctEmail")?.value||"").trim(),pw=$
 /* Google, in the page: Google's own account chooser slides up over the game ("Continue as …"), and its ID token signs
    in to Firebase, so the game never leaves the page. It needs this site listed as an authorised JavaScript origin of
    the project's web client (Google Cloud console, APIs & Services, Credentials). If Google won't show it there (not
-   listed yet, the browser blocks it, or the player closes it), the second tap goes the old way: Google's own page. */
+   listed yet, or the browser blocks it), the same tap goes on the old way: Google's own sign-in page. */
 const GOOGLE_CLIENT="454707911322-unnb0e635hbeb1fuc6odtp5ul1nooapf.apps.googleusercontent.com";
 let GIS=null;
 function gisLoad(){return GIS||(GIS=acctScript("https://accounts.google.com/gsi/client").then(()=>{
@@ -80,7 +80,8 @@ async function gisToken(idToken){const A=ACCT.auth,cred=firebase.auth.GoogleAuth
 async function acctGoogle(){const A=ACCT.auth;if(!A)return;$("#acctErr").textContent="";
   if(!ACCT.gisFailed&&await gisLoad()){
     google.accounts.id.prompt(n=>{const bad=(n.isNotDisplayed&&n.isNotDisplayed())||(n.isSkippedMoment&&n.isSkippedMoment()&&n.getSkippedReason&&n.getSkippedReason()!=="user_cancel");
-      if(bad){ACCT.gisFailed=true;const el=$("#acctErr");if(el)el.textContent="Tap Continue with Google again to sign in on Google's page.";}});
+      // (Google won't show its chooser here: go on to Google's own sign-in page in the same tap, without asking for another)
+      if(bad){ACCT.gisFailed=true;acctGoogleRedirect();}});
     return;}
   acctGoogleRedirect();}
 async function acctGoogleRedirect(){const A=ACCT.auth;const P=new firebase.auth.GoogleAuthProvider();P.setCustomParameters({prompt:"select_account"});
@@ -90,7 +91,7 @@ async function acctGoogleRedirect(){const A=ACCT.auth;const P=new firebase.auth.
       catch(e){if(e.code==="auth/credential-already-in-use"&&e.credential)await A.signInWithCredential(e.credential);else throw e;}}
     else narrow?await A.signInWithRedirect(P):await A.signInWithPopup(P);
     toast("Signed in with Google");}
-  catch(e){acctError(e);}}
+  catch(e){if(e&&e.code==="auth/popup-blocked"){const el=$("#acctErr");if(el)el.textContent="Your browser blocked Google's window. Tap Continue with Google once more.";return;}acctError(e);}}
 async function acctReset(){const em=($("#acctEmail")?.value||"").trim();$("#acctErr").textContent="";
   if(!em){$("#acctErr").textContent="Type your email above first.";return;}
   try{await ACCT.auth.sendPasswordResetEmail(em);toast("Check your email for a link to set a new password");}catch(e){acctError(e);}}
