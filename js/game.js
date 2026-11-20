@@ -970,7 +970,7 @@ function renderPop(t,mi,shape){const el=$("#world .wpop");if(!el)return;const k=
     ${(S.popTab||"stars")==="stars"?`<div class="goals">${GOALS.map(G=>{const w=goalsWon(t,k)&G.b;return `<span class="${w?"on":""}">${w?ICON.star:ICON.starOff}${G.name}</span>`;}).join("")}</div>
     ${climbed(t,k)?`<p class="note">Climbed ${t.stats.peaks[k].n}×${t.stats.peaks[k].ms?` · best ${fmtDur(t.stats.peaks[k].ms)}`:""}</p>`:""}`
     :`<div class="lbbox" id="lbMtn"></div><p class="note">Fastest three-star ascents (no falls, no hooks), by rope team.</p>`}
-    ${go?`<button class="btn rope" id="popGo">Set off for ${esc(m.name)}</button>`:mine?`<p class="note">Waiting for ${esc(nameOf(pid))} to choose it too.</p>`:`<button class="btn rope" id="popPick">Choose ${esc(m.name)}</button>${theirs&&theirs!==k?`<p class="note">${esc(nameOf(pid))} chose ${esc(MOUNTAINS[theirs].name)}.</p>`:""}`}`;
+    ${go?`<button class="btn rope" id="popGo">Set off</button>`:mine?`<p class="note">Waiting for ${esc(nameOf(pid))} to choose it too.</p>`:`<button class="btn rope" id="popPick">Choose ${esc(m.name)}</button>${theirs&&theirs!==k?`<p class="note">${esc(nameOf(pid))} chose ${esc(MOUNTAINS[theirs].name)}.</p>`:""}`}`;
   el.hidden=false;
   el.querySelector(".wpx").onclick=()=>{S.mapPop=null;S.worldKey=null;renderWorld(S.team);};
   el.querySelector("#popGo")?.addEventListener("click",()=>{pickMountain(k);chooseMountain(k);S.mapPop=null;});

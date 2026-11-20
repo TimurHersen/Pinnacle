@@ -19,16 +19,17 @@
 :root{
   /* near-black teal panels, a pale frame line and warm gold labels, picked from the concept sheet */
   /* (the title painting's colours: dusk indigo for panels, periwinkle lines, cream lettering, the flag's gold and red) */
-  --navy:#1a1f4a;--panel:#2a3170;--panel2:#343c84;--panel3:#414a98;--line:#7d8ad6;
-  --cream:#fbf6ec;--ink:#f7f4ff;--muted:#c9cdf2;--dim:#959cd0;
-  --gold:#ffd36b;--goldD:#c48a2c;--goldL:#fff1cf;--orange:#ff9d5c;--red:#e8584a;--redD:#9a2e2a;
-  --good:#8fe39a;--goodD:#2b6a48;--warn:#ffd36b;--bad:#ff7a6a;--ice:#bfe0ff;
-  --glass:rgba(38,45,110,.9);--glassL:#7d8ad6;--glassD:#1a1f4a;
+  /* (the summit postcard: cream card stock, navy ink, the flag's red for labels, a sky blue for highlights) */
+  --navy:#ece2c6;--panel:#f7efdc;--panel2:#f1e7cf;--panel3:#e6d9b8;--line:#2b3474;
+  --cream:#2b3474;--ink:#2b3474;--muted:#5d649c;--dim:#8f93b8;
+  --gold:#e8584a;--goldD:#b03a30;--goldL:#fff3df;--orange:#e8792b;--red:#e8584a;--redD:#9a2e2a;
+  --good:#3f8a5a;--goodD:#2a6040;--warn:#c88a20;--bad:#d64535;--ice:#3c78d8;
+  --pc:#f7efdc;--pcInk:#2b3474;--pcRed:#e8584a;
   --head:"Pinnacle Head","Trebuchet MS",sans-serif;--body:"Pinnacle Body","Trebuchet MS",system-ui,sans-serif;
   --edge:max(12px,env(safe-area-inset-left,0px));--edgeR:max(12px,env(safe-area-inset-right,0px));--colW:min(440px,38vw);
   /* the frame: a black keyline outside the pale line, a dark gap and a dim teal line inside it, and a hard shadow */
-  --frame:0 0 0 2px var(--navy),0 4px 0 2px rgba(20,22,60,.45),inset 0 0 0 2px rgba(255,255,255,.07);
-  color-scheme:dark}
+  --frame:0 5px 0 rgba(30,36,90,.28);
+  color-scheme:light}
 *,*::before,*::after{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{height:100%;overflow:hidden;overscroll-behavior:none}
@@ -865,3 +866,139 @@ body.pad .qgrab{display:none!important}
 .btn:disabled,.btn[disabled]{background:var(--panel3)!important;color:var(--dim)!important;border-color:var(--line)!important;opacity:.85!important;filter:none!important;text-shadow:none!important;box-shadow:var(--frame)!important}
 .wtool{background:var(--panel2)!important;border:2px solid var(--line)!important;box-shadow:var(--frame)!important;color:var(--cream)}
 .wtool.on{background:var(--panel3)!important;border-color:var(--gold)!important}
+
+
+/* ======================= THE SUMMIT POSTCARD =======================
+   Everything but the title screen is a card sent home from the mountain: flat cream stock with a navy rule just
+   inside its edge, navy ink, labels in the flag's red set in wide-spaced capitals, buttons printed solid navy,
+   answers as dashed ticket stubs (the chosen one printed solid). Cards tilt a hair, like one laid on a table. */
+.panel,.card,.wpop,.coach,.toast,.wlplate,.tvqr,#menu .msheet,.msheet{background:var(--pc)!important;color:var(--pcInk)!important;border:0!important;border-image:none!important;
+  box-shadow:inset 0 0 0 7px var(--pc),inset 0 0 0 9px var(--pcInk),0 6px 0 rgba(30,36,90,.28),0 14px 28px rgba(30,36,90,.18)!important;clip-path:none!important;border-radius:0!important}
+.panel,.card,.wpop{padding:20px 20px 18px!important}
+h3,.clabel,.qhead,.k,.gs-eyebrow,.gs-label,.lbl-h{color:var(--pcRed)!important;font-family:var(--head)!important;letter-spacing:.22em!important;text-transform:uppercase}
+.qtitle,.cs-name,.pf-name,.wnplate b,.wphead b{color:var(--pcInk)!important;text-shadow:none!important;letter-spacing:.04em}
+.note,.qsub,.pf-meta,.qrules,.fact{color:#5d649c!important}
+.qrules b,.pf-meta b{color:var(--pcInk)!important}
+/* little tags: the HUD, the corner buttons, chips: cream labels pinned on, with a drop shadow */
+.hud .who,.hud .hearts,.hud-r,.bar .team,.brand,.ibtn,.linkbtn,.wtool,.chip,.cap,.wnarrow,.cs-arrow{background:var(--pc)!important;color:var(--pcInk)!important;border:0!important;border-image:none!important;
+  box-shadow:inset 0 0 0 2px var(--pcInk),0 4px 0 rgba(30,36,90,.3)!important;clip-path:none!important;border-radius:0!important}
+.linkbtn{box-shadow:none!important;background:none!important;color:var(--pcRed)!important;text-decoration:underline;text-underline-offset:3px}
+.hud-r *,.hud .who *,.bar .team *{color:var(--pcInk)}
+/* inputs: a line to write on */
+input[type=text],input[type=email],input[type=password],select,textarea{background:transparent!important;border:0!important;border-bottom:2px solid var(--pcInk)!important;box-shadow:none!important;clip-path:none!important;
+  border-radius:0!important;color:var(--pcInk)!important;padding:8px 2px!important;font:400 22px/1.2 var(--body)!important}
+input::placeholder{color:#a8a6b8!important}
+input:focus{outline:none;border-bottom-color:var(--pcRed)!important}
+/* buttons: printed solid navy, spaced capitals; second ones in dashed outline */
+.btn{background:var(--pcInk)!important;color:var(--pc)!important;border:0!important;border-image:none!important;border-radius:0!important;clip-path:none!important;filter:none!important;
+  box-shadow:0 4px 0 rgba(30,36,90,.35)!important;font:400 19px/1.1 var(--head)!important;letter-spacing:.2em!important;text-transform:uppercase;text-shadow:none!important;padding:13px 18px!important}
+.btn.rope{background:var(--pcInk)!important}
+.btn.rope::after{content:" ▸";font-size:.8em}
+.btn:not(.rope):not(.google){background:transparent!important;color:var(--pcInk)!important;box-shadow:inset 0 0 0 2px var(--pcInk)!important;outline:0}
+.btn.google{background:#fff!important;color:#1f1f1f!important;box-shadow:inset 0 0 0 2px var(--pcInk)!important;letter-spacing:.06em!important}
+.btn:disabled,.btn[disabled]{background:#d9cfb4!important;color:#9a96a8!important;box-shadow:none!important;opacity:1!important}
+.btn.rope:disabled::after,.btn.rope[disabled]::after{content:""}
+@media (hover:hover){.btn:not(:disabled):hover{transform:translateY(-1px);box-shadow:0 5px 0 rgba(30,36,90,.35)!important}.btn.rope:not(:disabled):hover{background:#3a4596!important}}
+.btn:not(:disabled):active{transform:translateY(2px);box-shadow:0 1px 0 rgba(30,36,90,.35)!important}
+/* answers, routes, gear: ticket stubs */
+.qopt,.route,.gbtn,.scell,.pf-tile,.cs-tile,.kitsw,.lbl li,.goals span{background:transparent!important;color:var(--pcInk)!important;border:2px dashed var(--pcInk)!important;box-shadow:none!important;clip-path:none!important;border-radius:0!important}
+.qopt b{background:none!important;border:0!important;color:var(--pcRed)!important;width:auto!important;font:400 18px/1 var(--head)!important}
+.qopt.sel,.route.sel,.gbtn.on,.cs-tile.on{background:var(--pcInk)!important;color:var(--pc)!important;border-style:solid!important}
+.qopt.sel b,.route.sel *{color:#ffd36b!important}
+.qopt.right{background:var(--good)!important;border:2px solid var(--good)!important;color:#fff!important}.qopt.right b{color:#fff!important}
+.qopt.wrong{background:var(--pcRed)!important;border:2px solid var(--pcRed)!important;color:#fff!important}.qopt.wrong b{color:#fff!important}
+.qopt em{background:var(--pc)!important;color:var(--pcInk)!important;border-color:var(--pcInk)!important}
+.qopt em.lead{background:var(--pcRed)!important;color:#fff!important;border-color:var(--pcRed)!important}
+.qtext{background:none!important;border:0!important;padding:0!important;color:var(--pcInk)!important;font:600 23px/1.2 var(--body)!important}
+.qtime{background:var(--pcInk)!important;color:var(--pc)!important;border:0!important}
+.timer{background:#e2d6b6!important;border:0!important}.timer i{background:var(--pcRed)!important}
+.result{background:transparent!important;border:2px solid currentColor!important;clip-path:none!important}
+.result.good{color:var(--good)!important}.result.bad{color:var(--pcRed)!important}
+.result span,.result div>span{color:var(--pcInk)}
+.hint,.hooked{background:#efe4c8!important;border:0!important;border-left:4px solid var(--pcRed)!important;color:var(--pcInk)!important}
+.scell b,.pf-tile b{color:var(--pcInk)!important}.scell span,.pf-tile span{color:var(--pcRed)!important}
+/* the stamp in the corner of the cards that open a stage: the peak, and the place */
+.qpanel::before,#main.lobby>.card:first-of-type::before{content:"";position:absolute;right:18px;top:16px;width:46px;height:56px;background:var(--pcRed);
+  box-shadow:0 0 0 3px var(--pc),0 0 0 5px var(--pcRed);clip-path:none;opacity:.95;
+  -webkit-mask:linear-gradient(#000,#000);pointer-events:none}
+.qpanel,#main.lobby>.card{position:relative}
+.qpanel::after,#main.lobby>.card:first-of-type::after{content:"";position:absolute;right:29px;top:31px;width:0;height:0;border:12px solid transparent;border-bottom:17px solid var(--pc);border-top:0;pointer-events:none}
+/* the map: its signs are little cream tags; its name board is a postcard */
+.wpin .wplate{background:var(--pc)!important;border:0!important;border-image:none!important;box-shadow:inset 0 0 0 2px var(--pcInk),0 4px 0 rgba(30,36,90,.35)!important;filter:none!important;padding:5px 9px 4px!important}
+.wpin b{color:var(--pcInk)!important;text-shadow:none!important}.wpin small{color:var(--pcRed)!important;text-shadow:none!important}
+.wpin.nx .wplate,.wpin.sel .wplate{background:var(--pcInk)!important;box-shadow:0 4px 0 rgba(30,36,90,.35)!important}.wpin.nx b,.wpin.sel b{color:var(--pc)!important}.wpin.nx small,.wpin.sel small{color:#ffd36b!important}
+.wpin.lk .wplate{opacity:.85}.wpin .wplate::after{display:none}
+.wnplate{background:var(--pc)!important;border:0!important;border-image:none!important;box-shadow:inset 0 0 0 5px var(--pc),inset 0 0 0 7px var(--pcInk),0 5px 0 rgba(30,36,90,.3)!important;filter:none!important;padding:10px 14px!important}
+.wnplate small,.wpline{color:var(--pcRed)!important;text-shadow:none!important}
+.wprog{background:#e2d6b6!important;border:0!important}.wprog i{background:var(--pcInk)!important;box-shadow:none!important}
+.wndots i{background:#d2c6a4!important}.wndots i.dn{background:var(--pcRed)!important}.wndots i.op{background:var(--pcInk)!important}
+.wnarrow{color:var(--pcInk)!important;text-shadow:none!important;filter:none!important}.wnarrow:disabled{opacity:.45}
+.wcamp{background:var(--pc)!important;border:0!important;border-image:none!important;color:var(--pcInk)!important;text-shadow:none!important;box-shadow:inset 0 0 0 2px var(--pcInk)!important;padding:3px 6px!important}
+/* the climber select and the profile: the title painting behind, cards and tags in the postcard style */
+.gscreen{background:linear-gradient(rgba(43,52,116,.35),rgba(43,52,116,.55)),url("../assets/title-wide.png") 50% 60%/cover no-repeat,#4a64c4!important}
+@media (orientation:portrait){.gscreen{background:linear-gradient(rgba(43,52,116,.35),rgba(43,52,116,.55)),url("../assets/title-tall.png") 50% 40%/cover no-repeat,#4a64c4!important}}
+.cs-name{color:var(--pc)!important;text-shadow:3px 0 0 var(--pcInk),-3px 0 0 var(--pcInk),0 3px 0 var(--pcInk),0 -3px 0 var(--pcInk),0 6px 0 rgba(30,36,90,.4)!important}
+.cs-tile{background:var(--pc)!important;border-style:solid!important}.cs-tile b{color:var(--pcInk)}.cs-tile.on b{color:var(--pc)}
+.cs-tile em{background:var(--pcRed)!important;color:#fff!important}.cs-sub .me,.cs-tile em.me{background:#ffd36b!important;color:var(--pcInk)!important}
+.gscreen .gs-eyebrow{color:var(--pc)!important;text-shadow:0 2px 0 var(--pcInk)}
+.pf-wrap{background:var(--pc)!important;color:var(--pcInk);border:0!important;box-shadow:inset 0 0 0 7px var(--pc),inset 0 0 0 9px var(--pcInk),0 8px 0 rgba(30,36,90,.3)!important;border-radius:0!important;transform:rotate(-.6deg)}
+.gscreen.in .pf-wrap{transform:rotate(-.6deg)}
+.pf-av{background:#c9d6f2!important;border:2px solid var(--pcInk)!important;box-shadow:none!important;border-radius:0!important}
+/* ---------- the climb on a phone: one small postcard at the bottom, the game above it ---------- */
+@media (max-width:899px),(max-height:520px){
+  #main{background:transparent!important;border:0!important;box-shadow:none!important}
+  #main.lobby{background:transparent!important}
+  #main.game2{left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));padding:0!important;display:grid;grid-template-columns:1fr;max-height:62vh}
+  #main.game2>.panel{padding:14px 14px 12px!important;box-shadow:inset 0 0 0 5px var(--pc),inset 0 0 0 7px var(--pcInk),0 5px 0 rgba(30,36,90,.3)!important;transform:rotate(.5deg)}
+  #main.game2>.radio2.open{display:grid;margin-top:8px}
+  #main.lobby{padding:14px!important}#main.lobby>.card{margin-bottom:6px}
+  .qpanel::before,.qpanel::after{display:none}
+  .qmain{gap:7px!important}
+  .qhead{font-size:13px!important}
+  .qtext{font-size:20px!important;line-height:1.15!important}
+  .qopts{gap:6px!important}.qopt{padding:7px 9px!important;font-size:17px!important;min-height:0}
+  .qfoot{gap:6px!important}.qgear{gap:5px!important}.gbtn{padding:5px 7px!important;font-size:13px!important}.gbtn span{display:none}
+  .qfoot .btn{padding:9px 12px!important;font-size:16px!important}
+  .qfoot .note{font-size:13px}
+  .qart{display:none!important}.qwrap{grid-template-columns:1fr!important}
+  body.qmin.ph-reveal #panel .qopts{display:none!important}
+}
+/* (postcard fixes: sizes, the tags along the top, overflowing cards) */
+.btn{font-size:16px!important;letter-spacing:.14em!important;padding:11px 14px!important;white-space:normal;max-width:100%}
+#homeBtn,.back,#backBtn,.linkbtn.back,button.back{background:var(--pc)!important;color:var(--pcInk)!important;text-decoration:none!important;box-shadow:inset 0 0 0 2px var(--pcInk),0 4px 0 rgba(30,36,90,.3)!important;padding:8px 12px!important}
+#homeBtn{font:400 15px/1 var(--head)!important;letter-spacing:.14em!important}
+.ibtn svg{color:var(--pcInk)}
+.routes{display:grid!important;grid-template-columns:1fr 1fr!important}.routes.bonus{grid-template-columns:repeat(3,1fr)!important}
+.route{min-width:0;overflow:hidden;word-break:break-word}
+.qpanel::before,.qpanel::after,#main.lobby>.card:first-of-type::before,#main.lobby>.card:first-of-type::after{display:none}
+.wpop{max-width:calc(100vw - 24px);box-sizing:border-box}.wpfacts{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+.ptabs button{background:transparent!important;color:var(--pcInk)!important;border:2px solid var(--pcInk)!important;border-radius:0!important}.ptabs button.on{background:var(--pcInk)!important;color:var(--pc)!important}
+.ibtn.pf-x,.wpx{box-shadow:inset 0 0 0 2px var(--pcInk)!important;background:var(--pc)!important}.ibtn.pf-x svg,.wpx svg,.pf-x .px,.wpx .px{filter:brightness(0) saturate(100%) invert(18%) sepia(40%) saturate(2000%) hue-rotate(220deg)}
+.px{image-rendering:pixelated}
+.hud .hearts span,.hud .hearts b{color:var(--pcInk)}
+.cs-arrow{color:var(--pcInk)!important}
+.gs-eyebrow{color:var(--pc)!important;text-shadow:0 2px 0 var(--pcInk)!important}.pf-wrap .gs-eyebrow{color:var(--pcRed)!important;text-shadow:none!important}
+.wpfacts span,.wpfacts b{color:var(--pcInk)}
+/* ("Pinnacle Head" draws 1.8x its size: buttons set in it are sized for that) */
+.btn{font-size:11px!important;letter-spacing:.16em!important;padding:12px 14px!important}
+.btn.google{font-size:15px!important}
+#homeBtn{font-size:10px!important}
+h3,.clabel{font-size:11px!important}
+.qhead{font-size:9px!important}
+@media (max-width:899px),(max-height:520px){.qhead{font-size:9px!important}.qfoot .btn{font-size:10px!important;padding:10px 12px!important}}
+.wpop .btn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wtool{background:var(--pc)!important;box-shadow:inset 0 0 0 2px var(--pcInk),0 4px 0 rgba(30,36,90,.3)!important;border:0!important}
+.wtool .px{filter:none}
+/* (the question card on a phone: smaller still, the gear and the lock-in on one row) */
+@media (max-width:899px),(max-height:520px){
+  #main.game2>.panel{padding:11px 12px 10px!important}
+  .qtext{font-size:18px!important}
+  .qopt{padding:6px 8px!important;font-size:16px!important}
+  .qopt b{font-size:14px!important}
+  .qfoot{display:grid!important;grid-template-columns:auto 1fr;align-items:center}
+  .qfoot .note,.qfoot .wait{grid-column:1/-1;margin:0}
+  .gbtn{padding:4px 6px!important}
+  .timer{height:4px!important;margin-top:2px}
+}
+.wpop .btn{line-height:1.3!important;padding:12px 10px!important}
+@media (min-width:900px) and (min-height:521px){.qopts{grid-template-columns:1fr 1fr!important}.qopt{font-size:16px!important}}
