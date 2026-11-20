@@ -471,9 +471,12 @@ function renderLobby(invite){
   // (the corner account button opens the profile, and from there sign-in and the climber: S.openSec opens a card)
   S.openSec=id=>open(id);
   const open=id=>{if(id==="secProf"&&typeof openProfile==="function"){openProfile();return;}if(id==="secChar"&&typeof openCharTitle==="function"){openCharTitle();return;}main.querySelectorAll(".card").forEach(c=>c.hidden=!(c.id===id||(c.dataset.for||"").split(" ").includes(id)));
-    main.hidden=false;main.scrollTop=0;homeMenu(false);
+    clearTimeout(S.lobbyT);main.classList.remove("leaving");main.hidden=false;main.scrollTop=0;homeMenu(false);
+    main.classList.remove("arrive");void main.offsetWidth;main.classList.add("arrive");
     const f={secNew:"tname",secJoin:"jcode"}[id];if(f)setTimeout(()=>$("#"+f)?.focus({preventScroll:true}),60);};
-  const close=()=>{main.hidden=true;homeMenu(true);};
+  // (the panel slips away first; the menu comes back as it goes. A quick second tap never leaves it half gone)
+  const close=()=>{if(main.hidden||main.classList.contains("leaving"))return;main.classList.add("leaving");
+    clearTimeout(S.lobbyT);S.lobbyT=setTimeout(()=>{main.hidden=true;main.classList.remove("leaving","arrive");},RM.matches?0:170);homeMenu(true);};
   $("#backBtn").onclick=()=>{sfx("pop");close();};
   main.onkeydown=e=>{if(e.key==="Escape")close();};
   showHome([...(S.myTeams.length?[{id:"secCont",label:"Continue"}]:[]),{id:"secNew",label:"New expedition"},{id:"secTv",label:"Big screen"},{id:"secJoin",label:"Join team"},
@@ -786,12 +789,20 @@ function renderPanel(t){
   if(S.panelKey&&S.panelKey.split("|")[1]!==String(r.id))S.local={};S.panelKey=key;S.local=S.local||{};
   // a new step of the round starts at its top (on a phone the panel is a sheet that scrolls)
   // (and its parts ease in)
-  const step=r.id+"|"+r.phase;if(S.step!==step){S.step=step;$("#main").scrollTop=0;panel.classList.remove("enter");void panel.offsetWidth;panel.classList.add("enter");}
+  const step=r.id+"|"+r.phase,same=S.step&&S.step.split("|")[0]===String(r.id)&&S.step.endsWith("|answer")&&r.phase==="reveal";
+  // (where the question and its answers sit now, so after the redraw they can glide from there)
+  const was=(r.phase==="answer"||r.phase==="reveal")&&S.flipRid===r.id?flipFirst(panel):null;S.flipRid=r.id;
+  if(S.step!==step){S.step=step;$("#main").scrollTop=0;panel.classList.remove("enter","cont");void panel.offsetWidth;panel.classList.add(same?"cont":"enter");}
   panel.innerHTML=r.phase==="map"?mapView(t):r.phase==="ready"?readyView(t):r.phase==="pre"?`<p class="note">Setting off…</p>`:r.phase==="answer"?answerView(t,mine):r.phase==="reveal"?revealView(t):r.phase==="camp"?campView(t):summitView(t);
-  wirePanel(t);updateDynamic(t);
+  wirePanel(t);updateDynamic(t);if(was)flipLast(panel,was);
   // the result lands with a sound of its own
   if(r.phase==="reveal"&&S.sus!==r.id&&S.susDone===r.id&&S.stung!==r.id){S.stung=r.id;if(!TV()){const x=r.result?.pl?.[S.uid];buzz(x?.held?"jerk":x?.ok?"right":"wrong");}sfx((TV()?Object.values(r.result?.pl||{}).some(x=>x.ok):r.result?.pl?.[S.uid]?.ok)?"right":"wrong");}
 }
+/* FLIP: an element that stays from one render to the next (the question, each answer) is measured before and after,
+   and eased from its old place to its new one, so nothing jumps when the cards around it change */
+function flipFirst(root){const m={};root.querySelectorAll(".qtext,.qopt,.qhead").forEach((e,i)=>{m[(e.dataset.i??"")+e.className.split(" ")[0]+i]=e.getBoundingClientRect().top;});return m;}
+function flipLast(root,m){if(RM.matches)return;root.querySelectorAll(".qtext,.qopt,.qhead").forEach((e,i)=>{const k=(e.dataset.i??"")+e.className.split(" ")[0]+i;if(m[k]==null)return;
+  const dy=m[k]-e.getBoundingClientRect().top;if(Math.abs(dy)<1)return;e.animate([{transform:`translateY(${dy}px)`},{transform:"none"}],{duration:320,easing:"cubic-bezier(.22,1,.36,1)"});});}
 function frameQ(t,main){return `<div class="qwrap">${panelArt(t)}<div class="qmain">${main}</div></div>`;}
 function readyView(t){
   const solo=memberIds(t).length<2;
@@ -879,7 +890,7 @@ function revealView(t){
 // glowing), the picked one's details, the way to set off, and along the bottom the maps: collected, current, locked
 const viewMap=t=>{const c=currentMap(t);if(S.mapView==null||S.mapCur!==c){S.mapView=c;S.mapCur=c;}return S.mapView=Math.max(0,Math.min(MAPS.length-1,S.mapView));};
 // look at another map: dir -1 or +1 (the painting slides that way)
-function lookMap(dir){if(!S.team)return;const v=viewMap(S.team)+dir;if(v<0||v>=MAPS.length)return;S.mapView=v;S.mapSlide=dir;S.mapPop=null;sfx("pop");
+function lookMap(dir){if(!S.team)return;const v=viewMap(S.team)+dir;if(v<0||v>=MAPS.length)return;S.mapView=v;S.mapSlide=dir;S.mapSlideSeen=dir;S.mapPop=null;sfx("pop");
   S.panelKey=null;S.worldKey=null;renderPanel(S.team);renderWorld(S.team);}
 // the map's panel: on screens that show the map, nothing (you choose on the map itself); on a phone that's the big
 // screen's controller, the next stop(s) as cards, and the way to set off
@@ -942,6 +953,7 @@ function renderWorld(t){const el=$("#world");if(!el)return;const r=t&&t.round,on
         <span class="wpline"><span>${reached}/${M.steps.length} stops</span><span>${ICON.star}${got}/${M.steps.flat().length*3}</span></span>
         <span class="wndots">${MAPS.map((X,k)=>`<i class="${k===mi?"on":""} ${mapDone(t,k)?"dn":mapOpen(t,k)?"op":""}"></i>`).join("")}</span></div>
       <button class="wnarrow" id="mapNext" ${mi<MAPS.length-1?"":"disabled"} aria-label="Next map">▶</button>`;
+    if(fresh&&!RM.matches){const pl=el.querySelector(".wnplate"),d=S.mapSlideSeen||0;pl?.animate([{opacity:0,transform:`translateX(${d*14}px)`},{opacity:1,transform:"none"}],{duration:280,easing:"cubic-bezier(.22,1,.36,1)"});}
     el.querySelector("#mapPrev").onclick=()=>lookMap(-1);el.querySelector("#mapNext").onclick=()=>lookMap(1);
     // a map not reached yet: seen through, darker, under a lock
     const lk=el.querySelector(".wlock");lk.hidden=open;if(!open)lk.innerHTML=`<div class="wlplate">${ICON.flag}<b>${esc(M.name)}</b><span>Complete ${esc(MAPS[mi-1].name)} to unlock</span></div>`;
@@ -949,7 +961,7 @@ function renderWorld(t){const el=$("#world");if(!el)return;const r=t&&t.round,on
     // (on the big screen the phones choose; it only shows the map)
     if(TV()&&open){lk.hidden=false;lk.innerHTML=`<div class="wlplate tvnote"><b>Choose on your phones</b><span>${next.length>1?"The trail forks: pick one of two mountains.":"Next stop: "+esc(MOUNTAINS[next[0]]?.name||"")}</span></div>`;lk.classList.add("tv");}else lk.classList.remove("tv");
     el.querySelectorAll(".wpin").forEach(b=>b.onclick=e=>{e.stopPropagation();openPop(b.dataset.mtn);});
-    {const tl=el.querySelector(".wtools");tl.innerHTML=typeof toolsHtml==="function"?toolsHtml(t):"";if(typeof wireTools==="function")wireTools(tl);}
+    {const tl=el.querySelector(".wtools");tl.classList.toggle("fresh",!!fresh);tl.innerHTML=typeof toolsHtml==="function"?toolsHtml(t):"";if(typeof wireTools==="function")wireTools(tl);}
     renderPop(t,mi,shape);
     MAPFX.set(t,mi,shape,S.liveMap.querySelector(".wfx"),S.liveMap.querySelector("img"));}
   fitWorld();}
@@ -958,7 +970,7 @@ function renderWorld(t){const el=$("#world");if(!el)return;const r=t&&t.round,on
 function openPop(k){if(!S.team||!isOpen(S.team,k)||TV())return;sfx("pop");S.mapPop=S.mapPop===k?null:k;S.worldKey=null;renderWorld(S.team);}
 function renderPop(t,mi,shape){const el=$("#world .wpop");if(!el)return;const k=S.mapPop,m=k&&MOUNTAINS[k];
   if(k&&k[0]==="@"&&typeof toolPopHtml==="function"){el.innerHTML=toolPopHtml(t,k);el.hidden=false;el.classList.add("tool");
-    el.querySelector(".wpx").onclick=()=>{S.mapPop=null;S.worldKey=null;renderWorld(S.team);};wireToolPop(el,k);placePop();return;}
+    el.querySelector(".wpx").onclick=()=>popAway();wireToolPop(el,k);placePop();return;}
   el.classList.remove("tool");
   if(!m||m.map!==mi||!isOpen(t,k)){el.hidden=true;return;}
   const ids=memberIds(t),votes=t.round.votes||{},mine=votes[S.uid]?.mtn===k,go=mayGo(t,k),pid=partnerId(t),theirs=pid&&votes[pid]?.mtn;
@@ -972,12 +984,16 @@ function renderPop(t,mi,shape){const el=$("#world .wpop");if(!el)return;const k=
     :`<div class="lbbox" id="lbMtn"></div><p class="note">Fastest three-star ascents (no falls, no hooks), by rope team.</p>`}
     ${go?`<button class="btn rope" id="popGo">Set off</button>`:mine?`<p class="note">Waiting for ${esc(nameOf(pid))} to choose it too.</p>`:`<button class="btn rope" id="popPick">Choose ${esc(m.name)}</button>${theirs&&theirs!==k?`<p class="note">${esc(nameOf(pid))} chose ${esc(MOUNTAINS[theirs].name)}.</p>`:""}`}`;
   el.hidden=false;
-  el.querySelector(".wpx").onclick=()=>{S.mapPop=null;S.worldKey=null;renderWorld(S.team);};
+  el.querySelector(".wpx").onclick=()=>popAway();
   el.querySelector("#popGo")?.addEventListener("click",()=>{pickMountain(k);chooseMountain(k);S.mapPop=null;});
   el.querySelector("#popPick")?.addEventListener("click",()=>{pickMountain(k);});
   el.querySelectorAll(".ptabs button").forEach(b=>b.onclick=e=>{e.stopPropagation();S.popTab=b.dataset.tab;S.worldKey=null;renderWorld(S.team);});
   const tab=S.popTab||"stars";if(tab!=="stars"&&typeof lbFill==="function")lbFill(el.querySelector("#lbMtn"),tab==="week"?`lbw/${weekOf()}/${k}`:`lb/${k}`,tab==="week"?"No three-star ascent this week yet.":"No three-star ascent yet. Be the first.");
   placePop();}
+// the card eases out (a short fade and drop) before the map forgets it; a tap meanwhile just finishes it
+function popAway(){const el=$("#world .wpop");if(!el||el.hidden||RM.matches){S.mapPop=null;S.worldKey=null;if(S.team)renderWorld(S.team);return;}
+  if(el.classList.contains("out"))return;el.classList.add("out");
+  setTimeout(()=>{el.classList.remove("out");S.mapPop=null;S.worldKey=null;if(S.team)renderWorld(S.team);},140);}
 // (next to its banner: below it if there's room, else above; kept on the screen)
 function placePop(){const el=$("#world .wpop"),tool=(S.mapPop||"")[0]==="@",b=S.mapPop&&$(tool?`#world .wtool[data-k="${S.mapPop}"]`:`#world .wpin[data-mtn="${S.mapPop}"]`);if(!el||el.hidden||!b)return;
   const W=$("#world").getBoundingClientRect(),r=b.getBoundingClientRect(),w=Math.min(300,W.width-24);el.style.width=w+"px";const h=el.offsetHeight;
@@ -1169,7 +1185,7 @@ function fitWorld(){const el=$("#world"),map=el&&S.liveMap&&S.liveMap.isConnecte
       else if(dd){const m=(S.liveMap||null),pk=$("#world .wpeek");S.mapDragX=0;
         if(pk){pk.style.transition="transform .35s cubic-bezier(.22,.8,.25,1)";pk.style.transform="translate3d(0,0,0)";setTimeout(()=>pk.remove(),360);}
         if(m){m.style.transition="transform .35s cubic-bezier(.22,.8,.25,1)";m.style.transform="translate3d(0,0,0)";setTimeout(()=>{m.style.transition="";m.style.transform="";},360);}}}
-    else if(drag&&S.mapPop&&!e.target.closest(".wpin,.wtool")){S.mapPop=null;S.worldKey=null;if(S.team)renderWorld(S.team);}
+    else if(drag&&S.mapPop&&!e.target.closest(".wpin,.wtool")){popAway();}
     if(drag&&drag.moved){const el=W();if(el){const stop=ev=>{ev.stopPropagation();ev.preventDefault();};el.addEventListener("click",stop,{capture:true,once:true});setTimeout(()=>el.removeEventListener("click",stop,{capture:true}),50);}}drag=null;});
   addEventListener("pointercancel",()=>{drag=null;});
   addEventListener("keydown",e=>{const el=W();if(!el||el.hidden||e.target.closest&&e.target.closest("input,textarea"))return;if(e.key==="ArrowRight")lookMap(1);else if(e.key==="ArrowLeft")lookMap(-1);});
@@ -1311,7 +1327,7 @@ function wirePanel(t){
 function updateDynamic(t){
   const r=t.round;updateRadio(t);if(r.phase!=="answer"){if(typeof MUSIC!=="undefined")MUSIC.tension(false);return;}
   // the count before the clock starts, a tick for each number
-  if(now()<r.startedAt){const c=$("#count"),n=String(Math.ceil((r.startedAt-now())/1000));if(c&&c.textContent!==n){c.textContent=n;sfx("tick");}
+  if(now()<r.startedAt){const c=$("#count"),n=String(Math.ceil((r.startedAt-now())/1000));if(c&&c.textContent!==n){c.textContent=n;sfx("tick");if(!RM.matches)c.animate([{transform:"scale(1.5)",opacity:0},{transform:"scale(1)",opacity:1}],{duration:260,easing:"cubic-bezier(.22,1,.36,1)"});}
     say(`Next question in ${n} seconds.`,"count"+r.id);return;}
   {const q=quizById(r.qid);if(q)say(`${q.q} ${r.order.map((k,i)=>`${LETTERS[i]}: ${q.o[k]}.`).join(" ")}`,"q"+r.id);}
   const rem=remaining(r),bar=$("#timerBar"),txt=$("#qtime"),ptx=$("#partnerTxt");

@@ -91,7 +91,8 @@ async function showHome(items,onPick){
   const n=++HOME_N;document.body.classList.add("home");
   let home=document.getElementById("home");
   if(!home){home=document.createElement("div");home.id="home";document.body.appendChild(home);
-    const bg=document.createElement("img");bg.id="menubg";bg.alt="";document.querySelector(".scene").appendChild(bg);}
+    const bg=document.createElement("img");bg.id="menubg";bg.alt="";document.querySelector(".scene").appendChild(bg);
+    bg.addEventListener("load",()=>{bg.classList.add("in");const h=document.getElementById("home");if(h)requestAnimationFrame(()=>h.classList.add("ready"));});}
   home.hidden=false;home.innerHTML=`<div class="tlogo" role="img" aria-label="Pinnacle. ${SLOGAN.toLowerCase()}"><div class="tslogan">${SLOGAN}</div></div><nav class="pmenu" aria-label="Main menu"></nav>`;
   home.querySelector(".tlogo").prepend(drawTitle());
   const nav=home.querySelector(".pmenu");
@@ -99,6 +100,10 @@ async function showHome(items,onPick){
     b.textContent=it.label;nav.appendChild(b);
     b.onclick=()=>{sfx("pop");nav.querySelectorAll(".pbtn").forEach(x=>x.setAttribute("aria-current",x===b));onPick(it.id);};}
   titleScale();
+  // (the menu's items rise in one after another, once the painting is there; seen before, straight away)
+  nav.querySelectorAll(".pbtn").forEach((b,i)=>b.style.setProperty("--i",i));
+  const bg=document.getElementById("menubg");if(bg&&bg.complete&&bg.naturalWidth){bg.classList.add("in");home.classList.add("ready");}
+  setTimeout(()=>{home.classList.add("ready");document.getElementById("menubg")?.classList.add("in");},1500);
 }
 // the menu steps aside for a panel (the painting stays), or the title screen goes away for the climb
 function homeMenu(on){const h=document.getElementById("home");if(!h)return;h.classList.toggle("away",!on);

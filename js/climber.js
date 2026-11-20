@@ -199,7 +199,7 @@ function openProfile(){sfx("pop");let el=$("#profPanel");if(el)el.remove();
   const p=profile(),N=profNumbers(p),named=typeof acctNamed==="function"&&acctNamed(),u=named?ACCT.user:null,ch=CHARS.find(c=>c.id===myChar());
   const since=u&&u.metadata&&u.metadata.creationTime?new Date(u.metadata.creationTime).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):"";
   const best=Object.entries(p.peaks).filter(([k,v])=>MOUNTAINS[k]&&v.ms&&popc(v.g)===3).sort((a,b)=>a[1].ms-b[1].ms).slice(0,5);
-  const tile=(lab,val,cls="")=>`<div class="pf-tile ${cls}"><b>${val}</b><span>${lab}</span></div>`;
+  let tk=0;const tile=(lab,val,cls="")=>`<div class="pf-tile ${cls}" style="--k:${tk++}"><b>${val}</b><span>${lab}</span></div>`;
   el=document.createElement("div");el.id="profPanel";el.className="gscreen profpanel";el.setAttribute("role","dialog");el.setAttribute("aria-label","Your profile");
   el.innerHTML=`<div class="gs-sky" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
    <div class="pf-wrap"><button class="ibtn pf-x" type="button" aria-label="Close">${ICON.x}</button>
