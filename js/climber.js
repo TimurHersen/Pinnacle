@@ -17,10 +17,17 @@ function profMerge(a,b){const o={peaks:{},maps:{},seen:{},daily:{},started:{},ru
   for(const P of [a,b]){if(!P)continue;
     Object.assign(o.seen,P.seen||{});Object.assign(o.maps,P.maps||{});Object.assign(o.started,P.started||{});Object.assign(o.runs,P.runs||{});
     for(const [k,v] of Object.entries(P.peaks||{})){const m=o.peaks[k]||{g:0};o.peaks[k]={g:(m.g|v.g)||0,...((m.ms||v.ms)?{ms:Math.min(m.ms||Infinity,v.ms||Infinity)}:{})};}
-    for(const [k,v] of Object.entries(P.daily||{})){const m=o.daily[k];if(!m||(v.ms&&v.ms<m.ms))o.daily[k]=v;}}
+    for(const [k,v] of Object.entries(P.daily||{})){const m=o.daily[k];if(!m||(v.ms&&v.ms<m.ms))o.daily[k]=v;}
+    if(P.avatar)o.avatar=P.avatar;}
   return o;}
 function profSave(p){LS.set("profile",p);
   if(typeof acctNamed==="function"&&acctNamed())fb.put("users/"+ACCT.user.uid+"/profile",p).catch(()=>{});}
+// the player's avatar: a face for the account icon and the profile, any climber's or Ash the cat's (until one is
+// picked, the face of the climber they play)
+const AVATARS=[{id:"lumberjack",name:"Birch"},{id:"woman",name:"Juniper"},{id:"modcut",name:"Onyx"},{id:"redcat",name:"Ember"},{id:"ash",name:"Ash"}];
+function avatarOf(){const a=profile().avatar;return AVATARS.some(x=>x.id===a)?a:myChar();}
+const avatarSrc=id=>asset(`assets/avatars/${id}.png`);
+function setAvatar(id){if(!AVATARS.some(x=>x.id===id))return;const p=profile();p.avatar=id;profSave(p);if(typeof acctRender==="function")acctRender();}
 // (signing in: the account's profile and this device's become one)
 async function profSync(uid){try{const r=await fb.get("users/"+uid+"/profile");const p=profMerge(profile(),r);LS.set("profile",p);await fb.put("users/"+uid+"/profile",p);}catch(e){}}
 const profSummits=p=>Object.keys(p.seen).length;
@@ -212,6 +219,7 @@ const clockOf=ms=>{const t=Math.round(ms/1000),h=Math.floor(t/3600),m=Math.floor
 function myChar(){const t=S.team;if(t&&t.members[S.uid])return shownChar(t,S.uid);const c=LS.get("char",null);return CHARS.some(x=>x.id===c&&!x.soon)?c:"lumberjack";}
 function openProfile(){sfx("pop");let el=$("#profPanel");if(el)el.remove();
   const p=profile(),N=profNumbers(p),named=typeof acctNamed==="function"&&acctNamed(),u=named?ACCT.user:null,ch=CHARS.find(c=>c.id===myChar());
+  const via=u?({"google.com":"Google","password":"email"})[(u.providerData||[]).map(x=>x&&x.providerId).find(Boolean)]||"":"";
   const since=u&&u.metadata&&u.metadata.creationTime?new Date(u.metadata.creationTime).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):"";
   const best=Object.entries(p.peaks).filter(([k,v])=>MOUNTAINS[k]&&v.ms&&popc(v.g)===3).sort((a,b)=>a[1].ms-b[1].ms).slice(0,5);
   let tk=0;const tile=(lab,val,cls="")=>`<div class="pf-tile ${cls}" style="--k:${tk++}"><b>${val}</b><span>${lab}</span></div>`;
@@ -219,10 +227,12 @@ function openProfile(){sfx("pop");let el=$("#profPanel");if(el)el.remove();
   el.innerHTML=`<div class="gs-sky" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
    <div class="pf-wrap"><button class="ibtn pf-x" type="button" aria-label="Close">${ICON.x}</button>
     <div class="gs-eyebrow">${named?"Your profile":"Guest climber"}</div>
-    <div class="pf-head"><div class="pf-av"><div class="cs-glow" aria-hidden="true"></div><img src="${charFace(ch.id)}" alt="${esc(ch.name)}">${named?`<i class="pf-dot" title="Signed in"></i>`:""}</div>
+    <div class="pf-head"><div class="pf-av"><div class="cs-glow" aria-hidden="true"></div><img src="${avatarSrc(avatarOf())}" alt="Your avatar">${named?`<i class="pf-dot" title="Signed in"></i>`:""}</div>
       <div class="pf-id"><div class="pf-name">${esc(S.myName||(u&&u.displayName)||"Climber")}</div>
-        <div class="pf-meta">${named?`${esc(u.email||"Google account")}${since?` · since ${esc(since)}`:""}`:"Playing as a guest on this device"}</div>
+        <div class="pf-meta">${named?`<span class="pf-in">Signed in${via?` with ${via}`:""}</span> ${esc(u.email||"")}${since?` · since ${esc(since)}`:""}`:"Playing as a guest on this device"}</div>
         <div class="pf-meta">Climbs as <b>${esc(ch.name)}</b> · <button class="linkbtn pf-chg" id="pfChar" type="button">Change climber</button></div></div></div>
+    <div class="gs-label">Avatar</div>
+    <div class="pf-avs" role="radiogroup" aria-label="Avatar">${AVATARS.map(a=>`<button type="button" class="pf-avo ${a.id===avatarOf()?"on":""}" role="radio" aria-checked="${a.id===avatarOf()}" data-av="${a.id}" title="${esc(a.name)}"><img src="${avatarSrc(a.id)}" alt="${esc(a.name)}"></button>`).join("")}</div>
     <div class="pf-grid">
       ${tile("Climbs played",N.played)}${tile("Summits",N.summits,"good")}${tile("Unfinished",N.unfinished)}
       ${tile("Summit rate",N.played?N.rate+"%":"–")}${tile("Best score",N.best!=null?N.best:"–","gold")}${tile("Fastest summit",N.fastest?clockOf(N.fastest):"–")}
@@ -232,6 +242,10 @@ function openProfile(){sfx("pop");let el=$("#profPanel");if(el)el.remove();
     ${best.length?`<ol class="lbl">${best.map(([k,v],i)=>`<li><i>${i+1}</i><b>${esc(MOUNTAINS[k].name)}</b><span>${fmtDur(v.ms)}</span></li>`).join("")}</ol>`:`<p class="note">Climb a mountain with no falls and no hooks to set one.</p>`}
     <div class="pf-acts">${named?`<button class="btn ghost" id="pfOut">Sign out</button>`:`<button class="btn rope" id="pfIn">Sign in</button>`}<button class="btn" id="pfClose">Close</button></div>
     <p class="note pf-foot">${named?"Saved to your account, on every device.":"Kept on this device only until you sign in."}</p></div>`;
+  el.dataset.named=String(named);
+  el.querySelectorAll(".pf-avo").forEach(b=>b.onclick=()=>{sfx("pop");setAvatar(b.dataset.av);
+    el.querySelectorAll(".pf-avo").forEach(x=>{const on=x===b;x.classList.toggle("on",on);x.setAttribute("aria-checked",String(on));});
+    const im=el.querySelector(".pf-av img");im.src=avatarSrc(b.dataset.av);});
   document.body.appendChild(el);requestAnimationFrame(()=>el.classList.add("in"));
   const close=()=>{el.classList.remove("in");setTimeout(()=>el.remove(),220);};
   el.querySelector(".pf-x").onclick=close;el.querySelector("#pfClose").onclick=close;el.onclick=e=>{if(e.target===el)close();};

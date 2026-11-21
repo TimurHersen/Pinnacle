@@ -29,7 +29,7 @@ async function acctStart(){
   try{await acctScript(SDK+"firebase-app-compat.js");await acctScript(SDK+"firebase-auth-compat.js");}
   catch(e){ACCT.ready=true;return;}
   ACCT.on=true;firebase.initializeApp(FIREBASE_WEB);const A=ACCT.auth=firebase.auth();
-  A.getRedirectResult().catch(e=>acctError(e));
+  A.getRedirectResult().then(r=>{if(r&&r.user)acctSignedIn();}).catch(e=>acctError(e));
   A.onIdTokenChanged(async u=>{ACCT.user=u;ACCT.token=u?await u.getIdToken():null;
     if(!u){A.signInAnonymously().catch(()=>{ACCT.ready=true;ACCT.waiters.splice(0).forEach(r=>r());});return;}
     if(!ACCT.ready){ACCT.ready=true;ACCT.waiters.splice(0).forEach(r=>r());}
@@ -37,6 +37,11 @@ async function acctStart(){
     acctRender();});
 }
 const acctNamed=()=>!!(ACCT.user&&!ACCT.user.isAnonymous);
+// after any sign-in or sign-up: turning the guest into an account keeps the same user, and Firebase may not report
+// it, so the game takes it up here itself (the icon, the profile and the account's teams switch over at once)
+async function acctSignedIn(){const u=ACCT.auth&&ACCT.auth.currentUser;if(!u)return;ACCT.user=u;
+  try{ACCT.token=await u.getIdToken(true);}catch(e){}
+  if(!u.isAnonymous)await acctAdopt(u);acctRender();}
 // signed in with an account: take up the player id it remembers (or give it this device's), and merge the teams
 async function acctAdopt(u){
   if(ACCT.adopted===u.uid)return;ACCT.adopted=u.uid;
@@ -62,7 +67,7 @@ async function acctEmail(mode){const em=($("#acctEmail")?.value||"").trim(),pw=$
   try{if(mode==="up"){const cred=firebase.auth.EmailAuthProvider.credential(em,pw);
       if(A.currentUser&&A.currentUser.isAnonymous)await A.currentUser.linkWithCredential(cred);else await A.createUserWithEmailAndPassword(em,pw);}
     else await A.signInWithEmailAndPassword(em,pw);
-    toast(mode==="up"?"Account created. Your progress is saved to it.":"Signed in");}
+    await acctSignedIn();toast(mode==="up"?"Account created. Your progress is saved to it.":"Signed in");}
   catch(e){acctError(e);}}
 /* Google, in the page: Google's own account chooser slides up over the game ("Continue as …"), and its ID token signs
    in to Firebase, so the game never leaves the page. It needs this site listed as an authorised JavaScript origin of
@@ -75,7 +80,7 @@ function gisLoad(){return GIS||(GIS=acctScript("https://accounts.google.com/gsi/
 async function gisToken(idToken){const A=ACCT.auth,cred=firebase.auth.GoogleAuthProvider.credential(idToken);
   try{if(A.currentUser&&A.currentUser.isAnonymous){try{await A.currentUser.linkWithCredential(cred);}
       catch(e){if(e.code==="auth/credential-already-in-use")await A.signInWithCredential(e.credential||cred);else throw e;}}
-    else await A.signInWithCredential(cred);toast("Signed in with Google");}
+    else await A.signInWithCredential(cred);await acctSignedIn();toast("Signed in with Google");}
   catch(e){acctError(e);}}
 async function acctGoogle(){const A=ACCT.auth;if(!A)return;$("#acctErr").textContent="";
   if(!ACCT.gisFailed&&await gisLoad()){
@@ -90,7 +95,7 @@ async function acctGoogleRedirect(){const A=ACCT.auth;const P=new firebase.auth.
       try{narrow?await A.currentUser.linkWithRedirect(P):await A.currentUser.linkWithPopup(P);}
       catch(e){if(e.code==="auth/credential-already-in-use"&&e.credential)await A.signInWithCredential(e.credential);else throw e;}}
     else narrow?await A.signInWithRedirect(P):await A.signInWithPopup(P);
-    toast("Signed in with Google");}
+    await acctSignedIn();toast("Signed in with Google");}
   catch(e){if(e&&e.code==="auth/popup-blocked"){const el=$("#acctErr");if(el)el.textContent="Your browser blocked Google's window. Tap Continue with Google once more.";return;}acctError(e);}}
 async function acctReset(){const em=($("#acctEmail")?.value||"").trim();$("#acctErr").textContent="";
   if(!em){$("#acctErr").textContent="Type your email above first.";return;}
@@ -117,7 +122,9 @@ function acctRender(){const el=$("#acctBody");if(el){el.innerHTML=acctHtml();acc
   if(ACCT.on&&!acctNamed())gisLoad(); // (ready before the tap, so the sheet comes up at once)
   const w=$("#acctWrap");if(w){w.classList.toggle("signed",acctNamed());w.classList.toggle("off",!ACCT.on);
     const ab=$("#acctBtn");ab.setAttribute("aria-label",acctNamed()?"Your profile (signed in)":"Your profile. Sign in to save your progress");
-    const face=$("#acctFace");if(face)face.style.backgroundImage=acctNamed()&&typeof charFace==="function"?`url('${charFace(myChar())}')`:"";
+    const face=$("#acctFace");if(face)face.style.backgroundImage=acctNamed()&&typeof avatarSrc==="function"?`url('${avatarSrc(avatarOf())}')`:"";
+    // (an open profile that still shows the other state is redrawn)
+    const pp=$("#profPanel");if(pp&&pp.dataset.named!==String(acctNamed())&&typeof openProfile==="function")openProfile();
     ab.onclick=()=>{if(typeof openProfile==="function")openProfile();};}}
 function acctWire(){$("#acctG")&&($("#acctG").onclick=acctGoogle);$("#acctIn")&&($("#acctIn").onclick=()=>acctEmail("in"));
   $("#acctUp")&&($("#acctUp").onclick=()=>acctEmail("up"));$("#acctReset")&&($("#acctReset").onclick=acctReset);$("#acctOut")&&($("#acctOut").onclick=acctSignOut);
