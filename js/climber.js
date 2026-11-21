@@ -175,11 +175,11 @@ function charScreen(t,open){let el=$("#charPick");
         <div class="cs-name"></div><div class="cs-sub"></div>
         <div class="cs-roster" role="listbox" aria-label="Climbers"></div>
         <button class="btn rope cs-go" id="cpDone">Let's climb</button></div>`;
-    document.body.appendChild(el);requestAnimationFrame(()=>el.classList.add("in"));
+    document.body.appendChild(el);requestAnimationFrame(()=>el.classList.add("in"));if(typeof homeAside==="function")homeAside(true);
     const step=d=>{const L=CHARS.filter(c=>!c.soon),T=csTeam(),P=S.team?partnerId(T):null;let k=L.findIndex(c=>c.id===CS.view);for(let n=0;n<L.length;n++){k=(k+d+L.length)%L.length;if(!(P&&L[k].id===charOf(T,P)))break;}
       CS.view=L[k].id;pickChar(CS.view);el.dataset.dir=d>0?"r":"l";charScreen(csTeam(),true);};
     el.querySelector(".cs-arrow.l").onclick=()=>step(-1);el.querySelector(".cs-arrow.r").onclick=()=>step(1);
-    el.querySelector("#cpDone").onclick=()=>{sfx("pop");S.charOpen=false;S.charSeen=true;el.classList.remove("in");setTimeout(()=>charScreen(null,false),220);};
+    el.querySelector("#cpDone").onclick=()=>{sfx("pop");S.charOpen=false;S.charSeen=true;el.classList.remove("in");setTimeout(()=>{charScreen(null,false);if(typeof homeAside==="function"&&!$("#profPanel"))homeAside(false);},220);};
     el.onkeydown=e=>{if(e.key==="ArrowLeft")step(-1);else if(e.key==="ArrowRight")step(1);else if(e.key==="Escape"||e.key==="Enter")el.querySelector("#cpDone").click();};
     let sx=null;el.querySelector(".cs-stage").addEventListener("pointerdown",e=>{sx=e.clientX;});
     el.querySelector(".cs-stage").addEventListener("pointerup",e=>{if(sx!=null&&Math.abs(e.clientX-sx)>40)step(e.clientX<sx?1:-1);sx=null;});
@@ -246,8 +246,8 @@ function openProfile(){sfx("pop");let el=$("#profPanel");if(el)el.remove();
   el.querySelectorAll(".pf-avo").forEach(b=>b.onclick=()=>{sfx("pop");setAvatar(b.dataset.av);
     el.querySelectorAll(".pf-avo").forEach(x=>{const on=x===b;x.classList.toggle("on",on);x.setAttribute("aria-checked",String(on));});
     const im=el.querySelector(".pf-av img");im.src=avatarSrc(b.dataset.av);});
-  document.body.appendChild(el);requestAnimationFrame(()=>el.classList.add("in"));
-  const close=()=>{el.classList.remove("in");setTimeout(()=>el.remove(),220);};
+  document.body.appendChild(el);requestAnimationFrame(()=>el.classList.add("in"));if(typeof homeAside==="function")homeAside(true);
+  const close=()=>{if(!el.classList.contains("in"))return;el.classList.remove("in");setTimeout(()=>{el.remove();if(typeof homeAside==="function"&&!$("#charPick"))homeAside(false);},220);};
   el.querySelector(".pf-x").onclick=close;el.querySelector("#pfClose").onclick=close;el.onclick=e=>{if(e.target===el)close();};
   el.onkeydown=e=>{if(e.key==="Escape")close();};setTimeout(()=>el.querySelector("#pfClose")?.focus({preventScroll:true}),60);
   el.querySelector("#pfOut")?.addEventListener("click",()=>{close();acctSignOut();});
