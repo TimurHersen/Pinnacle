@@ -219,7 +219,10 @@ function valleyY(h,climb){const A=FX.area,ab=A?R0((A.y+A.h)/FX.px):h,V=ART.valle
 // when the view is wider than the picture; the lake sits in the open air left of the cliff
 function drawValley(g,w,h,climb){const V=ART.valley,y=valleyY(h,climb),x0=R0(FX.ox-V.width*.6);
   rect(g,0,0,w,Math.max(0,y),ART.sky);if(y+V.height<h)rect(g,0,y+V.height,w,h-y-V.height,ART.valleyFoot);
-  for(let k=-2;k<=2;k++){const x=x0+k*V.width;if(x>=w||x+V.width<=0)continue;
+  // (as many copies as cover the whole view, however wide: on the big screen the view is far wider than five copies
+  // reach once the camera has moved along the upper stages, and an unpainted strip kept every old frame, so the
+  // confetti and the birds left trails in it)
+  for(let k=Math.floor(-x0/V.width),k1=Math.floor((w-1-x0)/V.width);k<=k1;k++){const x=x0+k*V.width;
     if(k&1){g.save();g.translate(x+V.width,y);g.scale(-1,1);g.drawImage(V,0,0);g.restore();}else g.drawImage(V,x,y);}}
 // a texture pixel, the texture mirrored at every edge so neighbouring tiles always meet; its outermost pixel ring
 // (a flat border line on some generated images) is left out, so a mirror never doubles it into a stripe
@@ -365,7 +368,8 @@ const boltXY=(ch,i)=>[R0(laneX(ch,-i*HS)+15),-i*HS+6];
 const idxOf=(exp,p)=>Math.round(-WY(geoAlt(exp,p))/HS);
 function restSpot(i,m){if(i<=0)return {x:m?-76:-26,y:0};
   if(i===IDX_C1||i===IDX_C2)return {x:(m?-76:-26)+campDX(i),y:-i*HS}; // (the edge spot stays clear of the rock face at x -9)
-  if(i>=IDX_TOP){const x=m?SX+48:SX+12;return {x,y:R0(peakTop(x))+2};}return null;}
+  if(i>=IDX_TOP){const x=m?SX+54:SX+12; // (far enough apart that the two, facing each other, never overlap)
+    return {x,y:R0(peakTop(x))+2};}return null;}
 // where the partner belays from while the leader is at li. The two swap leads each pitch, so a partner who has just led
 // stays at the stance they reached (cur), well below the new leader; they only move down when a fall leaves them above
 // it. Otherwise the stance is just below the team's last anchor (so a fall onto it never comes down through them) and
@@ -669,7 +673,7 @@ class Rig{
     T=(Math.abs(h-Math.round(h))<.03?Math.round(h):dir<0?Math.floor(h):Math.ceil(h))*CYC_H,dy=Math.abs(T-D);
     if(dy<.3)return 0;const d=Math.max(.08,dy/CYC_H*msPerHalf/1000);this.slide(this.N.x,this.N.y-(T-D),d);return d*1000;}
   calm(){this.idleAt=FX.time+2.6+Math.random()*2.6;}
-  standAt(x,y){this.stoodAt=FX.time;this.mantling=false;this.mode="stand";this.fall=null;this.mv=null;this.gx=x;this.gy=y;this.N.x=x;this.N.y=y-LEG;this.standLoop();this.calm();this.pin();}
+  standAt(x,y){this.stoodAt=FX.time;this.noSit=false;this.pend=null;this.mantling=false;this.mode="stand";this.fall=null;this.mv=null;this.gx=x;this.gy=y;this.N.x=x;this.N.y=y-LEG;this.standLoop();this.calm();this.pin();}
   grab(i){this.mode="climb";this.fall=null;this.mv=null;this.cOff=0;this.wasStill=null;this.hi=i;const p=this.hangAt(i);this.N.x=p.x;this.N.y=p.y;this.play([["hang",1e9]]);this.calm();this.pin();}
   // one move up the wall: the free hand reaches for the next hold while the body stays put, then the climber pulls
   // up onto it in one quick, eased heave (the climb clip plays across both halves, see artFrame)
@@ -708,7 +712,10 @@ class Rig{
   dropTo(x,y,d){this.mantling=false;this.mode="stand";this.fall=null;this.gx=x;this.gy=y;this.slide(x,y-LEG,d);this.play([["hop",d*1000+160],["stand",650],["stand2",650]],1);this.calm();}
   // on a ledge: walk to x at a steady pace (facing the way they go; standing again on arrival), or kneel to work
   // facing dir; both return how long the walk takes in ms
-  walkTo(x,speed=WALK){const d=Math.abs(x-this.N.x)/speed;if(d<.05){this.mode="stand";return 0;}
+  // (sitting down to wait, they get to their feet first: the walk starts once they're up, and the time returned
+  // covers both)
+  walkTo(x,speed=WALK){const d=Math.abs(x-this.N.x)/speed;if(d<.05){if(this.mode!=="walk")this.mode="stand";return 0;}
+    if(this.mode==="stand"&&this.sit>.02){this.noSit=true;this.pend={x,speed};return (this.sit*SIT_UP+d)*1000;}
     this.mode="walk";this.dir=x>this.N.x?1:-1;this.slide(x,this.N.y,d);this.gx=x;return d*1000;}
   work(dir){this.mode="work";this.mv=null;this.dir=dir;}
   // off the wall: pushed out into the air (push, px/s away from the rock) with a little hop. With a rope anchor the
@@ -743,7 +750,7 @@ class Rig{
     else if(this.mv){const m=this.mv;if(m.wait>0)m.wait-=dt;else{m.t+=dt;const k=Math.min(1,m.t/m.d),e=m.ease?m.ease(k):k;this.N.x=lerp(m.x0,m.x1,e);this.N.y=lerp(m.y0,m.y1,e);if(k>=1){this.mv=null;this.mvEnd=FX.time;};}}
     // (a walk ends a moment after the last step: a walk on at once, such as round a partner, then never shows a
     // standing frame in between)
-    if(this.mode==="walk"&&!this.mv&&FX.time-(this.mvEnd??-9)>.08){this.mode="stand";this.stoodAt=FX.time;this.standLoop();}
+    if(this.mode==="walk"&&!this.mv&&!this.pend&&FX.time-(this.mvEnd??-9)>.08){this.mode="stand";this.stoodAt=FX.time;this.noSit=false;this.standLoop();}
     // (the clips' sounds, in the game only: a footstep as each foot lands, a boot finding the rock on the wall, the
     // mallet coming down on a tent peg)
     if(FX.mode==="game"&&!this.hidden){const t=FX.time;let f=-1,k="";
@@ -764,9 +771,10 @@ class Rig{
     const other=FX.A&&(this===FX.A.me?FX.A.mate:FX.A.me);
     // up on a ledge with the partner still well down the wall: after a moment they sit down to wait, and get to
     // their feet again as the partner comes up to the ledge
-    {const want=this.mode==="stand"&&!this.mv&&this.cheer<=0&&!(this.dizzy>0)&&this.L.art&&this.L.art.sit&&!RM.matches&&other&&other!==this&&other.mode==="climb"&&other.N.y>this.N.y+96;
+    {const want=this.mode==="stand"&&!this.noSit&&!this.mv&&this.cheer<=0&&!(this.dizzy>0)&&this.L.art&&this.L.art.sit&&!RM.matches&&other&&other!==this&&other.mode==="climb"&&other.N.y>this.N.y+96;
       this.sitHold=want?(this.sitHold||0)+dt:0;
-      this.sit=this.mode!=="stand"?0:clamp((this.sit||0)+(this.sitHold>SIT_AFTER?dt/SIT_DOWN:-dt/SIT_UP),0,1);}
+      this.sit=this.mode!=="stand"?0:clamp((this.sit||0)+(this.sitHold>SIT_AFTER?dt/SIT_DOWN:-dt/SIT_UP),0,1);
+      if(this.pend&&this.sit<=0){const p=this.pend;this.pend=null;this.walkTo(p.x,p.speed);}}
     // a belayer on the wall leans back out on the rope while the leader climbs past, so the two never overlap
     const lean=other&&this===FX.A.mate&&this.mode==="climb"&&other.mode==="climb"&&Math.abs(other.N.y-this.N.y)<74?-38:0;
     this.passX=(this.passX||0)+(lean-(this.passX||0))*(1-Math.exp(-dt*5));
@@ -885,8 +893,8 @@ class Rope{
     const jk=FX.time-(FX.ropeJerk??-9),taut=jk<.6;
     for(let i=0;i<n;i++){const [x0,y0]=path[i],[x1,y1]=path[i+1],L=Math.hypot(x1-x0,y1-y0);
       // how much slack a span carries: plenty in the loop at the belayer, a little up to the leader, almost none
-      // between two quickdraws; on the ground enough to lie along it
-      let sag=this.ground!=null?L*.5+14:i===0?Math.min(o.first??13,4+L*.16)+(o.loose?L*.12:0):i===n-1?Math.min(7,2+L*.1):1.5;if(taut)sag=0;
+      // between two quickdraws; on the ground enough to lie along it, however close together the two stand
+      let sag=this.ground!=null?Math.max(L*.5+14,this.ground+4-(y0+y1)/2):i===0?Math.min(o.first??13,4+L*.16)+(o.loose?L*.12:0):i===n-1?Math.min(7,2+L*.1):1.5;if(taut)sag=0;
       const wind=RM.matches||taut?0:Math.sin(FX.time*1.15+i*1.9)*Math.min(1.6,sag*.22);
       const tx=(x0+x1)/2+wind,ty=(y0+y1)/2+sag;let c=this.c[i];
       if(!c||Math.hypot(c.x-tx,c.y-ty)>70||!dt){this.c[i]={x:tx,y:ty,vx:0,vy:0};continue;}
@@ -1382,6 +1390,8 @@ async function climbRig(r,to,ms,id,ch="main"){
   // clear the ground
   if(r.mode==="stand"){if(to<=r.hi)return ok();const first=Math.min(to,r.hi+LOW),hp=r.hangAt(first);
     if(Math.abs(hp.x-4-r.N.x)>6){const d=r.walkTo(hp.x-4,40);if(!(await wait(d,ch)))return false;}
+    // (sitting, they stand up before reaching for the rock)
+    if(r.sit>.02){r.noSit=true;if(!(await wait(r.sit*SIT_UP*1000+40,ch)))return false;}
     const rd=clamp(Math.abs(r.hangAt(first).y-r.N.y)/150,.4,.75);r.reachFrom(first,rd);if(!(await wait(rd*1000+40,ch)))return false;}
   // (onto a ledge the last move is the pull over its tip, not a move up to the ledge level, which lies back by the wall)
   const last=r.rest(to)?to-1:to;

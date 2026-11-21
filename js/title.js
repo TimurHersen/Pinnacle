@@ -109,8 +109,10 @@ async function showHome(items,onPick){
 // (a screen that opens over the title, such as the profile or the climber select: the menu and logo step aside as
 // it comes in, and come back only once it has gone, so the two never show through each other; with a lobby panel
 // still open underneath, they stay away)
-function homeAside(on){if(!document.body.classList.contains("home"))return;const m=document.getElementById("main");
-  if(on)homeMenu(false);else if(!m||m.hidden)homeMenu(true);}
+// (returns whether the menu was on show, so the screen opening knows to wait for it to go)
+function homeAside(on){if(!document.body.classList.contains("home"))return false;const m=document.getElementById("main"),h=document.getElementById("home");
+  if(on){const shown=!!h&&!h.hidden&&!h.classList.contains("away");homeMenu(false);return shown;}
+  if(!m||m.hidden)homeMenu(true);return false;}
 // (the title's entrance plays once the loading screen has lifted, so it is seen, not hidden behind it)
 function afterBoot(fn){const up=()=>{const b=document.getElementById("boot");return !b||b.classList.contains("out");};
   if(up())return fn();const iv=setInterval(()=>{if(up()){clearInterval(iv);setTimeout(fn,RM.matches?0:200);}},40);}
