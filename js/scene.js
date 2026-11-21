@@ -481,7 +481,7 @@ const SLUMP_N=9,SLUMP_MS=1500; // wrong again from the same stance: a slump and 
    tip). MANTLE_SK: where its first frame sits from the still climb frame, and each frame's sole row and boots' middle. */
 const MANTLE_N=9,MANTLE_P=[0,.2,.4,.57,.73,.9,1,1,1],MANTLE_F=[0,0,.15,.42,.72,.95,1,1,1],MANTLE_IN=20;
 const MANTLE_SK={"lumberjack":{"step":[105,97,86,83,83,85,85,83,83],"off":[0,5],"sole":[106,98,87,84,84,86,86,84,84],"foot":[76,75,72,72,78,80,80,76,76]},"woman":{"step":[104,95,84,82,82,83,83,83,83],"off":[0,4],"sole":[105,96,85,83,83,84,84,84,84],"foot":[76,78,76,72,76,79,78,76,76]}};
-const STAND_N=9,STAND_MS=2000,LAND_N=5,LAND_MS=900; // standing: a look up the wall, a drink; and up from a hard landing
+const GEST_FAST=3,STAND_N=9,STAND_MS=2000,LAND_N=5,LAND_MS=900; // standing: a look up the wall, a drink; and up from a hard landing
 // the box round a frame's opaque pixels, measured once
 function boxOf(im){if(im.bb)return im.bb;const [,g]=mk(im.width,im.height);g.drawImage(im,0,0);
   const d=g.getImageData(0,0,im.width,im.height).data;let x0=1e9,y0=1e9,x1=-1,y1=-1;
@@ -673,7 +673,7 @@ class Rig{
     T=(Math.abs(h-Math.round(h))<.03?Math.round(h):dir<0?Math.floor(h):Math.ceil(h))*CYC_H,dy=Math.abs(T-D);
     if(dy<.3)return 0;const d=Math.max(.08,dy/CYC_H*msPerHalf/1000);this.slide(this.N.x,this.N.y-(T-D),d);return d*1000;}
   calm(){this.idleAt=FX.time+2.6+Math.random()*2.6;}
-  standAt(x,y){this.stoodAt=FX.time;this.noSit=false;this.pend=null;this.mantling=false;this.mode="stand";this.fall=null;this.mv=null;this.gx=x;this.gy=y;this.N.x=x;this.N.y=y-LEG;this.standLoop();this.calm();this.pin();}
+  standAt(x,y){this.stoodAt=FX.time;this.noSit=false;this.pend=null;this.gFast=0;this.mantling=false;this.mode="stand";this.fall=null;this.mv=null;this.gx=x;this.gy=y;this.N.x=x;this.N.y=y-LEG;this.standLoop();this.calm();this.pin();}
   grab(i){this.mode="climb";this.fall=null;this.mv=null;this.cOff=0;this.wasStill=null;this.hi=i;const p=this.hangAt(i);this.N.x=p.x;this.N.y=p.y;this.play([["hang",1e9]]);this.calm();this.pin();}
   // one move up the wall: the free hand reaches for the next hold while the body stays put, then the climber pulls
   // up onto it in one quick, eased heave (the climb clip plays across both halves, see artFrame)
@@ -716,7 +716,13 @@ class Rig{
   // covers both)
   walkTo(x,speed=WALK){const d=Math.abs(x-this.N.x)/speed;if(d<.05){if(this.mode!=="walk")this.mode="stand";return 0;}
     if(this.mode==="stand"&&this.sit>.02){this.noSit=true;this.pend={x,speed};return (this.sit*SIT_UP+d)*1000;}
+    // (in the middle of a look up the wall or a drink, the arm comes back down first, quickly: the gesture goes up and
+    // back the same way, so from the matching frame on the way down it plays on at GEST_FAST times its pace, then
+    // they walk)
+    if(this.mode==="stand"&&this.gesturing()){const c=this.clip;if(c.t<STAND_MS/2)c.t=STAND_MS-c.t;this.gFast=GEST_FAST;this.pend={x,speed};
+      return ((STAND_MS-c.t)/GEST_FAST/1000+d)*1000;}
     this.mode="walk";this.dir=x>this.N.x?1:-1;this.slide(x,this.N.y,d);this.gx=x;return d*1000;}
+  gesturing(){return !!(this.clip&&(this.pose==="slook"||this.pose==="sdrink")&&this.clip.i===0&&this.L.art&&this.L.art.stand);}
   work(dir){this.mode="work";this.mv=null;this.dir=dir;}
   // off the wall: pushed out into the air (push, px/s away from the rock) with a little hop. With a rope anchor the
   // rope catches the climber len from it and they swing on it; with a floor instead they land on their feet there
@@ -734,7 +740,7 @@ class Rig{
     this.h[0].x=hp.x+P0.hn[0]*k;this.h[0].y=hp.y+P0.hn[1];this.h[1].x=hp.x+P0.hf[0]*k;this.h[1].y=hp.y+P0.hf[1];}
   update(dt){
     const c=this.clip;
-    if(c){c.t+=dt*1000;while(c.t>=c.frames[c.i][1]){c.t-=c.frames[c.i][1];if(c.i<c.frames.length-1)c.i++;else if(c.loop>=0)c.i=c.loop;else{c.t=0;break;}}
+    if(c){c.t+=dt*1000*(this.gFast&&this.gesturing()?this.gFast:1);while(c.t>=c.frames[c.i][1]){c.t-=c.frames[c.i][1];if(c.i<c.frames.length-1)c.i++;else if(c.loop>=0)c.i=c.loop;else{c.t=0;break;}}
       const np=c.frames[c.i][0];if(np!==this.pose){if((np==="pull"||np==="hang")&&this.mode==="climb"&&this.pose!=="chalk"&&this.pose!=="rest"&&this.pose!=="yes"&&!this.pose.startsWith("shake"))sfx("grab");
         if(np==="chalk"&&this.mode==="climb")puff(this.h[0].x,this.h[0].y); // (a puff only when they chalk up)
         this.pose=np;}}
@@ -761,7 +767,7 @@ class Rig{
     if(this.dizzy>0)this.dizzy-=dt;
     if(this.mode==="stand"){if(this.cheer>0){this.cheer-=dt;if(!(this.clip&&this.clip.joy)){this.play([["cheer1",170],["cheer2",170]],0);this.clip.joy=1;}if(this.cheer<=0)this.standLoop();}
       else if(this.clip&&this.clip.joy)this.standLoop();}
-    if(!this.mv&&(this.mode==="climb"||this.mode==="stand")&&this.cheer<=0&&FX.time>this.idleAt&&!RM.matches){this.calm();
+    if(!this.mv&&!this.pend&&(this.mode==="climb"||this.mode==="stand")&&this.cheer<=0&&FX.time>this.idleAt&&!RM.matches){this.calm();
       if(this.mode==="climb")this.play(this.L.art&&this.L.art.rest&&climbPhase(this.cy(),true).f===5?[["rest",REST_MS],["hang",1e9]]:Math.random()<.5?[["chalk",900],["hang",1e9]]:[["shake1",110],["shake2",110],["shake1",110],["shake2",110],["shake1",110],["shake2",110],["hang",1e9]]);
       // (on their feet with nothing to do, they look up the wall or take a drink; while belaying they just glance up)
       else if(this.sit>0);
@@ -774,7 +780,7 @@ class Rig{
     {const want=this.mode==="stand"&&!this.noSit&&!this.mv&&this.cheer<=0&&!(this.dizzy>0)&&this.L.art&&this.L.art.sit&&!RM.matches&&other&&other!==this&&other.mode==="climb"&&other.N.y>this.N.y+96;
       this.sitHold=want?(this.sitHold||0)+dt:0;
       this.sit=this.mode!=="stand"?0:clamp((this.sit||0)+(this.sitHold>SIT_AFTER?dt/SIT_DOWN:-dt/SIT_UP),0,1);
-      if(this.pend&&this.sit<=0){const p=this.pend;this.pend=null;this.walkTo(p.x,p.speed);}}
+      if(this.pend&&this.sit<=0&&!this.gesturing()){const p=this.pend;this.pend=null;this.gFast=0;this.walkTo(p.x,p.speed);}}
     // a belayer on the wall leans back out on the rope while the leader climbs past, so the two never overlap
     const lean=other&&this===FX.A.mate&&this.mode==="climb"&&other.mode==="climb"&&Math.abs(other.N.y-this.N.y)<74?-38:0;
     this.passX=(this.passX||0)+(lean-(this.passX||0))*(1-Math.exp(-dt*5));
