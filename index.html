@@ -25,15 +25,28 @@
 /* GitHub Pages lets browsers keep every file for ten minutes. The game's styles and scripts are fetched at one code
    version, so a browser keeps them between visits and never mixes files from two updates: raise the number with every
    change to css/ or js/, and everyone gets the new files the next time this page loads. */
-window.V="code=105";
+window.V="code=106";
 /* The art (everything under assets/) changes rarely and is most of the download, so it keeps one version, which
    browsers may hold on to: raise the number whenever a picture is changed or added. */
 window.AV="art=24";
+/* A picture that fails to load (a bad copy the browser kept from while an update was going up, or a dropped
+   connection) is asked for once more at a fresh address, past any cache; and drawing one that is still broken draws
+   nothing instead of throwing, which would stop that whole frame of the scene. */
+(function(){const fresh=new Map(),again=e=>{const im=e.target;if(!(im instanceof HTMLImageElement)||!im.src||im.src.startsWith("data:"))return;
+    // (each bad address gets one fresh one, used from then on; if that fails too the picture is hidden, not shown broken)
+    const u=im.src;if(/[?&]r=\d/.test(u)){im.classList.add("broken");return;}
+    if(!fresh.has(u))fresh.set(u,u+(u.includes("?")?"&":"?")+"r="+Date.now());im.src=fresh.get(u);};
+  addEventListener("error",again,true);
+  addEventListener("load",e=>{if(e.target instanceof HTMLImageElement)e.target.classList.remove("broken");},true);
+  const I=window.Image;window.Image=function(w,h){const im=new I(w,h);im.addEventListener("error",again);return im;};window.Image.prototype=I.prototype;
+  const C=CanvasRenderingContext2D.prototype,d=C.drawImage;
+  C.drawImage=function(im){if(im instanceof HTMLImageElement&&im.complete&&!im.naturalWidth)return;return d.apply(this,arguments);};})();
 document.write('<link rel="stylesheet" href="css/style.css?'+V+'">');
 </script>
 <style>
 /* the loading screen: up before anything else is in (so its few styles live here), gone once the first picture
    can be shown whole (js/main.js) */
+img.broken{visibility:hidden}
 #boot{position:fixed;inset:0;z-index:100;display:grid;place-content:center;justify-items:center;gap:18px;background:#020b12;transition:opacity .3s steps(4)}
 #boot.out{opacity:0;pointer-events:none}
 #boot img{width:96px;height:auto;image-rendering:pixelated}

@@ -479,7 +479,9 @@ const MANTLE_N=9,MANTLE_P=[0,.2,.4,.57,.73,.9,1,1,1],MANTLE_F=[0,0,.15,.42,.72,.
 const MANTLE_SK={"lumberjack":{"step":[105,97,86,83,83,66,85,83,83],"off":[0,5],"sole":[106,98,87,84,84,86,86,84,84],"foot":[76,75,72,72,78,80,80,76,76]},"woman":{"step":[104,95,84,82,82,65,83,83,83],"off":[0,4],"sole":[105,96,85,83,83,84,84,84,84],"foot":[76,78,76,72,76,79,78,76,76]}};
 const STAND_N=9,STAND_MS=2000,LAND_N=5,LAND_MS=900; // standing: a look up the wall, a drink; and up from a hard landing
 // the box round a frame's opaque pixels, measured once
-function boxOf(im){if(im.bb)return im.bb;const [,g]=mk(im.width,im.height);g.drawImage(im,0,0);
+// (a picture not in yet, or that failed, gets a stand-in box and is measured again once it's there)
+const loaded=im=>!(im instanceof HTMLImageElement)||(im.complete&&im.naturalWidth>0);
+function boxOf(im){if(im.bb)return im.bb;if(!loaded(im)||!im.width)return {x0:30,y0:8,x1:66,y1:95};const [,g]=mk(im.width,im.height);g.drawImage(im,0,0);
   const d=g.getImageData(0,0,im.width,im.height).data;let x0=1e9,y0=1e9,x1=-1,y1=-1;
   for(let y=0;y<im.height;y++)for(let x=0;x<im.width;x++)if(d[(y*im.width+x)*4+3]>40){x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y);}
   return im.bb={x0,y0,x1,y1};}
@@ -821,7 +823,7 @@ class Rig{
       this.lastArt=["idle",0];this.tieW={x:X+TIE[0],y:Y+TIE[1]};return;}
     if(A&&A.ready){const [k,i]=this.lastArt=this.artFrame(t),fr=A.clips[k],b=boxOf(fr[0]),W=fr[0].width,flip=this.dir<0,key=`${A.who}|${k}|${i}|${flip}`; // (by character too: a climber who changes character never shows an old frame)
       let img=this.cache.get(key);
-      if(!img){if(flip){const [c,cg]=mk(W,fr[i].height);cg.translate(W,0);cg.scale(-1,1);cg.drawImage(fr[i],0,0);img=c;}else img=fr[i];this.cache.set(key,img);}
+      if(!img){if(flip){const [c,cg]=mk(W,fr[i].height);cg.translate(W,0);cg.scale(-1,1);cg.drawImage(fr[i],0,0);img=c;}else img=fr[i];if(loaded(fr[i]))this.cache.set(key,img);}
       // on the wall the clip's raised hand and its wall-side edge sit on the hold; on a ledge the feet stand
       // LEG below the hips, the body centred on them (each clip anchored by its first frame, so it moves within it)
       // (on the wall the boots, not the reaching hand, set where the body sits: the toes go a few pixels into the
