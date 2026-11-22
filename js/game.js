@@ -482,6 +482,9 @@ function renderLobby(invite){
   main.onkeydown=e=>{if(e.key==="Escape")close();};
   showHome([...(S.myTeams.length?[{id:"secCont",label:"Continue"}]:[]),{id:"secNew",label:"New expedition"},{id:"secTv",label:"Big screen"},{id:"secJoin",label:"Join team"},
     {id:"secHow",label:"How to play"},{id:"secSet",label:"Settings"}],open);
+  // (the title is rebuilt with no panel open, as when a sign-in completes and the account's teams come in: its logo and
+  // menu come back, unless a sheet such as the profile is still open over it; left stepped aside, the title was empty)
+  if(!invite&&!document.querySelector(".gscreen:not([data-closing])"))homeMenu(true);
   if(typeof acctRender==="function")acctRender();
   if(invite)open("secJoin");
   syncSettings();
