@@ -160,8 +160,21 @@ function shownChar(t,id){const m=t.members[id];if(CS.want&&id===S.uid){if(m&&m.c
    to go through them, the roster below (faces), and the partner's pick marked and locked. A pick is saved at once. */
 const CS={view:null,frame:0,timer:0,want:null,wantAt:0,saving:false};
 function charFace(id){return asset(`assets/climbers/${id}/south.png`);}
+/* a full-screen sheet (the climber select, the profile) over the title: the menu goes first (its quick fade), then the
+   sheet comes in; leaving, the sheet goes all the way out (its whole fade) before it is taken away, and only then
+   does the menu come back. So the two are never on screen at once, and nothing is removed while still visible.
+   (the times are the motion system's: --t-quick for the menu, --t-panel for the sheet) */
+const GS_AWAY=140,GS_FADE=240; // (leaving is quicker than arriving, as everywhere: see .gscreen:not(.in) in the css)
+function gsOpen(el){document.body.appendChild(el);const wait=typeof homeAside==="function"&&homeAside(true)&&!RM.matches;
+  const go=()=>requestAnimationFrame(()=>{if(!el.dataset.closing)el.classList.add("in");});if(wait)setTimeout(go,GS_AWAY);else go();}
+function gsClose(el,done){if(el.dataset.closing)return;el.dataset.closing="1";el.classList.remove("in");
+  // (the menu is asked back a moment early: it waits its own 60 ms before fading in, so it starts as the sheet ends)
+  const back=()=>{if(typeof homeAside==="function"&&!document.querySelector(".gscreen:not([data-closing])"))homeAside(false);};
+  if(RM.matches){done();back();return;}setTimeout(back,GS_FADE-60);setTimeout(done,GS_FADE);}
 function charScreen(t,open){let el=$("#charPick");
-  if(!open||!t||TV()){if(el)el.remove();clearInterval(CS.timer);CS.timer=0;S.charOpen=false;return;}
+  // (closing always fades it out, whoever closes it; a sheet still fading out is replaced by a fresh one on reopening)
+  if(!open||!t||TV()){clearInterval(CS.timer);CS.timer=0;S.charOpen=false;if(el&&!el.dataset.closing)gsClose(el,()=>el.remove());return;}
+  if(el&&el.dataset.closing){el.remove();el=null;}
   const me0=t.members[S.uid]?S.uid:Object.keys(t.members)[0],mine=shownChar(t,me0),pid=S.team?partnerId(t):null,theirs=pid&&charOf(t,pid),list=CHARS.filter(c=>!c.soon);
   // (the climber on show is always my pick: choosing here picks at once, and a pick still on its way counts)
   CS.view=mine;
@@ -175,11 +188,11 @@ function charScreen(t,open){let el=$("#charPick");
         <div class="cs-name"></div><div class="cs-sub"></div>
         <div class="cs-roster" role="listbox" aria-label="Climbers"></div>
         <button class="btn rope cs-go" id="cpDone">Let's climb</button></div>`;
-    document.body.appendChild(el);requestAnimationFrame(()=>el.classList.add("in"));
+    gsOpen(el);
     const step=d=>{const L=CHARS.filter(c=>!c.soon),T=csTeam(),P=S.team?partnerId(T):null;let k=L.findIndex(c=>c.id===CS.view);for(let n=0;n<L.length;n++){k=(k+d+L.length)%L.length;if(!(P&&L[k].id===charOf(T,P)))break;}
       CS.view=L[k].id;pickChar(CS.view);el.dataset.dir=d>0?"r":"l";charScreen(csTeam(),true);};
     el.querySelector(".cs-arrow.l").onclick=()=>step(-1);el.querySelector(".cs-arrow.r").onclick=()=>step(1);
-    el.querySelector("#cpDone").onclick=()=>{sfx("pop");S.charOpen=false;S.charSeen=true;el.classList.remove("in");setTimeout(()=>charScreen(null,false),220);};
+    el.querySelector("#cpDone").onclick=()=>{sfx("pop");S.charOpen=false;S.charSeen=true;charScreen(null,false);};
     el.onkeydown=e=>{if(e.key==="ArrowLeft")step(-1);else if(e.key==="ArrowRight")step(1);else if(e.key==="Escape"||e.key==="Enter")el.querySelector("#cpDone").click();};
     let sx=null;el.querySelector(".cs-stage").addEventListener("pointerdown",e=>{sx=e.clientX;});
     el.querySelector(".cs-stage").addEventListener("pointerup",e=>{if(sx!=null&&Math.abs(e.clientX-sx)>40)step(e.clientX<sx?1:-1);sx=null;});
@@ -217,7 +230,9 @@ function charCheck(t){const me=t.members[S.uid];if(!me||TV()){charScreen(null,fa
 // (a time as a clock: 5:12, or 1:02:09 past an hour)
 const clockOf=ms=>{const t=Math.round(ms/1000),h=Math.floor(t/3600),m=Math.floor(t/60)%60,x=String(t%60).padStart(2,"0");return h?`${h}:${String(m).padStart(2,"0")}:${x}`:`${m}:${x}`;};
 function myChar(){const t=S.team;if(t&&t.members[S.uid])return shownChar(t,S.uid);const c=LS.get("char",null);return CHARS.some(x=>x.id===c&&!x.soon)?c:"lumberjack";}
-function openProfile(){sfx("pop");let el=$("#profPanel");if(el)el.remove();
+function openProfile(){let el=$("#profPanel");
+  // (already open: it stays as it is; one still fading out is replaced by a fresh one)
+  if(el&&!el.dataset.closing){el.querySelector("#pfClose")?.focus({preventScroll:true});return;}sfx("pop");if(el)el.remove();
   const p=profile(),N=profNumbers(p),named=typeof acctNamed==="function"&&acctNamed(),u=named?ACCT.user:null,ch=CHARS.find(c=>c.id===myChar());
   const via=u?({"google.com":"Google","password":"email"})[(u.providerData||[]).map(x=>x&&x.providerId).find(Boolean)]||"":"";
   const since=u&&u.metadata&&u.metadata.creationTime?new Date(u.metadata.creationTime).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):"";
@@ -246,10 +261,11 @@ function openProfile(){sfx("pop");let el=$("#profPanel");if(el)el.remove();
   el.querySelectorAll(".pf-avo").forEach(b=>b.onclick=()=>{sfx("pop");setAvatar(b.dataset.av);
     el.querySelectorAll(".pf-avo").forEach(x=>{const on=x===b;x.classList.toggle("on",on);x.setAttribute("aria-checked",String(on));});
     const im=el.querySelector(".pf-av img");im.src=avatarSrc(b.dataset.av);});
-  document.body.appendChild(el);requestAnimationFrame(()=>el.classList.add("in"));
-  const close=()=>{el.classList.remove("in");setTimeout(()=>el.remove(),220);};
+  gsOpen(el);
+  const close=()=>gsClose(el,()=>el.remove());
   el.querySelector(".pf-x").onclick=close;el.querySelector("#pfClose").onclick=close;el.onclick=e=>{if(e.target===el)close();};
-  el.onkeydown=e=>{if(e.key==="Escape")close();};setTimeout(()=>el.querySelector("#pfClose")?.focus({preventScroll:true}),60);
+  // (Escape closes it even before focus has moved into it)
+  const onEsc=e=>{if(!el.isConnected){removeEventListener("keydown",onEsc,true);return;}if(e.key==="Escape"&&!el.dataset.closing){e.stopPropagation();close();}};addEventListener("keydown",onEsc,true);setTimeout(()=>el.querySelector("#pfClose")?.focus({preventScroll:true}),60);
   el.querySelector("#pfOut")?.addEventListener("click",()=>{close();acctSignOut();});
   el.querySelector("#pfIn")?.addEventListener("click",()=>{close();if(S.code&&typeof goLobby==="function")goLobby();setTimeout(()=>S.openSec&&S.openSec("secAcct"),S.code?300:0);});
   el.querySelector("#pfChar")?.addEventListener("click",()=>{close();if(S.team&&S.team.members[S.uid]){S.charOpen=true;CS.view=null;charScreen(S.team,true);}else openCharTitle();});}

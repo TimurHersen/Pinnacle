@@ -482,6 +482,9 @@ function renderLobby(invite){
   main.onkeydown=e=>{if(e.key==="Escape")close();};
   showHome([...(S.myTeams.length?[{id:"secCont",label:"Continue"}]:[]),{id:"secNew",label:"New expedition"},{id:"secTv",label:"Big screen"},{id:"secJoin",label:"Join team"},
     {id:"secHow",label:"How to play"},{id:"secSet",label:"Settings"}],open);
+  // (the title is rebuilt with no panel open, as when a sign-in completes and the account's teams come in: its logo and
+  // menu come back, unless a sheet such as the profile is still open over it; left stepped aside, the title was empty)
+  if(!invite&&!document.querySelector(".gscreen:not([data-closing])"))homeMenu(true);
   if(typeof acctRender==="function")acctRender();
   if(invite)open("secJoin");
   syncSettings();
@@ -915,7 +918,11 @@ const MAPIMG={};
 function mapImg(src){let im=MAPIMG[src];if(!im){im=MAPIMG[src]=new Image();im.decoding="async";im.src=asset(src);im.ready=(im.decode?im.decode():Promise.resolve()).catch(()=>{});}return im;}
 function preloadMaps(){for(const M of MAPS)for(const sh of ["wide","tall"])mapImg(M.art[sh].src);}
 function renderWorld(t){const el=$("#world");if(!el)return;const r=t&&t.round,on=!!(r&&r.phase==="map"&&!PAD());
-  if(!on){if(!el.hidden){el.hidden=true;el.innerHTML="";S.worldKey=null;S.mapPop=null;MAPFX.stop();}return;}
+  // (leaving the map for the climb, it fades away over the scene rather than vanishing in one frame; coming back
+  // to it meanwhile just stops the fade)
+  const gone=()=>{clearTimeout(S.worldOut);S.worldOut=0;el.classList.remove("leaving");el.hidden=true;el.innerHTML="";S.worldKey=null;S.mapPop=null;MAPFX.stop();};
+  if(!on){if(!el.hidden){if(!t||RM.matches)gone();else if(!S.worldOut){el.classList.add("leaving");S.worldOut=setTimeout(gone,300);}}return;}
+  if(S.worldOut){clearTimeout(S.worldOut);S.worldOut=0;el.classList.remove("leaving");}
   const votes=r.votes||{},ids=memberIds(t),pk=t.stats?.peaks||{},shape=mapShape(),mi=viewMap(t),key=JSON.stringify([votes,pk,ids,shape,mi,t.stats?.trail||{},S.mapPop,t.look||{},t.stats?.daily||{},S.popTab]);
   if(el.hidden){el.hidden=false;el.classList.remove("in");void el.offsetWidth;el.classList.add("in");preloadMaps();}
   if(S.worldKey!==key){const fresh=S.worldMap!==mi||S.worldShape!==shape;S.worldKey=key;S.worldMap=mi;S.worldShape=shape;
@@ -930,7 +937,9 @@ function renderWorld(t){const el=$("#world");if(!el)return;const r=t&&t.round,on
       const dir=S.mapSlide||0,old=S.liveMap&&S.liveMap.isConnected?S.liveMap:el.querySelector(".wmap:last-of-type");
       el.querySelectorAll(".wmap").forEach(g=>{if(g!==old)g.remove();});
       const dx0=S.mapDragX||0;S.mapDragX=0;el.querySelector(".wpeek")?.remove();
-      let ghost=null;if(dir&&old&&!RM.matches){ghost=old;ghost.classList.add("wghost");ghost.querySelector(".wpins")?.remove();ghost.style.transition="none";ghost.style.transform=`translate3d(${dx0}px,0,0)`;}
+      // (the slide is the whole transition: neither map keeps the fade-in it came with, which as a CSS animation would
+      // override the slide's own fade, so the old map blinked out at once and the new one came in see-through)
+      let ghost=null;if(dir&&old&&!RM.matches){ghost=old;ghost.classList.add("wghost");ghost.querySelector(".wpins")?.remove();ghost.style.animation="none";ghost.style.transition="none";ghost.style.transform=`translate3d(${dx0}px,0,0)`;}
       else old?.remove();
       if(!el.querySelector(".wnav"))el.insertAdjacentHTML("beforeend",`<div class="wlock" hidden></div><div class="wtools"></div><div class="wnav"></div><div class="wpop" hidden></div>`);
       const im=mapImg(A.src).cloneNode();im.alt=`A painted map of ${M.name}: six mountains along a winding trail`;
@@ -938,7 +947,7 @@ function renderWorld(t){const el=$("#world");if(!el)return;const r=t&&t.round,on
       box.insertAdjacentHTML("beforeend",`<canvas class="wfx" width="${A.w}" height="${A.h}" aria-hidden="true"></canvas><span class="wcamp" style="left:${100*A.camp[0]/A.w}%;top:${100*A.camp[1]/A.h}%">Camp</span><div class="wpins"></div>`);
       el.insertBefore(box,el.querySelector(".wlock"));S.liveMap=box;
       S.mapPan=null;if(!(S.mapPop||"").startsWith("@"))S.mapPop=null;S.mapSlide=0;
-      if(ghost){const W=dx0?ghost.offsetWidth:el.getBoundingClientRect().width;box.style.transition="none";box.style.transform=`translate3d(${dir*W+dx0}px,0,0)`;
+      if(ghost){const W=dx0?ghost.offsetWidth:el.getBoundingClientRect().width;box.style.animation="none";box.style.transition="none";box.style.transform=`translate3d(${dir*W+dx0}px,0,0)`;
         const go=()=>requestAnimationFrame(()=>requestAnimationFrame(()=>{const ease="transform .5s cubic-bezier(.22,.8,.25,1)";
           box.style.transition=ease;box.style.transform="translate3d(0,0,0)";ghost.style.transition=ease;ghost.style.transform=`translate3d(${-dir*W*.6}px,0,0)`;ghost.style.opacity="0";ghost.style.transitionProperty="transform,opacity";
           setTimeout(()=>{ghost.remove();box.style.transition="";box.style.transform="";},520);}));

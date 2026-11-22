@@ -25,10 +25,10 @@
 /* GitHub Pages lets browsers keep every file for ten minutes. The game's styles and scripts are fetched at one code
    version, so a browser keeps them between visits and never mixes files from two updates: raise the number with every
    change to css/ or js/, and everyone gets the new files the next time this page loads. */
-window.V="code=106";
+window.V="code=110";
 /* The art (everything under assets/) changes rarely and is most of the download, so it keeps one version, which
    browsers may hold on to: raise the number whenever a picture is changed or added. */
-window.AV="art=24";
+window.AV="art=25";
 /* A picture that fails to load (a bad copy the browser kept from while an update was going up, or a dropped
    connection) is asked for once more at a fresh address, past any cache; and drawing one that is still broken draws
    nothing instead of throwing, which would stop that whole frame of the scene. */
@@ -47,7 +47,7 @@ document.write('<link rel="stylesheet" href="css/style.css?'+V+'">');
 /* the loading screen: up before anything else is in (so its few styles live here), gone once the first picture
    can be shown whole (js/main.js) */
 img.broken{visibility:hidden}
-#boot{position:fixed;inset:0;z-index:100;display:grid;place-content:center;justify-items:center;gap:18px;background:#020b12;transition:opacity .3s steps(4)}
+#boot{position:fixed;inset:0;z-index:100;display:grid;place-content:center;justify-items:center;gap:18px;background:#020b12;transition:opacity .45s cubic-bezier(.4,0,.2,1)}
 #boot.out{opacity:0;pointer-events:none}
 #boot img{width:96px;height:auto;image-rendering:pixelated}
 #boot i{display:block;width:96px;height:8px;border:2px solid #dfeaee;background:linear-gradient(90deg,#f1c677 0 40%,transparent 0) 0 0/250% 100% no-repeat;animation:boot 1.1s steps(8) infinite}
@@ -57,7 +57,7 @@ img.broken{visibility:hidden}
 </head>
 <body>
 <a id="privLink" href="privacy.html">Privacy</a>
-<div id="boot" role="status" aria-label="Loading Pinnacle"><img src="assets/emblem.png?art=24" alt=""><i></i></div>
+<div id="boot" role="status" aria-label="Loading Pinnacle"><img src="assets/emblem.png?art=25" alt=""><i></i></div>
 <div class="scene" id="scene">
   <canvas id="topo" role="img" aria-label="A rope team climbing a granite cliff from base camp to the summit"></canvas>
   <div class="fx" id="fx" aria-hidden="true"></div>

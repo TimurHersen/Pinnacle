@@ -92,7 +92,7 @@ async function showHome(items,onPick){
   let home=document.getElementById("home");
   if(!home){home=document.createElement("div");home.id="home";document.body.appendChild(home);
     const bg=document.createElement("img");bg.id="menubg";bg.alt="";document.querySelector(".scene").appendChild(bg);
-    bg.addEventListener("load",()=>{bg.classList.add("in");if(document.body.classList.contains("home"))TFX.start(bg);const h=document.getElementById("home");if(h)requestAnimationFrame(()=>h.classList.add("ready"));});}
+    bg.addEventListener("load",()=>{bg.classList.add("in");if(document.body.classList.contains("home"))TFX.start(bg);afterBoot(()=>{const h=document.getElementById("home");if(h)requestAnimationFrame(()=>h.classList.add("ready"));});});}
   home.hidden=false;home.innerHTML=`<div class="tlogo" role="img" aria-label="Pinnacle. ${SLOGAN.toLowerCase()}"><div class="tslogan">${SLOGAN}</div></div><nav class="pmenu" aria-label="Main menu"></nav>`;
   home.querySelector(".tlogo").prepend(drawTitle());
   const nav=home.querySelector(".pmenu");
@@ -102,10 +102,20 @@ async function showHome(items,onPick){
   titleScale();
   // (the menu's items rise in one after another, once the painting is there; seen before, straight away)
   nav.querySelectorAll(".pbtn").forEach((b,i)=>b.style.setProperty("--i",i));
-  const bg=document.getElementById("menubg");if(bg&&bg.complete&&bg.naturalWidth){bg.classList.add("in");home.classList.add("ready");TFX.start(bg);}
-  setTimeout(()=>{home.classList.add("ready");document.getElementById("menubg")?.classList.add("in");},1500);
+  const bg=document.getElementById("menubg");if(bg&&bg.complete&&bg.naturalWidth){bg.classList.add("in");TFX.start(bg);afterBoot(()=>home.classList.add("ready"));}
+  setTimeout(()=>afterBoot(()=>{home.classList.add("ready");document.getElementById("menubg")?.classList.add("in");}),1500);
 }
 // the menu steps aside for a panel (the painting stays), or the title screen goes away for the climb
+// (a screen that opens over the title, such as the profile or the climber select: the menu and logo step aside as
+// it comes in, and come back only once it has gone, so the two never show through each other; with a lobby panel
+// still open underneath, they stay away)
+// (returns whether the menu was on show, so the screen opening knows to wait for it to go)
+function homeAside(on){if(!document.body.classList.contains("home"))return false;const m=document.getElementById("main"),h=document.getElementById("home");
+  if(on){const shown=!!h&&!h.hidden&&!h.classList.contains("away");homeMenu(false);return shown;}
+  if(!m||m.hidden)homeMenu(true);return false;}
+// (the title's entrance plays once the loading screen has lifted, so it is seen, not hidden behind it)
+function afterBoot(fn){const up=()=>{const b=document.getElementById("boot");return !b||b.classList.contains("out");};
+  if(up())return fn();const iv=setInterval(()=>{if(up()){clearInterval(iv);setTimeout(fn,RM.matches?0:200);}},40);}
 function homeMenu(on){const h=document.getElementById("home");if(!h)return;h.classList.toggle("away",!on);
   if(on)h.querySelectorAll(".pbtn").forEach(x=>x.removeAttribute("aria-current"));}
 function hideHome(){HOME_N++;TFX.stop();document.body.classList.remove("home");const h=document.getElementById("home");if(h){h.hidden=true;h.innerHTML="";}}
