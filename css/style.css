@@ -1200,3 +1200,10 @@ body.home #privLink{display:block}#privLink:hover,#privLink:focus-visible{opacit
 @media (min-width:1600px) and (min-height:900px){body:not(.tv):not(.pad) #main.game2{zoom:1.2}}
 /* (the title's panels and the profile and climber sheets, on a large display: the same, so the setup reads too) */
 @media (min-width:1600px) and (min-height:900px){#main.lobby,.gscreen .pf-wrap,.gscreen .cs-wrap{zoom:1.3}}
+
+/* the gear under the question: each item's icon with its count beside it and its name below, on every screen size */
+#main .qgear .gbtn{display:grid!important;grid-template-columns:auto auto;grid-template-rows:auto auto;justify-content:center;justify-items:center;align-items:center;column-gap:4px;row-gap:3px;padding:4px 8px!important;min-height:0}
+#main .qgear .gbtn .px{grid-column:1;grid-row:1}
+#main .qgear .gbtn b{grid-column:2;grid-row:1;font-size:13px}
+#main .qgear .gbtn span{display:block!important;grid-column:1/3;grid-row:2;font:600 11px/1 var(--body);letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+#main .qgear .gbtn b{color:#ffd36b!important}

@@ -766,7 +766,8 @@ function renderHud(t){
   const who=ids.map(id=>{const p=posOf(e,id),s2=stageOf(e,p);return `<div class="who ${pid&&p===top&&gap!==0?"lead":""}"><img class="port" src="${portrait(lookOf(t,id))}" alt=""><div><div class="nm">${ptag(t,id)} ${esc(S.names[id]||nameOf(id))}${id===S.uid?" (you)":""}</div>
     <span class="role belay">Pitch ${Math.min(s2.i+1,s2.n)}/${s2.n}</span></div></div>`;}).join("");
   const hearts=`<div class="hearts ${lost>e.rope?"spend":""}" title="Hooks left to clip: a fall stops at the highest hook below you." aria-label="${e.rope} hooks left">${e.rope?ICON.hook:ICON.hookUsed}<span class="hlbl">Hooks</span><b>${e.rope}</b></div>`;
-  const html=`<div class="hud-l">${who}${hearts}</div>
+  // (the hooks left show on the hook button with the other gear, not up here)
+  const html=`<div class="hud-l">${who}</div>
    <div class="hud-r"><div class="stat">${ICON.mtn}<span class="k">Alt</span><span class="v">${fmt(alt)} m</span></div>
      ${pid?`<div class="stat">${ICON.rope}<span class="k">Rope</span><span class="v">${Math.abs(gap)}/${MAX_GAP}</span></div>`:""}
      <div class="stat">${ICON.flag}<span class="k">Pitch</span><span class="v">${Math.min(so.i+1,so.n)}/${so.n}</span></div></div>`;
