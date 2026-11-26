@@ -843,12 +843,14 @@ function answerView(t,mine){if(TV())return tvAnswerView(t);
    ${r.ev?`<div class="wev ${r.ev}"><b>${EVENTS[r.ev].name}</b> ${esc(EVENTS[r.ev].text.split(": ")[1]||"")}</div>`:""}<p class="qsub">${brief}</p>`);
   const sel=mine?mine.choice:S.local.choice;
   const opts=r.order.map((k,i)=>`<button class="qopt ${cut.includes(i)?"cut":""} ${sel===i?"sel":""}" data-i="${i}" ${cut.includes(i)||mine?"disabled":""}><b>${LETTERS[i]}</b><span>${esc(q.o[k])}</span></button>`).join("");
-  // the gear, one button each, for either climber at any time while the question is open: a hook, chalk, the scout
+  // the gear, one button each, for either climber at any time while the question is open: a hook, chalk, the scout;
+  // each a pixel-art item in a pack slot, its count on the corner and its name below
+  const gearImg=k=>`<i class="gslot"><img class="gimg" src="${asset(`assets/ui/gear-${k}.png`)}" alt=""></i>`;
   const hookHere=(e.hooks||[]).includes(pos)&&pos>(e.anchor||0);
   const gear=`<div class="qgear">
-    <button class="gbtn ${hookHere?"on":""}" id="hookBtn" aria-label="${hookHere?"A hook is clipped here":`Clip a hook here, ${e.rope} left`}" title="Clip a hook into the wall where you hang: a fall then stops here, not at the last camp" ${canHook(e,S.uid)?"":"disabled"}>${ICON.hook}<span>${hookHere?"Clipped":"Hook"}</span><b>${e.rope}</b></button>
-    <button class="gbtn" id="chalkBtn" aria-label="Chalk, ${e.chalk} left" title="Chalk: wipes out two wrong answers" ${e.chalk>0&&!r.cut&&r.order.length>3?"":"disabled"}>${ICON.chalk}<span>Chalk</span><b>${e.chalk}</b></button>
-    <button class="gbtn" id="scoutBtn" aria-label="Hint, ${e.scout} left" title="Hint: a clue for this question" ${e.scout>0&&!r.scout?"":"disabled"}>${ICON.scout}<span>Hint</span><b>${e.scout}</b></button></div>`;
+    <button class="gbtn ${hookHere?"on":""}" id="hookBtn" aria-label="${hookHere?"A hook is clipped here":`Clip a hook here, ${e.rope} left`}" title="Clip a hook into the wall where you hang: a fall then stops here, not at the last camp" ${canHook(e,S.uid)?"":"disabled"}>${gearImg("hook")}<span>${hookHere?"Clipped":"Hook"}</span><b>${e.rope}</b></button>
+    <button class="gbtn" id="chalkBtn" aria-label="Chalk, ${e.chalk} left" title="Chalk: wipes out two wrong answers" ${e.chalk>0&&!r.cut&&r.order.length>3?"":"disabled"}>${gearImg("chalk")}<span>Chalk</span><b>${e.chalk}</b></button>
+    <button class="gbtn" id="scoutBtn" aria-label="Hint, ${e.scout} left" title="Hint: a clue for this question" ${e.scout>0&&!r.scout?"":"disabled"}>${gearImg("hint")}<span>Hint</span><b>${e.scout}</b></button></div>`;
   const hint=r.scout?`<div class="hint"><b>${r.free?"Calm spell, a free hint":"Hint"}:</b> ${esc(q.hint)}</div>`:"";
   const ev=r.ev&&r.ev!=="calm"?`<div class="wev ${r.ev}"><b>${EVENTS[r.ev].name}</b> ${esc(EVENTS[r.ev].text.split(": ")[1]||"")}</div>`:"";
   const hooked=r.hook?`<div class="hooked">${ICON.hook}<span><b>${r.hookBy===S.uid?"You clipped a hook":`${esc(nameOf(r.hookBy))} clipped a hook`} at ${fmt(altOf(e,r.hookAt??pos))} m.</b> ${(r.hookAt??pos)<=pos?"A fall now stops there.":"It is above you: it catches you once you are past it."}</span></div>`:"";

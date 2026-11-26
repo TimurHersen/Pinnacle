@@ -1207,3 +1207,17 @@ body.home #privLink{display:block}#privLink:hover,#privLink:focus-visible{opacit
 #main .qgear .gbtn b{grid-column:2;grid-row:1;font-size:13px}
 #main .qgear .gbtn span{display:block!important;grid-column:1/3;grid-row:2;font:600 11px/1 var(--body);letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
 #main .qgear .gbtn b{color:#ffd36b!important}
+
+/* the gear as pack slots: each item in a dark bevelled slot, its count in a gold badge on the corner, its name below;
+   an item that can't be used now is dimmed, a hook clipped here has a gold slot */
+#main .qgear .gbtn{display:flex!important;flex-direction:column;align-items:center;gap:6px!important;padding:2px 4px!important;background:transparent!important;border:0!important;position:relative}
+#main .qgear .gslot{position:relative;display:grid;place-items:center;width:44px;height:44px;background:#1c2340;border:3px solid #0a0d1c;border-radius:4px;
+  box-shadow:inset 2px 2px 0 #39437a,inset -2px -2px 0 #11152b}
+#main .qgear .gimg{width:32px;height:32px;image-rendering:pixelated;display:block}
+#main .qgear .gbtn b{position:absolute;top:30px;left:calc(50% + 12px);width:20px;height:20px;display:grid;place-items:center;border-radius:50%;
+  background:#0a0d1c;border:2px solid #ffd36b;color:#ffd36b!important;font:400 13px/1 var(--head)}
+#main .qgear .gbtn span{display:block!important;font:600 11px/1 var(--body);letter-spacing:.08em;text-transform:uppercase;color:#fff}
+#main .qgear .gbtn:disabled{opacity:.45}
+#main .qgear .gbtn.on .gslot{border-color:#ffd36b;box-shadow:inset 2px 2px 0 #6a5a2a,inset -2px -2px 0 #2a2412}
+#main .qgear .gbtn.on:disabled{opacity:1}
+#main .qgear .gbtn:not(:disabled):active .gslot{transform:translateY(1px);box-shadow:inset -2px -2px 0 #39437a,inset 2px 2px 0 #11152b}
