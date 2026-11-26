@@ -13,3 +13,8 @@ PixelLab characters (reusable for new animations):
 - Birch (the lumberjack): 61243147-bdd1-49c3-9111-0b93fccce6b5
 Ember's frames were redrawn from art/reference/ember-ref.png with transfer_outfit (runall3.py); Onyx's from the text
 in art/reference/onyx-description.json with edit_image (runall2.py).
+- trails2.py: builds assets/maps/trails.json from the hand-laid routes in art/maps/routes.json (camp, each mountain's
+  stop, the fork junctions and the waypoints of every leg, per map and shape), as smooth curves. Edit routes.json and
+  rerun; pass a folder to get a preview of every route drawn on its painting. (trails.py, the old automatic tracer,
+  is superseded: its routes cut through forests and up cliffs.)
+- ties.py: measures where the rope ties in on every climber frame (TIE_GEO in js/scene.js).

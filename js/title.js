@@ -123,10 +123,11 @@ function hideHome(){HOME_N++;TFX.stop();document.body.classList.remove("home");c
 /* ---------- the painting comes alive: one transparent canvas at the painting's own pixels, laid exactly over it
    (as object-fit:cover places it), so everything drawn is in the same big pixels. The summit flag flutters, snow
    blows off the peak in the wind, the sea of clouds slowly drifts (soft puffs that move only where the painting has
-   cloud, so they pass behind the cliff and the climber) and, now and then, a pair of birds crosses the sky. With
-   reduced motion nothing runs. ---------- */
+   cloud, so they pass behind the cliff and the climber) and small flocks of birds cross the sky, one already on its
+   way when the screen opens, near ones larger and quicker than far ones, each bird beating its wings in its own time
+   and gliding now and then. With reduced motion nothing runs. ---------- */
 const TFX=(()=>{
-  let cv=null,g=null,img=null,raf=0,last=0,t=0,W=0,H=0,flag=null,peak=null,mask=null,src=null,rims=[],wisps=[],snow=[],birds=[],nextBird=2.5;
+  let cv=null,g=null,img=null,raf=0,last=0,t=0,W=0,H=0,flag=null,peak=null,mask=null,src=null,rims=[],wisps=[],snow=[],birds=[],nextBird=0;
   const rnd=(a,b)=>a+Math.random()*(b-a);
   function place(){if(!cv||!img||!img.naturalWidth)return;const r=img.getBoundingClientRect(),s=Math.max(r.width/W,r.height/H),
       cs=getComputedStyle(img).objectPosition.split(" ").map(v=>parseFloat(v)/100),px=isNaN(cs[0])?.5:cs[0],py=isNaN(cs[1])?.7:cs[1];
@@ -164,11 +165,20 @@ const TFX=(()=>{
     if(peak){if(Math.random()<dt*14)snow.push({x:peak.x+rnd(-1,2),y:peak.y+rnd(0,4),vx:rnd(8,16),vy:rnd(-1.5,1.5),life:0,max:rnd(1.4,2.8)});
       snow=snow.filter(s=>(s.life+=dt)<s.max);for(const s of snow){s.x+=s.vx*dt;s.y+=(s.vy+Math.sin(t*3+s.max*9)*1.2)*dt;const a=s.life/s.max;
         g.fillStyle=a<.45?"#ffffff":a<.8?"#e3ecfb":"#c7d4f0";g.fillRect(Math.round(s.x),Math.round(s.y),1,1);}}
-    // now and then a pair of birds glides across the sky, wings flapping
-    if((nextBird-=dt)<=0){nextBird=rnd(9,15);const dir=Math.random()<.5?1:-1,y=rnd(H*.08,H*(H>W?.22:.3)),v=rnd(9,14)*dir,x=dir>0?-8:W+8;birds.push({x,y,v},{x:x-dir*rnd(7,11),y:y+rnd(2,5),v});}
-    birds=birds.filter(b=>(b.x+=b.v*dt)>-14&&b.x<W+14);g.fillStyle="#4b4f86";
-    for(const b of birds){const up=Math.floor(t*5+b.y*3)%2,x=Math.round(b.x),y=Math.round(b.y+Math.sin(t*1.3+b.y)*1.2);
-      for(const [dx,dy] of up?[[0,1],[1,0],[2,1],[3,0],[4,1]]:[[0,0],[1,1],[2,1],[3,1],[4,0]])g.fillRect(x+dx,y+dy,1,1);}}
+    // small flocks crossing the sky: two or three birds in a loose line, the first already partway across when the
+    // screen opens; a near flock (larger, darker, quicker) or a far one (a small dot of a bird, paler, slower)
+    if((nextBird-=dt)<=0){const first=!birds.length&&nextBird>-1&&t<1;nextBird=rnd(6,11);
+      const dir=Math.random()<.5?1:-1,far=Math.random()<.4,y=rnd(H*.07,H*(H>W?.22:.32)),v=(far?rnd(5,7):rnd(9,13))*dir,n=Math.random()<.5?3:2;
+      let x=dir>0?-8:W+8;if(first)x=dir>0?rnd(W*.15,W*.45):rnd(W*.55,W*.85);
+      for(let i=0;i<n;i++)birds.push({x:x-dir*i*rnd(7,10)*(far?.6:1),y:y+i*rnd(1.5,4)*(far?.6:1),v:v*rnd(.96,1.04),far,ph:rnd(0,6),glide:0});}
+    birds=birds.filter(b=>(b.x+=b.v*dt)>-14&&b.x<W+14);
+    for(const b of birds){
+      // (a few beats, then a moment's glide with the wings held level)
+      if(b.glide>0)b.glide-=dt;else if(Math.random()<dt*.25)b.glide=rnd(.6,1.4);
+      const up=b.glide>0?2:Math.floor(t*(b.far?6:5)+b.ph)%2,x=Math.round(b.x),y=Math.round(b.y+Math.sin(t*1.3+b.ph)*1.2);
+      g.fillStyle=b.far?"#7d84b8":"#4b4f86";
+      const shape=b.far?(up===1?[[0,1],[1,0],[2,1]]:[[0,0],[1,1],[2,0]]):up===2?[[0,1],[1,1],[2,1],[3,1],[4,1]]:up?[[0,1],[1,0],[2,1],[3,0],[4,1]]:[[0,0],[1,1],[2,1],[3,1],[4,0]];
+      for(const [dx,dy] of shape)g.fillRect(x+dx,y+dy,1,1);}}
   function loop(now){raf=requestAnimationFrame(loop);const dt=Math.min(.1,(now-(last||now))/1000);if(dt<1/30&&last)return;last=now;draw(dt||1/30);}
   async function start(el){if(RM.matches)return;img=el;
     if(!img.complete)await new Promise(r=>{img.addEventListener("load",r,{once:true});img.addEventListener("error",r,{once:true});});if(!img.naturalWidth)return;
