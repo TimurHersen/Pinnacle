@@ -64,6 +64,7 @@ input[type=text]{cursor:text;width:13em}
   <div class="grp"><span>Gear</span>
     <select id="hearts" aria-label="Hooks"><option value="">Hooks…</option><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option></select>
     <button id="gearFull">Refill</button><button id="gearNone">Empty</button></div>
+  <div class="grp"><span>Scene</span><button data-lab="1" class="on" title="Normal speed">1×</button><button data-lab=".25" title="Quarter speed, to watch the rope and the animation">¼×</button><button data-lab="pause">Pause</button><button id="labStep" title="One frame on (while paused)">Step</button></div>
   <div class="grp"><span>Answer</span><label><input type="checkbox" id="withHook"> hook</label>
     <button class="good" data-force="both">Both right</button>
     <button class="bad" data-force="jerkL" title="P1 right, P2 wrong: P1 climbs, P2 falls">P1 right · P2 wrong</button>
@@ -159,6 +160,17 @@ function forceAnswers(kind){
   const put=(id,c)=>db.put(`answers/TEST01/${R.id}/${id}`,JSON.stringify({roundId:R.id,uid:id,at:Date.now(),choice:c}));
   put(lead,pickOf[0]);if(bel)put(bel,pickOf[1]);}
 document.querySelectorAll("[data-force]").forEach(b=>b.onclick=()=>forceAnswers(b.dataset.force));
+// the scene's pace in both frames: slowed down, or paused and stepped a frame at a time (to check the rope and the
+// animation frame by frame); kept across reloads of a frame
+const LAB={rate:1,pause:false,step:0};
+// (the scene's state is a top-level const in the frame, not a property of its window: read it in the frame's scope)
+const fxOf=f=>{try{return f.contentWindow.eval("typeof FX==='undefined'?null:FX");}catch(e){return null;}};
+function labApply(){for(const f of [f1,f2]){const X=fxOf(f);if(X)X.lab=LAB.rate===1&&!LAB.pause?null:{rate:LAB.rate,pause:LAB.pause,step:LAB.step};}}
+document.querySelectorAll("[data-lab]").forEach(b=>b.onclick=()=>{const v=b.dataset.lab;if(v==="pause")LAB.pause=!LAB.pause;else{LAB.rate=+v;LAB.pause=false;}
+  document.querySelectorAll("[data-lab]").forEach(x=>x.classList.toggle("on",x.dataset.lab==="pause"?LAB.pause:!LAB.pause&&+x.dataset.lab===LAB.rate));LAB.step=0;labApply();});
+document.getElementById("labStep").onclick=()=>{if(!LAB.pause){LAB.pause=true;document.querySelectorAll("[data-lab]").forEach(x=>x.classList.toggle("on",x.dataset.lab==="pause"));}
+  for(const f of [f1,f2]){const X=fxOf(f);if(X){X.lab=X.lab||{rate:1,pause:true,step:0};X.lab.pause=true;X.lab.step++;}}};
+for(const f of [f1,f2])f.addEventListener("load",()=>setTimeout(labApply,1500));
 
 /* the radio, as either player */
 function talk(){const i=document.getElementById("talkText"),text=i.value.trim().slice(0,60),who=document.getElementById("talkAs").value;

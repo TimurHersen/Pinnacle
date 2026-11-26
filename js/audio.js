@@ -46,6 +46,8 @@ function sfx(kind){const c=SND.ctx;if(!c||!SND.on||c.state!=="running")return;co
   else if(kind==="lock"){osc("triangle",540,480,.09,.002,.07);osc("triangle",810,760,.08,.002,.11,.07);}
   else if(kind==="chalk")hiss(3200,.8,.05,.18);
   else if(kind==="hup"){osc("square",330,560,.045,.01,.13);hiss(900,1,.06,.1);}
+  // the rope coming tight: a short low creak of a loaded rope through a carabiner
+  else if(kind==="creak"){sweep(260,180,6,.05,.22);osc("triangle",118,96,.035,.01,.2);}
   else if(kind==="whistle")osc("sine",1150,240,.08,.02,.75);
   else if(kind==="boing"){osc("triangle",190,85,.26,.005,.5);osc("sine",380,170,.07,.005,.32);}
   else if(kind==="thud"){osc("sine",130,60,.22,.005,.18);hiss(500,1,.1,.08);}

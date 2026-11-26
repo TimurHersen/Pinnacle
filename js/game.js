@@ -740,8 +740,9 @@ function render(){
     gb.onclick=()=>{LS.set("qmin",!LS.get("qmin",false));sfx("pop");sync();};sync();}
   // a result seen as it happens waits a beat: the answers show first, then (with the climb) how it went
   const r=t.round;
-  if(r.phase==="reveal"&&S.seen&&S.seen.id===r.id&&S.seen.phase==="answer"){S.sus=r.id;
-    setTimeout(()=>{if(S.sus===r.id){S.sus=null;S.susDone=r.id;if(S.team)render();}},SUSPENSE_MS);}
+  // (the scene says when: once its own beat is over and the climb starts, see revealNow; if the scene is still busy
+  // with something before it, the result shows after a while all the same)
+  if(r.phase==="reveal"&&S.seen&&S.seen.id===r.id&&S.seen.phase==="answer"){S.sus=r.id;setTimeout(()=>revealNow(r.id),SUSPENSE_MS*3);}
   S.seen={id:r.id,phase:r.phase};for(const ph of ["answer","reveal","camp","summit","map"])document.body.classList.toggle("ph-"+ph,r.phase===ph);
   if(typeof climberSeen==="function")climberSeen(t);
   if(typeof charCheck==="function")charCheck(t);
@@ -769,7 +770,7 @@ function renderHud(t){
   // (the hooks left show on the hook button with the other gear, not up here)
   const html=`<div class="hud-l">${who}</div>
    <div class="hud-r"><div class="stat">${ICON.mtn}<span class="k">Alt</span><span class="v">${fmt(alt)} m</span></div>
-     ${pid?`<div class="stat">${ICON.rope}<span class="k">Rope</span><span class="v">${Math.abs(gap)}/${MAX_GAP}</span></div>`:""}
+     ${pid?`<div class="stat">${ICON.rope}<span class="k">Gap</span><span class="v">${Math.abs(gap)}/${MAX_GAP}</span></div>`:""}
      <div class="stat">${ICON.flag}<span class="k">Pitch</span><span class="v">${Math.min(so.i+1,so.n)}/${so.n}</span></div></div>`;
   if(S.hudHtml!==html){S.hudHtml=html;$("#hud").innerHTML=html;}
 }
@@ -1397,10 +1398,17 @@ addEventListener("resize",()=>{if(S.tip)placeTip(S.tip);});
 // (from the menu: show the tips again)
 function resetTips(){S.tipsSeen=new Set();S.tipsOff=false;LS.set("tips",[]);LS.set("tipsOff",false);S.tip=null;S.tipShown=null;toast("Tips will show again");if(S.team)coach(S.team);}
 
+// the result's beat is over: the panel shows how it went, at the moment the scene starts to play it
+function revealNow(id){if(S.sus===id){S.sus=null;S.susDone=id;if(S.team)render();}}
+// a tap on the climb once it has played out goes on to the next question, without waiting for the count
+function tapNext(){const t=S.team;if(!t||TV()||!t.members[S.uid])return;const r=t.round;
+  if(r.phase!=="reveal"||!r.resolvedAt||r.result?.arrived||S.sus===r.id||S._auto===r.id)return;
+  if(typeof DIR!=="undefined"&&(DIR.busy||DIR.q.length))return;
+  const menu=$("#menu");if(menu&&!menu.hidden)return;S._auto=r.id;sfx("pop");advance(false);}
 /* ============================== TICK ============================== */
 // after an ordinary pitch the next question comes by itself, a few seconds after the result (the button counts down
-// and still works; a camp or the summit waits for a press, and so does an open menu)
-const AUTO_NEXT_MS=15000;
+// and still works, and so does a tap on the climb once it has played out; a camp or the summit waits for a press,
+// and so does an open menu)
 // (the wait before the next question: long enough for the climb to play out at its steady pace, then a few seconds
 // to read how it went; a long pitch on a short climb has more holds to it)
 function nextAfterMs(t){const o=t.round.result||{},e=t.exp;let n=0;
