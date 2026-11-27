@@ -927,7 +927,7 @@ class Rope{
     const ev=FX.time-(FX.ropeJerk??-9),taut=ev<(FX.ropeJerkKind==="catch"?.35:.6),h=Math.min(dt,.05);
     for(let i=0;i<n;i++){const a=pins[i],b=pins[i+1],key=a.id+">"+b.id,L=Math.hypot(b.x-a.x,b.y-a.y);seen.add(key);
       // (between two hooks on the wall the rope runs close to the rock; between a harness and the next pin it hangs)
-      const free=a.id==="mate"||b.id==="me"||b.id==="drop"||a.id==="drop",cap=free?Math.min(10,1.5+L*.08):Math.min(2,.5+L*.02);
+      const free=(a.id==="mate"&&b.id!=="foot")||b.id==="me"||(b.id==="drop"&&a.id!=="foot")||a.id==="drop",cap=free?Math.min(10,1.5+L*.08):Math.min(2,.5+L*.02);
       let to=this.ground!=null?0:(o.slack??.5)*cap+(o.loose&&free?L*.12:0);if(taut)to=0;
       let s=this.spans.get(key);if(!s){this.spans.set(key,s={v:to,dv:0});continue;}
       // (straightening on a catch or a jerk is quick; giving slack back is slow, as a belayer pays it out)
@@ -1138,10 +1138,16 @@ function ensureScene(){
   // (the pixel scale is chosen so the part of the screen left for the climb holds about two climbers' height: on a
   // wide screen the question panel takes the bottom half, on the big screen a column down the right, on a phone
   // the bottom sheet; whole pixels only, never below 2)
+  // (on a phone, whose screen has two or three device pixels to each CSS pixel, the scale is a whole number of
+  // device pixels instead: every art pixel is still a crisp block of the screen's own pixels, but the scale can be
+  // 1.33 or 1.5 CSS pixels where whole CSS pixels would jump from 1 to 2. The part of a phone's screen above the
+  // question sheet (two fifths of its height and up) then holds about 280 art pixels: two climbers a pitch apart fit in it
+  // together, where at 2 CSS pixels they rarely did and the view kept splitting)
   const box=cv.parentElement||cv,fit=()=>{const r=box.getBoundingClientRect(),W=Math.max(1,r.width),H=Math.max(1,r.height),tv=document.body.classList.contains("tv");
-    const wide=W>=900&&H>=521,openH=wide?H-200:H;
+    const wide=W>=900&&H>=521,openH=wide?H-200:H,dpr=window.devicePixelRatio||1;
     // (on the big screen, the scale that fits two climbers three pitches apart, about 420 art pixels, in one view)
-    const px=tv&&wide?Math.max(2,Math.floor(openH/420)):Math.max(2,Math.round(Math.min(openH/(wide?280:300),(wide?W*.62:W)/190)));
+    let px=tv&&wide?Math.max(2,Math.floor(openH/420)):Math.max(2,Math.round(Math.min(openH/(wide?280:300),(wide?W*.62:W)/190)));
+    if(!wide&&!tv&&dpr>=1.75){const k=Math.max(Math.ceil(dpr),Math.round(Math.min(H*.42/280,W/190)*dpr));px=k/dpr;}
     if(W===FX.W&&H===FX.H&&px===FX.px&&FX.layers)return;FX.W=W;FX.H=H;FX.px=px;FX.vw=Math.ceil(W/px);FX.vh=Math.ceil(H/px);
     cv.width=FX.vw;cv.height=FX.vh;cv.style.width=FX.vw*px+"px";cv.style.height=FX.vh*px+"px";FX.g.imageSmoothingEnabled=false;
     FX.layers=makeLayers(FX.vw,FX.vh);FX.areaAt=0;FX.base=null;
@@ -1265,7 +1271,12 @@ function ropePins(){const A=FX.A,ch=FX.exp.choice,pm=A.mate.tie(),pl=A.me.tie(),
   for(const i of FX.hooks||[]){if(R&&R.i===i)continue;const h=hookXY(ch,i);if(h[1]<lo&&h[1]>hi)mids.push({id:"hook:"+i,x:h[0],y:h[1]});}
   mids.sort((a,b)=>pm.y>pl.y?b.y-a.y:a.y-b.y);
   const pins=[{id:"mate",x:pm.x,y:pm.y},...mids];
-  if(A.me.mode==="climb"&&pm.y>pl.y+8&&!mids.length&&!R)pins.push({id:"drop",x:pl.x+1,y:Math.min(pl.y+20,(pl.y+pm.y)/2)});
+  // (from a belayer standing back from the wall, to a leader on it: the rope runs to the foot of the wall and up the
+  // face, as a real rope does, never as a line straight across the open air between them)
+  if(A.mate.mode==="stand"&&A.me.mode==="climb"&&!mids.length&&Math.abs(pm.x-pl.x)>14&&pm.y>pl.y+40)
+    pins.push({id:"foot",x:Math.max(pl.x+1,rockEdge(pm.y-10)-1),y:pm.y+5});
+  if(A.me.mode==="climb"&&pm.y>pl.y+8&&!mids.length&&!R){const ft=pins.find(q=>q.id==="foot");
+    pins.push({id:"drop",x:ft?Math.max(pl.x+1,rockEdge(pl.y+20)-1):pl.x+1,y:Math.min(pl.y+20,(pl.y+pm.y)/2)});}
   if(A.me.mode==="stand"&&A.me.hi>0&&A.me.hi<IDX_TOP&&(A.mate.mode==="climb"||A.mate.mode==="fall")&&pm.y>pl.y+30)pins.push({id:"lip",x:LEDGE_TIP+campDX(A.me.hi)+3,y:-A.me.hi*HS+1});
   pins.push({id:"me",x:pl.x,y:pl.y});
   if(R&&(R.r===A.me||R.r===A.mate)){const q={id:"runner",x:R.x,y:R.y};if(R.r===A.me)pins.splice(pins.length-1,0,q);else pins.splice(1,0,q);}
