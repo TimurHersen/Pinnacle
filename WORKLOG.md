@@ -6,8 +6,8 @@ a session can pick up the work without re-reading the code or re-reviewing the g
 
 ## State (2026-11-27)
 
-- `main` is what players get (GitHub Pages). Everything in the log below from 2026-11-26 on is on the branch
-  `claude/exciting-cori-6zus7w` and is **not on `main` yet**: nothing reaches players until that branch is merged.
+- `main` is what players get (GitHub Pages). All work up to 2026-11-27 was merged to `main` (fast-forward to
+  `bdcf462`). New work lands on a session branch first and reaches players only once merged.
 - Rules tests: `node test/rules.test.js` (all pass). Raise `window.V` in `index.html` for any change in `css/` or
   `js/`, and `window.AV` (and the boot image's `?art=`) for any changed picture under `assets/`.
 - QA tools live in `tools/qa/` (see `.claude/skills/pinnacle-qa`). Map trails are hand-laid in
