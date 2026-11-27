@@ -963,7 +963,7 @@ function renderWorld(t){const el=$("#world");if(!el)return;const r=t&&t.round,on
     // the map's own plate along the bottom: its name and place, the stops climbed, and arrows to the maps either side
     const reached=M.steps.filter(st=>st.some(k=>climbed(t,k))).length,got=M.steps.flat().reduce((a,k)=>a+starsOf(t,k),0);
     el.querySelector(".wnav").innerHTML=`<button class="wnarrow" id="mapPrev" ${mi>0?"":"disabled"} aria-label="Previous map">◀</button>
-      <div class="wnplate"><b class="${M.name.length>12?"long":""}">${esc(M.name)}</b><small>Map ${mi+1} of ${MAPS.length} · ${M.label} · ${M.theme?esc(M.theme)+" questions":"Every kind of question"}${done?" · Collected":""}</small>
+      <div class="wnplate"><b class="${M.name.length>12?"long":""}">${esc(M.name)}</b><small>Map ${mi+1} of ${MAPS.length} · ${M.label}${done?" · Collected":""}</small><small class="wntheme">${M.theme?esc(M.theme)+" questions":"Every kind of question"}</small>
         <span class="wprog" role="progressbar" aria-valuemin="0" aria-valuemax="${M.steps.length}" aria-valuenow="${reached}" aria-label="${reached} of ${M.steps.length} stops"><i style="width:${100*reached/M.steps.length}%"></i></span>
         <span class="wpline"><span>${reached}/${M.steps.length} stops</span><span>${ICON.star}${got}/${M.steps.flat().length*3}</span></span>
         <span class="wndots">${MAPS.map((X,k)=>`<i class="${k===mi?"on":""} ${mapDone(t,k)?"dn":mapOpen(t,k)?"op":""}"></i>`).join("")}</span></div>
@@ -1164,8 +1164,11 @@ function fitWorld(){const el=$("#world"),map=el&&S.liveMap&&S.liveMap.isConnecte
     if((Math.max(...ys)-Math.min(...ys))*s+90<=vis-top&&(Math.max(...xs)-Math.min(...xs))*s+60<=(R.cw||R.w))pts=all;}
   const tx=pts.reduce((a,q)=>a+q[0],0)/pts.length,ty=pts.reduce((a,q)=>a+q[1],0)/pts.length,F=S.mapFocus;
   // (eased toward its target, unless the map or its shape just changed)
-  if(!F||F.k!==mi+"|"+map.dataset.shape){S.mapFocus={k:mi+"|"+map.dataset.shape,x:tx,y:ty};}
-  else{const k=1-Math.exp(-(MAPFX.dt()||.05)*3.2);F.x+=(tx-F.x)*k;F.y+=(ty-F.y)*k;}
+  // (looking along to another map keeps the height the view is at, so paging through the maps only ever slides
+  // sideways; only on the team's own map does the view settle up or down onto its next stop)
+  const own=!t||mi===currentMap(t);
+  if(!F||F.k!==mi+"|"+map.dataset.shape){S.mapFocus={k:mi+"|"+map.dataset.shape,x:tx,y:F&&F.shape===map.dataset.shape?F.y:ty,shape:map.dataset.shape};}
+  else{const k=1-Math.exp(-(MAPFX.dt()||.05)*3.2);F.x+=(tx-F.x)*k;if(own)F.y+=(ty-F.y)*k;}
   const fx=S.mapFocus.x,fy=S.mapFocus.y;
   const pan=S.mapPan&&S.mapPan.k===mi+"|"+map.dataset.shape?S.mapPan:(S.mapPan={k:mi+"|"+map.dataset.shape,x:0,y:0});
   // (it may slide up until its foot meets the question box, which hides what's below)

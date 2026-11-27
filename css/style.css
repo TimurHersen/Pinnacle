@@ -1250,3 +1250,9 @@ body.home:has(#main:not([hidden])) #privLink{display:none}#privLink:hover,#privL
 #home.ready .pmenu:not(:hover):not(:focus-within) .pbtn:first-child::before{opacity:1;animation:pnudge 1.4s steps(2,jump-none) infinite}
 #home.ready .pmenu:not(:hover):not(:focus-within) .pbtn:first-child::after{opacity:1;animation:pnudger 1.4s steps(2,jump-none) infinite}
 @media (prefers-reduced-motion:reduce){#home .pbtn::before,#home .pbtn::after{animation:none!important}}
+
+/* the map plate: one column the plate's own width, so nothing inside can stretch it past its frame; the map's
+   number and level on one line and its kind of questions on the next */
+.wnplate{grid-template-columns:minmax(0,1fr)}
+.wnplate small{overflow:hidden;text-overflow:ellipsis}
+.wnplate .wntheme{margin-top:-2px;opacity:.85}
