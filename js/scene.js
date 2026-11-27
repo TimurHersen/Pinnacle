@@ -870,10 +870,15 @@ class Rig{
       // (a boot already stepping onto the ledge stands on its surface, never above it: step is the forward boot's sole)
       // (the body's path is continuous: between two frames it moves on toward the next frame's place, so each new pose
       // lands where the body already is rather than all the movement happening in one jump at the frame change)
-      const X=R0(lerp(M.x0,M.xe,PF_)),Y=Math.max(R0(lerp(M.s0,M.se,PP_)-SO),M.se-S.step[i]);
+      let X=R0(lerp(M.x0,M.xe,PF_)),Y=Math.max(R0(lerp(M.s0,M.se,PP_)-SO),M.se-S.step[i]);
+      // (the first pull-up frame sits a few pixels from where the climbing frame left the body: that gap eases out
+      // over a moment, as it does between any two clips, instead of snapping)
+      {const a=figOf(A.mantle[i]),L=this.lastDraw;
+        if(L&&L.kind!=="mantle"){const dx=L.cx-(X+a.cx),dy=L.cy-(Y+a.cy);this.mBlend=Math.abs(dx)+Math.abs(dy)>=1.5&&Math.abs(dx)+Math.abs(dy)<60?{dx,dy,t0:FX.time}:null;}
+        const B=this.mBlend;if(B){const k=(FX.time-B.t0)/BLEND_S;if(k>=1)this.mBlend=null;else{const e=1-smooth(k);X+=R0(B.dx*e);Y+=R0(B.dy*e);}}
+        // (handed on as the standing figure the next draw puts at the feet, so it joins up without a jump)
+        this.lastDraw={kind:"mantle",feet:true,cx:X+a.cx,cy:Y+a.cy,fx:X+a.fx,fy:Y+a.fy};}
       if(!FX.dry)g.drawImage(A.mantle[i],X+ox,Y+oy);
-      // (handed on as the standing figure the next draw puts at the feet, so it joins up without a jump)
-      {const a=figOf(A.mantle[i]);this.lastDraw={kind:"mantle",feet:true,cx:X+a.cx,cy:Y+a.cy,fx:X+a.fx,fy:Y+a.fy};}
       const tp=tieOf(A.who,"mantle",i);this.lastArt=["idle",0];this.tieW={x:X+tp[0],y:Y+tp[1]};return;}
     if(A&&A.ready){const [k,i]=this.lastArt=this.artFrame(t),fr=A.clips[k],b=boxOf(fr[0]),W=fr[0].width,flip=this.dir<0,key=`${A.who}|${k}|${i}|${flip}`; // (by character too: a climber who changes character never shows an old frame)
       let img=this.cache.get(key);
@@ -1437,11 +1442,12 @@ async function makeCamp0(ix,ch="main"){const k=campOf(ix);if(!k)return true;cons
   const walk=Math.max(me.walkTo(S.meWork),mate.walkTo(S.mateWork));if(!(await wait(walk+150,ch)))return false;
   me.work(1);mate.work(-1);
   // the canvas and poles are thrown down in a puff of dust, and the tent rises between the two of them
-  if(!(await wait(350,ch)))return false;poof(S.door,cy,true);
-  for(let n=1;n<=TENT_UP;n++){cp.tent=n;if(n===TENT_UP)sfx("thud");if(!(await wait(n===1?360:190,ch)))return false;}
-  if(!(await wait(450,ch)))return false;
-  me.standAt(me.N.x,cy);mate.standAt(mate.N.x,cy);if(!(await wait(350,ch)))return false;
-  if(!(await play(1700,p=>{FX.night=smooth(p);},ch)))return false;
+  // (each beat kept, none drawn out: the whole evening, from the ledge to the tent zipped shut, about four seconds)
+  if(!(await wait(220,ch)))return false;poof(S.door,cy,true);
+  for(let n=1;n<=TENT_UP;n++){cp.tent=n;if(n===TENT_UP)sfx("thud");if(!(await wait(n===1?240:120,ch)))return false;}
+  if(!(await wait(260,ch)))return false;
+  me.standAt(me.N.x,cy);mate.standAt(mate.N.x,cy);if(!(await wait(180,ch)))return false;
+  if(!(await play(1100,p=>{FX.night=smooth(p);},ch)))return false;
   const w2=Math.max(me.walkTo(S.door),mate.walkTo(S.door+6));if(!(await wait(w2+100,ch)))return false;
   me.hidden=mate.hidden=true;FX.camp.sleep=true;sfx("zip");return true;}
 // the next pitch starts from camp: dawn breaks, the team comes out, the partner packs the tent away from its far
@@ -1451,12 +1457,12 @@ function leaveCamp(ch="main"){if(!FX.camp)return Promise.resolve(true);if(FX.lea
   FX.campBusy=true;return FX.leaving=(async()=>{try{return await leave0();}finally{FX.campBusy=false;}})();
   async function leave0(){const A=FX.A,me=A.me,mate=A.mate,cp=FX.camp,ix=cp.ix,S=campSpots(ix);
     me.hidden=mate.hidden=false;cp.sleep=false;me.standAt(S.door+8,cp.cy);mate.standAt(S.door,cp.cy);me.hi=mate.hi=ix;
-    if(!(await play(1300,p=>{FX.night=1-smooth(p);},ch)))return false;
+    if(!(await play(900,p=>{FX.night=1-smooth(p);},ch)))return false;
     const w=mate.walkTo(S.meWork);if(!(await wait(w+100,ch)))return false;
     // the tent comes down the way it went up, and its heap is packed away in a puff of dust
     mate.work(1);
-    for(let n=TENT_UP-1;n>=1;n--){if(!(await wait(n===TENT_UP-1?350:190,ch)))return false;cp.tent=n;}
-    if(!(await wait(350,ch)))return false;cp.tent=0;poof(S.door,cp.cy,true);if(!(await wait(300,ch)))return false;
+    for(let n=TENT_UP-1;n>=1;n--){if(!(await wait(n===TENT_UP-1?220:110,ch)))return false;cp.tent=n;}
+    if(!(await wait(200,ch)))return false;cp.tent=0;poof(S.door,cp.cy,true);if(!(await wait(180,ch)))return false;
     mate.standAt(mate.N.x,cp.cy);const w3=Math.max(me.walkTo(me.rest(ix).x),mate.walkTo(mate.rest(ix).x));
     if(!(await wait(w3+100,ch)))return false;
     me.standAt(me.rest(ix).x,cp.cy);mate.standAt(mate.rest(ix).x,cp.cy);FX.camp=null;FX.night=0;return true;}}
@@ -1556,8 +1562,15 @@ async function fallRig(r,anchor,back,id,ch,hook,hookIdx){
   // (hanging: the swings die away, then they reach back to the rock)
   {const t0=FX.time;for(;;){if(!(await wait(60,ch)))return false;const el=FX.time-t0,F=r.fall;
     if(el>(hook?2:2.6)||(F&&F.caught&&el>(hook?.9:1.4)&&Math.hypot(r.v.x,r.v.y)<14))break;}}
-  r.reachFrom(clamp(Math.round(-(r.N.y+HANG[1])/HS),2,IDX_TOP-1),.42);
-  if(!(await wait(hook?460:640,ch)))return false;
+  // (then the rope brings them in: the point they hang from eases in over the rock, so they swing in and come to rest
+  // with their boots against the face, and only then reach up for the holds)
+  {const F=r.fall;if(F&&F.ax!=null&&F.wall!=null){const a0=F.ax;
+    if(!(await play(380,k=>{F.ax=lerp(a0,F.wall+2,smooth(k));},ch)))return false;
+    if(!(await wait(160,ch)))return false;}}
+  // (the reach back to the holds takes as long as the distance asks, at about a climber's own pace: a fixed time
+  // made a long way back a dash)
+  {const i=clamp(Math.round(-(r.N.y+HANG[1])/HS),2,IDX_TOP-1),p=r.hangAt(i),d=clamp(Math.hypot(p.x-r.N.x,p.y-r.N.y)/70,.42,.9);
+    r.reachFrom(i,d);if(!(await wait(d*1000+(hook?40:220),ch)))return false;}
   if(FX.runner&&FX.runner.r===r)FX.runner=null;
   return climbRig(r,back,HOLD_MS,id,ch);
   function ok(){return FX.ch[ch]===id;}

@@ -1009,7 +1009,10 @@ function popAway(){const el=$("#world .wpop");if(!el||el.hidden||RM.matches){S.m
   setTimeout(()=>{el.classList.remove("out");S.mapPop=null;S.worldKey=null;if(S.team)renderWorld(S.team);},140);}
 // (next to its banner: below it if there's room, else above; kept on the screen)
 function placePop(){const el=$("#world .wpop"),tool=(S.mapPop||"")[0]==="@",b=S.mapPop&&$(tool?`#world .wtool[data-k="${S.mapPop}"]`:`#world .wpin[data-mtn="${S.mapPop}"]`);if(!el||el.hidden||!b)return;
-  const W=$("#world").getBoundingClientRect(),r=b.getBoundingClientRect(),w=Math.min(300,W.width-24);el.style.width=w+"px";const h=el.offsetHeight;
+  const W=$("#world").getBoundingClientRect(),r=b.getBoundingClientRect(),w=Math.min(300,W.width-24);el.style.width=w+"px";
+  // (never taller than the map below the top bar: on a short screen, a phone on its side, it scrolls inside instead of
+  // running off the bottom with its button out of reach)
+  el.style.maxHeight=Math.max(160,W.height-76)+"px";el.style.overflowY="auto";const h=el.offsetHeight;
   let x=r.left+r.width/2-w/2-W.left,y=r.bottom+10-W.top;if(y+h>W.height-90)y=r.top-h-10-W.top;
   el.style.left=Math.max(12,Math.min(W.width-w-12,x))+"px";el.style.top=Math.max(64,Math.min(W.height-h-(h<W.height-250?100:12),y))+"px";}
 /* ---------- the living map: the trail, the team walking it, and the weather over the painting ----------

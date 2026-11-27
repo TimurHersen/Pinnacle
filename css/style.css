@@ -975,7 +975,7 @@ input:focus{outline:none;border-bottom-color:var(--pcRed)!important}
 .qpanel::before,.qpanel::after,#main.lobby>.card:first-of-type::before,#main.lobby>.card:first-of-type::after{display:none}
 .wpop{max-width:calc(100vw - 24px);box-sizing:border-box}.wpfacts{grid-template-columns:repeat(3,minmax(0,1fr))!important}
 .ptabs button{background:transparent!important;color:var(--pcInk)!important;border:2px solid var(--pcInk)!important;border-radius:0!important}.ptabs button.on{background:var(--pcInk)!important;color:var(--pc)!important}
-.ibtn.pf-x,.wpx{box-shadow:inset 0 0 0 2px var(--pcInk)!important;background:var(--pc)!important}.ibtn.pf-x svg,.wpx svg,.pf-x .px,.wpx .px{filter:brightness(0) saturate(100%) invert(18%) sepia(40%) saturate(2000%) hue-rotate(220deg)}
+.ibtn.pf-x,.wpx,#menuX{box-shadow:inset 0 0 0 2px var(--pcInk)!important;background:var(--pc)!important}.ibtn.pf-x svg,.wpx svg,.pf-x .px,.wpx .px,#menuX svg,#menuX .px{filter:brightness(0) saturate(100%) invert(18%) sepia(40%) saturate(2000%) hue-rotate(220deg)}
 .px{image-rendering:pixelated}
 .hud .hearts span,.hud .hearts b{color:var(--pcInk)}
 .cs-arrow{color:var(--pcInk)!important}
@@ -1179,7 +1179,9 @@ body.ph-answer #main .tier,body.ph-answer #main .getready .tier *{color:#fff!imp
 /* the privacy policy link: on the title screen only, small in the bottom corner (Google asks for one on the home page) */
 #privLink{display:none;position:fixed;right:10px;bottom:8px;z-index:6;font:400 15px/1 var(--head,"Pinnacle Head");letter-spacing:.08em;
   color:#f7efdc;text-decoration:none;text-shadow:0 2px 0 rgba(20,22,60,.6);opacity:.8}
-body.home #privLink{display:block}#privLink:hover,#privLink:focus-visible{opacity:1;text-decoration:underline}
+body.home #privLink{display:block}
+/* (and only while the title menu shows: over an open panel it would sit on the panel's text) */
+body.home:has(#main:not([hidden])) #privLink{display:none}#privLink:hover,#privLink:focus-visible{opacity:1;text-decoration:underline}
 
 /* avatars: the account icon and the profile show the chosen face; the profile has a row to pick one */
 .acctface{background-size:cover!important;background-position:center!important}
@@ -1221,3 +1223,20 @@ body.home #privLink{display:block}#privLink:hover,#privLink:focus-visible{opacit
 #main .qgear .gbtn.on .gslot{border-color:#ffd36b;box-shadow:inset 2px 2px 0 #6a5a2a,inset -2px -2px 0 #2a2412}
 #main .qgear .gbtn.on:disabled{opacity:1}
 #main .qgear .gbtn:not(:disabled):active .gslot{transform:translateY(1px);box-shadow:inset -2px -2px 0 #39437a,inset 2px 2px 0 #11152b}
+
+/* the climber select on a short screen (a phone on its side): the figure on the left, its name, the roster and the
+   button on the right, so all of it fits without the figure running into its name; and anywhere, the figure never
+   grows taller than the space it stands in */
+.cs-fig{max-height:100%}
+@media (max-height:520px) and (orientation:landscape){
+  .charpick .cs-wrap{width:min(860px,100%);grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto auto auto 1fr auto;column-gap:20px;row-gap:6px;align-items:center}
+  .charpick .gs-eyebrow{grid-column:1/-1}
+  .charpick .cs-stage{grid-column:1;grid-row:2/6}
+  .charpick .cs-hero{height:min(62vh,300px)}
+  .charpick .cs-fig{height:92%;width:auto;max-width:100%}
+  .charpick .cs-name,.charpick .cs-sub,.charpick .cs-roster,.charpick .cs-go{grid-column:2}
+  .charpick .cs-name{font-size:clamp(30px,7vh,44px)}
+  .charpick .cs-roster{margin-top:4px;gap:6px}
+  .charpick .cs-face{width:44px;height:44px;background-size:204px 204px;background-position:-80px -14px}
+  .charpick .cs-tile b{font-size:12px}
+  .charpick .cs-go{margin-top:4px;padding:10px;font-size:17px}}
