@@ -125,9 +125,12 @@ function hideHome(){HOME_N++;TFX.stop();document.body.classList.remove("home");c
    blows off the peak in the wind, the sea of clouds slowly drifts (soft puffs that move only where the painting has
    cloud, so they pass behind the cliff and the climber) and small flocks of birds cross the sky, one already on its
    way when the screen opens, near ones larger and quicker than far ones, each bird beating its wings in its own time
-   and gliding now and then. With reduced motion nothing runs. ---------- */
+   and gliding now and then. Light snow drifts down across the whole scene on the summit's wind, near flakes quicker
+   than far ones; thin high clouds slide across the sky behind the peak; the pines' tops sway a pixel in the gusts;
+   and the climber on the cliff breathes out little clouds in the cold. With reduced motion nothing runs. ---------- */
 const TFX=(()=>{
-  let cv=null,g=null,img=null,raf=0,last=0,t=0,W=0,H=0,flag=null,peak=null,mask=null,src=null,rims=[],wisps=[],snow=[],birds=[],nextBird=0;
+  let cv=null,g=null,img=null,raf=0,last=0,t=0,W=0,H=0,flag=null,peak=null,mask=null,src=null,rims=[],wisps=[],snow=[],birds=[],nextBird=0,
+    sky=null,streaks=[],flakes=[],trees=[],face=null,breath=[],nextBreath=2;
   const rnd=(a,b)=>a+Math.random()*(b-a);
   function place(){if(!cv||!img||!img.naturalWidth)return;const r=img.getBoundingClientRect(),s=Math.max(r.width/W,r.height/H),
       cs=getComputedStyle(img).objectPosition.split(" ").map(v=>parseFloat(v)/100),px=isNaN(cs[0])?.5:cs[0],py=isNaN(cs[1])?.7:cs[1];
@@ -146,10 +149,41 @@ const TFX=(()=>{
     for(let y=top;y<H;y++)for(let x=0;x<W;x++){const [r,gg,b]=at(x,y),l=(r+gg+b)/3;
       if(l>165&&b>=gg-6&&r>=gg-40&&!(b>235&&gg<215))mask[y*W+x]=1;
       if(r>238&&gg>228&&b<230&&r>=b+12)rims.push(x,y);}
-    wisps=[];const n=H>W?7:8;for(let k=0;k<n;k++)wisps.push(newWisp(rnd(0,W)));}
+    wisps=[];const n=H>W?7:8;for(let k=0;k<n;k++)wisps.push(newWisp(rnd(0,W)));
+    // the climber: the red of their jacket and hat on the left of the painting; they face the mountain, so their
+    // breath leaves just right of the top of the figure
+    {let x1=-1,y0=H;for(let y=0;y<H;y++)for(let x=0;x<W*.45;x++){const [r,gg,b]=at(x,y);if(r>gg+40&&r>b+15&&r>90){if(y<y0)y0=y;}}
+      if(y0<H){for(let y=y0;y<y0+4;y++)for(let x=0;x<W*.45;x++){const [r,gg,b]=at(x,y);if(r>gg+40&&r>b+15&&r>90)x1=Math.max(x1,x);}face={x:x1+2,y:y0+3};}else face=null;}
+    // the sky: per column, the run of pixels from the top in the sky's own band colours (sampled down both edges
+    // above the clouds), so streaks of high cloud are drawn only there and pass behind the peak
+    {const S=new Set(),key=(x,y)=>{const c=at(x,y);return c[0]<<16|c[1]<<8|c[2];},top=Math.floor(H*(H>W?.36:.52));
+      for(let y=0;y<top;y++){S.add(key(W-1,y));S.add(key(W-3,y));if(y<top*.4)S.add(key(Math.floor(W/2),y));}
+      sky=new Uint8Array(W*H);for(let x=0;x<W;x++)for(let y=0;y<top;y++){if(!S.has(key(x,y)))break;sky[y*W+x]=1;}}
+    streaks=[];for(let k=0;k<3;k++)streaks.push(newStreak(rnd(0,W)));
+    // the pines: the dark runs of their crowns, row by row, left of the climber and above the cliff (the top half of
+    // each tree, which is what sways)
+    trees=[];{const dark=(x,y)=>{const [r,gg,b]=at(x,y);return (r+gg+b)/3<100&&b>=r;},xr=face?face.x-8:Math.floor(W*.2);let cliff=H,top=-1;
+      for(let y=Math.floor(H*.2);y<H;y++){let n=0;for(let x=0;x<xr;x++)if(dark(x,y))n++;if(n>=xr*.98){cliff=y;break;}if(n&&top<0)top=y;}
+      if(top>=0){const bot=top+Math.floor((cliff-top)*.55);for(let y=top;y<bot;y++){let x=0;while(x<xr){if(!dark(x,y)){x++;continue;}let e=x;while(e+1<xr&&dark(e+1,y))e++;
+        if(x>0&&e<xr-1)trees.push({y,a:x,b:e,f:1-(y-top)/(bot-top),px:Array.from({length:e-x+1},(_,i)=>at(x+i,y)),l:at(x-1,y),r:at(e+1,y)});x=e+1;}}}}
+    flakes=[];const nf=Math.round(W*H/1500);for(let k=0;k<nf;k++)flakes.push(newFlake(true));}
+  function newStreak(x){return {x,y:Math.floor(rnd(H*(H>W?.06:.08),H*(H>W?.3:.42))),len:Math.floor(rnd(22,46)),v:rnd(1.2,2.6)};}
+  // a snowflake: far ones small, pale and slow; near ones bright and quicker; all carried right by the wind
+  function newFlake(any){const far=Math.random()<.6;return {x:rnd(-20,W),y:any?rnd(0,H):-2,far,vy:far?rnd(4,7):rnd(9,15),vx:far?rnd(2,4):rnd(5,9),ph:rnd(0,6)};}
   function newWisp(x){return {x,y:Math.floor(rnd(H*(H>W?.42:.58),H*.97)),len:rnd(16,34)*(H>W?.75:1),v:rnd(1.5,3)*(Math.random()<.5?1:-1),th:Math.random()<.5?2:1};}
   const nz=(i,s)=>{const v=Math.sin(i*12.9898+s*78.233)*43758.5453;return v-Math.floor(v);};
   function draw(dt){t+=dt;g.clearRect(0,0,W,H);
+    // thin streaks of high cloud sliding across the sky, behind the peak: the sky lifted toward white, tapered
+    if(sky)for(const s of streaks){s.x+=s.v*dt;if(s.x>W+4)Object.assign(s,newStreak(-s.len-4));
+      for(let k=0;k<s.len;k++){const x=Math.round(s.x+k),f=k/s.len,rows=f>.18&&f<.82?2:1;
+        for(let j=0;j<rows;j++){const y=s.y+j;if(x<0||x>=W||!sky[y*W+x])continue;const i=(y*W+x)*4,m=f>.3&&f<.7?.34:.2;
+          g.fillStyle=`rgb(${src[i]+(255-src[i])*m|0},${src[i+1]+(255-src[i+1])*m|0},${src[i+2]+(255-src[i+2])*m|0})`;g.fillRect(x,y,1,1);}}}
+    // the pines' crowns lean a pixel downwind in the gusts and back, the very tops most
+    {const gust=Math.sin(t*.9)*.6+Math.sin(t*2.3+1)*.25+Math.sin(t*.37)*.35;
+      for(const r of trees){const o=Math.round(gust*1.4*r.f);if(!o)continue;
+        for(let i=0;i<r.px.length;i++){const c=r.px[i];g.fillStyle=`rgb(${c[0]},${c[1]},${c[2]})`;g.fillRect(r.a+i+o,r.y,1,1);}
+        const bg=o>0?r.l:r.r;g.fillStyle=`rgb(${bg[0]},${bg[1]},${bg[2]})`;
+        for(let k=0;k<Math.abs(o);k++)g.fillRect(o>0?r.a+k:r.b-k,r.y,1,1);}}
     // sunlight slowly sweeping along the cloud tops: rim pixels brighten as a broad, slanted band passes over them
     g.fillStyle="#fffdf1";for(let i=0;i<rims.length;i+=2){const x=rims[i],y=rims[i+1],v=Math.sin(x*.045+y*.03-t*.5);if(v>.82)g.fillRect(x,y,1,1);}
     // thin streaks of mist drifting through the cloud sea, in the clouds' own colours lifted a little, only over cloud
@@ -165,6 +199,13 @@ const TFX=(()=>{
     if(peak){if(Math.random()<dt*14)snow.push({x:peak.x+rnd(-1,2),y:peak.y+rnd(0,4),vx:rnd(8,16),vy:rnd(-1.5,1.5),life:0,max:rnd(1.4,2.8)});
       snow=snow.filter(s=>(s.life+=dt)<s.max);for(const s of snow){s.x+=s.vx*dt;s.y+=(s.vy+Math.sin(t*3+s.max*9)*1.2)*dt;const a=s.life/s.max;
         g.fillStyle=a<.45?"#ffffff":a<.8?"#e3ecfb":"#c7d4f0";g.fillRect(Math.round(s.x),Math.round(s.y),1,1);}}
+    // the climber's breath: every few seconds a little cloud leaves their face and drifts off on the wind
+    if(face){if((nextBreath-=dt)<=0){nextBreath=rnd(3,4.6);for(let k=0;k<3;k++)breath.push({x:face.x+k*.6,y:face.y+rnd(-.5,.5),vx:rnd(3,6),vy:rnd(-3,-1.5),l:0,m:rnd(1,1.5)});}
+      breath=breath.filter(b=>(b.l+=dt)<b.m);for(const b of breath){b.x+=b.vx*dt;b.y+=b.vy*dt;b.vx*=.98;const a=b.l/b.m;
+        g.fillStyle=a<.35?"#ffffff":a<.7?"#e6eefc":"#c9d6f1";g.fillRect(Math.round(b.x),Math.round(b.y),a<.5?2:1,1);}}
+    // light snow over the whole scene
+    for(const f of flakes){f.y+=f.vy*dt;f.x+=(f.vx+Math.sin(t*1.7+f.ph)*(f.far?1:2))*dt;if(f.y>H+2||f.x>W+2)Object.assign(f,newFlake(false));
+      g.fillStyle=f.far?"#dfe6f8":"#ffffff";g.fillRect(Math.round(f.x),Math.round(f.y),1,1);}
     // small flocks crossing the sky: two or three birds in a loose line, the first already partway across when the
     // screen opens; a near flock (larger, darker, quicker) or a far one (a small dot of a bird, paler, slower)
     if((nextBird-=dt)<=0){const first=!birds.length&&nextBird>-1&&t<1;nextBird=rnd(6,11);
@@ -183,7 +224,7 @@ const TFX=(()=>{
   async function start(el){if(RM.matches)return;img=el;
     if(!img.complete)await new Promise(r=>{img.addEventListener("load",r,{once:true});img.addEventListener("error",r,{once:true});});if(!img.naturalWidth)return;
     if(!cv){cv=document.createElement("canvas");cv.className="tfx";document.querySelector(".scene").appendChild(cv);g=cv.getContext("2d");}
-    if(cv.dataset.src!==img.currentSrc){cv.dataset.src=img.currentSrc;W=cv.width=img.naturalWidth;H=cv.height=img.naturalHeight;survey();snow=[];birds=[];}
+    if(cv.dataset.src!==img.currentSrc){cv.dataset.src=img.currentSrc;W=cv.width=img.naturalWidth;H=cv.height=img.naturalHeight;survey();snow=[];birds=[];breath=[];}
     place();cancelAnimationFrame(raf);last=0;raf=requestAnimationFrame(loop);}
   function stop(){cancelAnimationFrame(raf);raf=0;snow=[];birds=[];if(g)g.clearRect(0,0,W,H);}
   addEventListener("resize",()=>{place();setTimeout(place,250);});

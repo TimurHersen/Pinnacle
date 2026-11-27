@@ -1240,3 +1240,13 @@ body.home:has(#main:not([hidden])) #privLink{display:none}#privLink:hover,#privL
   .charpick .cs-face{width:44px;height:44px;background-size:204px 204px;background-position:-80px -14px}
   .charpick .cs-tile b{font-size:12px}
   .charpick .cs-go{margin-top:4px;padding:10px;font-size:17px}}
+
+/* the title menu at rest: the first item (the way into the game) keeps its markers, nudging in and out a pixel or
+   two, so the menu reads as live even on a phone, where nothing is ever hovered; hovering or focusing another item
+   moves the markers there */
+@keyframes pnudge{0%,100%{translate:0 0}50%{translate:3px 0}}
+@keyframes pnudger{0%,100%{translate:0 0}50%{translate:-3px 0}}
+#home.ready .pmenu:not(:hover):not(:focus-within) .pbtn:first-child{color:#ffe08a}
+#home.ready .pmenu:not(:hover):not(:focus-within) .pbtn:first-child::before{opacity:1;animation:pnudge 1.4s steps(2,jump-none) infinite}
+#home.ready .pmenu:not(:hover):not(:focus-within) .pbtn:first-child::after{opacity:1;animation:pnudger 1.4s steps(2,jump-none) infinite}
+@media (prefers-reduced-motion:reduce){#home .pbtn::before,#home .pbtn::after{animation:none!important}}
