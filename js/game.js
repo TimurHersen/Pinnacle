@@ -881,9 +881,11 @@ function revealView(t){
     return `<div class="qopt ${sus?(who.length?"sel":""):i===o.right?"right":who.length?"wrong":""}"><b>${LETTERS[i]}</b><span>${esc(q.o[k])}</span>${tags}</div>`;}).join("");
   const head=`<div class="qhead"><span>${pitchLabel(e,mine.from??e.pitch)} · ${esc(q.cat)}</span>${!sus&&o.jerk?`<span class="jerk">ROPE JERK!</span>`:""}</div>
    <div class="qtext">${esc(q.q)}</div><div class="qopts">${opts}</div>`;
-  if(sus)return frameQ(t,head+`<div class="result wait"><div><b class="dots">The rope goes tight</b></div></div>`);
-  const oc=o.arrived==="summit"?["good",ICON.flag,"Summit reached!","You both stand on top."]:o.arrived?["good",ICON.tent,`${o.arrived} reached!`,"You're both on the ledge."]:outcomeOf(t,S.uid,o);
-  if(TV()){const rows=o.arrived?`<div class="result ${oc[0]}">${oc[1]}<div><b>${oc[2]}</b><span>${o.arrived==="summit"?"Both stand on top.":"Both are on the ledge."}</span></div></div>`
+  // (the beat before the result: a word that gives nothing away, and only mentions the rope when it does hold someone)
+  if(sus)return frameQ(t,head+`<div class="result wait"><div><b class="dots">${o.jerk?"The rope goes tight":"Testing the holds"}</b></div></div>`);
+  // (shown as the climb starts, so an arrival is told as the push to it: the scene then shows them getting there)
+  const oc=o.arrived==="summit"?["good",ICON.flag,"Both right! Up to the summit.","Watch them top out."]:o.arrived?["good",ICON.tent,`Both right! Up to ${o.arrived}.`,"Time to make camp."]:outcomeOf(t,S.uid,o);
+  if(TV()){const rows=o.arrived?`<div class="result ${oc[0]}">${oc[1]}<div><b>${oc[2]}</b><span>${o.arrived==="summit"?"The summit is in reach.":"Camp tonight."}</span></div></div>`
       :ids.map(id=>{const c=outcomeOf(t,id,o);return `<div class="result ${c[0]} tvres">${c[1]}<div><b>${ptag(t,id)} ${esc(S.names[id]||"Climber")}: ${third(c[2])}</b><span>${third(c[3])}</span></div></div>`;}).join("");
     return frameQ(t,head+rows+`${q.x?`<p class="fact">${esc(q.x)}</p>`:""}<p class="note">${atCamp?"Press Make camp on a phone.":atTop?"Press Stand on top on a phone.":`Next question<span id="nextIn"></span>`}</p>`);}
   const other=pid&&!o.arrived?outcomeOf(t,pid,o):null;
