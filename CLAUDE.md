@@ -8,4 +8,4 @@ A two-player pixel-art quiz climb (see README.md). Before any work:
    `pinnacle-release` (commit checklist), `pinnacle-map-trails` (map routes).
 3. After committing, add a short entry to the top of the worklog's Log.
 
-Players only get `main`; work lands on a session branch until it is merged.
+Players only get `main`. The owner wants every finished, tested change pushed to `main` as well as the session branch.

@@ -13,7 +13,7 @@ description: The checklist for committing a change to Pinnacle: tests, cache ver
 4. Add an entry at the top of `WORKLOG.md` → Log (date, title, 2–4 lines), and update State/Open if they changed.
 5. Commit message: a short title, then a few prose lines on what was wrong and what changed (see `git log`),
    ending with the attribution lines the session gives.
-6. Push to the session's branch. **Players only get `main`** (GitHub Pages): say so plainly when reporting, and
-   don't merge or open a PR unless the owner asks.
+6. Push to the session's branch, then to `main` as well (`git push origin HEAD:main`, fast-forward only; if `main`
+   has moved, merge it in first). The owner asked for every finished change to go live this way.
 
 Code style: dense one-line JavaScript, no build step, comments in plain prose explaining why. Match it.

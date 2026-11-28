@@ -4,10 +4,10 @@ Read this first in every session. It records what has been done, what was decide
 a session can pick up the work without re-reading the code or re-reviewing the game. Add an entry at the top of
 **Log** for every piece of work you commit (newest first, a few lines each). Keep **State** and **Open** current.
 
-## State (2026-11-27)
+## State (2026-11-28)
 
-- `main` is what players get (GitHub Pages). All work up to 2026-11-27 was merged to `main` (fast-forward to
-  `bdcf462`). New work lands on a session branch first and reaches players only once merged.
+- `main` is what players get (GitHub Pages). **Owner's standing instruction: push every finished, tested change to
+  `main` too** (fast-forward from the session branch), without asking. Report that it is live.
 - Rules tests: `node test/rules.test.js` (all pass). Raise `window.V` in `index.html` for any change in `css/` or
   `js/`, and `window.AV` (and the boot image's `?art=`) for any changed picture under `assets/`.
 - QA tools live in `tools/qa/` (see `.claude/skills/pinnacle-qa`). Map trails are hand-laid in
