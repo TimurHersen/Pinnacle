@@ -1187,7 +1187,14 @@ function sceneArea(){const W=FX.W,H=FX.H,wide=W>=900,hud=$("#hud"),hb=hud&&!hud.
   // (a phone on its side has the panel as a column down the left edge instead: the climb is framed beside it)
   // (and on the big screen the panel is a column down the right edge: the climb has the rest, full height)
   if(r&&r.width>0&&r.height>0){if(r.width<W*.7&&r.left>W*.4){a.w=Math.max(240,r.left-8);a.y=Math.max(64,hb);a.h=H-a.y;}
-    else if((wide&&!dock)||r.width<W*.7){a.x=Math.min(W-240,r.right+8);a.w=W-a.x;}else a.h=Math.max(150,r.top-top);}
+    else if((wide&&!dock)||r.width<W*.7){a.x=Math.min(W-240,r.right+8);a.w=W-a.x;}
+    // (under a panel along the bottom, the space left changes with every phase: a short count, the answers, the
+    // result. Framing the climb in whatever was left re-centred the view each time, so it panned up and down all
+    // through a round. The climb is framed in the smallest space seen at this screen size instead, the one the
+    // tallest panel leaves, and the view holds still whatever the panel does)
+    else{const open=Math.max(150,r.top-top),k=W+"x"+H,M=FX.areaMin;
+      if(!M||M.k!==k)FX.areaMin={k,h:open};else if(open<M.h)M.h=open;
+      a.h=Math.max(150,FX.areaMin.h);}}
   // (a first-climb tip laid over the climb takes its part of the view: the climbers are framed clear of it)
   const co=$("#coach");if(co&&!co.hidden&&co.parentNode===document.body){const c=co.getBoundingClientRect();
     if(c.width&&c.left>a.x+240&&c.left<a.x+a.w)a.w=Math.min(a.w,c.left-8-a.x);

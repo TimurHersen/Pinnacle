@@ -34,6 +34,11 @@ a session can pick up the work without re-reading the code or re-reviewing the g
 
 ## Log
 
+### 2026-11-28 — camera no longer pans with the question panel
+- Under a bottom panel the climb was framed in the space left above it, which changes every phase (count, answers,
+  result), so the view panned up and down all round. `sceneArea` now frames in the smallest space seen at that
+  screen size (`FX.areaMin`), so the view holds still. Measured: open height swung 275–564 px; camera now steady.
+
 ### 2026-11-27 — map plate, map paging, worklog and skills
 - Map plate: subtitle split into two lines; nothing can widen the plate past its frame (it overflowed on Aurora).
 - Paging maps keeps the view's height; only the team's own map settles vertically (it glided up/down on tall windows).
